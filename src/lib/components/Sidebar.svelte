@@ -7,7 +7,8 @@
 		PieChart,
 		BarChart3,
 		FolderKanban,
-		Upload
+		Upload,
+		Settings
 	} from 'lucide-svelte';
 
 	const navItems = [
@@ -17,7 +18,8 @@
 		{ label: 'Import', href: '/import', icon: Upload },
 		{ label: 'Budget', href: '/budget', icon: PieChart },
 		{ label: 'Analyse', href: '/analysis', icon: BarChart3 },
-		{ label: 'Projets', href: '/projects', icon: FolderKanban }
+		{ label: 'Projets', href: '/projects', icon: FolderKanban },
+		{ label: 'Règles auto', href: '/settings/rules', icon: Settings }
 	];
 </script>
 
