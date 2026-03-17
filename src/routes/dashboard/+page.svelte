@@ -6,6 +6,11 @@
 	import { budgetStore } from '$lib/stores/budget.svelte';
 	import { query } from '$lib/stores/db';
 	import type { DashboardSummary, BudgetLineItem } from '$lib/types';
+	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
+	import ErrorBanner from '$lib/components/ErrorBanner.svelte';
+
+	let loading = $state(true);
+	let error = $state<string | null>(null);
 
 	let summary = $state<DashboardSummary>({
 		total_balance: 0,
@@ -17,36 +22,42 @@
 	let recentTransactions = $state<{ date: string; label: string; amount: number; account_name: string }[]>([]);
 
 	onMount(async () => {
-		await accountStore.load();
-		await budgetStore.loadBudgetView();
+		try {
+			await accountStore.load();
+			await budgetStore.loadBudgetView();
 
-		const now = new Date();
-		const year = now.getFullYear();
-		const month = now.getMonth() + 1;
-		const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
-		const endMonth = month === 12 ? 1 : month + 1;
-		const endYear = month === 12 ? year + 1 : year;
-		const endDate = `${endYear}-${String(endMonth).padStart(2, '0')}-01`;
+			const now = new Date();
+			const year = now.getFullYear();
+			const month = now.getMonth() + 1;
+			const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+			const endMonth = month === 12 ? 1 : month + 1;
+			const endYear = month === 12 ? year + 1 : year;
+			const endDate = `${endYear}-${String(endMonth).padStart(2, '0')}-01`;
 
-		const [incomeResult, expenseResult, countResult, recent] = await Promise.all([
-			query<{ total: number }>('SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE date >= $1 AND date < $2 AND amount > 0', [startDate, endDate]),
-			query<{ total: number }>('SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE date >= $1 AND date < $2 AND amount < 0', [startDate, endDate]),
-			query<{ count: number }>('SELECT COUNT(*) as count FROM transactions WHERE date >= $1 AND date < $2', [startDate, endDate]),
-			query<{ date: string; label: string; amount: number; account_name: string }>(
-				`SELECT t.date, t.label, t.amount, a.name as account_name
-				 FROM transactions t LEFT JOIN accounts a ON t.account_id = a.id
-				 ORDER BY t.date DESC, t.id DESC LIMIT 10`
-			)
-		]);
+			const [incomeResult, expenseResult, countResult, recent] = await Promise.all([
+				query<{ total: number }>('SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE date >= $1 AND date < $2 AND amount > 0', [startDate, endDate]),
+				query<{ total: number }>('SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE date >= $1 AND date < $2 AND amount < 0', [startDate, endDate]),
+				query<{ count: number }>('SELECT COUNT(*) as count FROM transactions WHERE date >= $1 AND date < $2', [startDate, endDate]),
+				query<{ date: string; label: string; amount: number; account_name: string }>(
+					`SELECT t.date, t.label, t.amount, a.name as account_name
+					 FROM transactions t LEFT JOIN accounts a ON t.account_id = a.id
+					 ORDER BY t.date DESC, t.id DESC LIMIT 10`
+				)
+			]);
 
-		summary = {
-			total_balance: accountStore.totalBalance,
-			month_income: incomeResult[0]?.total ?? 0,
-			month_expenses: expenseResult[0]?.total ?? 0,
-			transaction_count: countResult[0]?.count ?? 0
-		};
+			summary = {
+				total_balance: accountStore.totalBalance,
+				month_income: incomeResult[0]?.total ?? 0,
+				month_expenses: expenseResult[0]?.total ?? 0,
+				transaction_count: countResult[0]?.count ?? 0
+			};
 
-		recentTransactions = recent;
+			recentTransactions = recent;
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Erreur inconnue';
+		} finally {
+			loading = false;
+		}
 	});
 </script>
 
@@ -56,6 +67,14 @@
 
 <div class="space-y-6">
 	<h1 class="text-2xl font-bold text-text-primary">Tableau de bord</h1>
+
+	{#if error}
+		<ErrorBanner message={error} ondismiss={() => (error = null)} />
+	{/if}
+
+	{#if loading}
+		<LoadingSpinner message="Chargement du tableau de bord..." />
+	{:else}
 
 	<!-- Cartes résumé -->
 	<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -182,5 +201,7 @@
 				{/each}
 			</div>
 		</div>
+	{/if}
+
 	{/if}
 </div>
