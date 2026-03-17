@@ -296,7 +296,7 @@
 					{#if editingSeriesId}
 						<button
 							type="button"
-							onclick={async () => { await budgetStore.removeSeries(editingSeriesId!); showSeriesForm = false; }}
+							onclick={async () => { if (confirm('Supprimer cette catégorie ?')) { await budgetStore.removeSeries(editingSeriesId!); showSeriesForm = false; } }}
 							class="rounded-lg px-4 py-2 text-sm text-danger hover:bg-danger/10"
 						>
 							Supprimer

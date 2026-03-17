@@ -7,8 +7,8 @@ class TransactionStore {
 	loading = $state(false);
 	error = $state<string | null>(null);
 	search = $state('');
-	filterAccountId = $state<number | null>(null);
-	filterSeriesId = $state<number | null>(null);
+	filterAccountId = $state<number | string>('');
+	filterSeriesId = $state<number | string>('');
 
 	async load() {
 		this.loading = true;
