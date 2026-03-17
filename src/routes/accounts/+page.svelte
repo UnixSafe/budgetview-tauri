@@ -4,6 +4,9 @@
 	import { accountStore } from '$lib/stores/accounts.svelte';
 	import { formatCurrency, toEuros, ACCOUNT_TYPE_LABELS } from '$lib/utils/format';
 	import type { Account } from '$lib/types';
+	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
+	import ErrorBanner from '$lib/components/ErrorBanner.svelte';
+	import { toastStore } from '$lib/stores/toast.svelte';
 
 	let showForm = $state(false);
 	let editingId = $state<number | null>(null);
@@ -47,6 +50,7 @@
 				account_type: formType,
 				initial_balance: formBalance
 			});
+			toastStore.success('Compte modifié');
 		} else {
 			await accountStore.create({
 				name: formName,
@@ -55,6 +59,7 @@
 				account_type: formType,
 				initial_balance: formBalance
 			});
+			toastStore.success('Compte créé');
 		}
 		showForm = false;
 	}
@@ -62,6 +67,7 @@
 	async function handleDelete(id: number) {
 		if (!confirm('Supprimer ce compte ?')) return;
 		await accountStore.remove(id);
+		toastStore.success('Compte supprimé');
 	}
 </script>
 
@@ -81,7 +87,13 @@
 		</button>
 	</div>
 
-	{#if accountStore.accounts.length === 0 && !accountStore.loading}
+	{#if accountStore.error}
+		<ErrorBanner message={accountStore.error} ondismiss={() => (accountStore.error = null)} />
+	{/if}
+
+	{#if accountStore.loading}
+		<LoadingSpinner message="Chargement des comptes..." />
+	{:else if accountStore.accounts.length === 0}
 		<div class="flex flex-col items-center justify-center rounded-xl border border-border bg-bg-card p-12">
 			<Landmark size={48} class="mb-4 text-text-muted" />
 			<p class="text-lg font-medium text-text-secondary">Aucun compte</p>

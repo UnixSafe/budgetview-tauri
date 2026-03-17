@@ -6,6 +6,9 @@
 	import { budgetStore } from '$lib/stores/budget.svelte';
 	import { formatCurrency, formatDate, toEuros } from '$lib/utils/format';
 	import type { Transaction } from '$lib/types';
+	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
+	import ErrorBanner from '$lib/components/ErrorBanner.svelte';
+	import { toastStore } from '$lib/stores/toast.svelte';
 
 	let showForm = $state(false);
 	let editingId = $state<number | null>(null);
@@ -61,6 +64,7 @@
 				note: formNote || null,
 				series_id: seriesId
 			});
+			toastStore.success('Transaction modifiée');
 		} else {
 			await transactionStore.create({
 				account_id: formAccountId,
@@ -70,6 +74,7 @@
 				note: formNote || undefined,
 				series_id: seriesId
 			});
+			toastStore.success('Transaction créée');
 		}
 		showForm = false;
 	}
@@ -116,6 +121,14 @@
 			</button>
 		</div>
 	</div>
+
+	{#if transactionStore.error}
+		<ErrorBanner message={transactionStore.error} ondismiss={() => (transactionStore.error = null)} />
+	{/if}
+
+	{#if transactionStore.loading}
+		<LoadingSpinner message="Chargement des transactions..." />
+	{:else}
 
 	<!-- Filtres -->
 	<div class="flex flex-wrap items-center gap-3">
@@ -236,6 +249,8 @@
 				</tbody>
 			</table>
 		</div>
+	{/if}
+
 	{/if}
 </div>
 
