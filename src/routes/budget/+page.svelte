@@ -4,6 +4,9 @@
 	import { budgetStore } from '$lib/stores/budget.svelte';
 	import { formatCurrency, formatMonth, toEuros, BUDGET_AREA_LABELS } from '$lib/utils/format';
 	import type { BudgetArea, BudgetLineItem } from '$lib/types';
+	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
+	import ErrorBanner from '$lib/components/ErrorBanner.svelte';
+	import { toastStore } from '$lib/stores/toast.svelte';
 
 	let showSeriesForm = $state(false);
 	let editingSeriesId = $state<number | null>(null);
@@ -77,6 +80,7 @@
 				description: formDescription || undefined
 			});
 		}
+		toastStore.success(editingSeriesId ? 'Catégorie modifiée' : 'Catégorie créée');
 		showSeriesForm = false;
 	}
 
@@ -143,7 +147,13 @@
 		</button>
 	</div>
 
-	{#if budgetStore.budgetLines.length === 0 && !budgetStore.loading}
+	{#if budgetStore.error}
+		<ErrorBanner message={budgetStore.error} ondismiss={() => (budgetStore.error = null)} />
+	{/if}
+
+	{#if budgetStore.loading}
+		<LoadingSpinner message="Chargement du budget..." />
+	{:else if budgetStore.budgetLines.length === 0}
 		<div class="flex flex-col items-center justify-center rounded-xl border border-border bg-bg-card p-12">
 			<p class="text-lg font-medium text-text-secondary">Aucune catégorie de budget</p>
 			<p class="text-sm text-text-muted">Créez des catégories pour planifier votre budget mensuel</p>

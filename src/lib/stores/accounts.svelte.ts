@@ -38,7 +38,10 @@ class AccountStore {
 			[data.name, data.account_number ?? null, data.bank_name ?? null, data.account_type, toCents(data.initial_balance)]
 		);
 		await this.load();
-		return result.lastInsertId ?? 0;
+		if (result.lastInsertId) return result.lastInsertId;
+		// Fallback: get last created account by id
+		const rows = await query<{ id: number }>('SELECT id FROM accounts ORDER BY id DESC LIMIT 1');
+		return rows[0]?.id ?? 0;
 	}
 
 	private static readonly ALLOWED_COLUMNS = new Set(['name', 'account_number', 'bank_name', 'account_type', 'initial_balance']);

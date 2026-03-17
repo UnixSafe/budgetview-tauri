@@ -1,6 +1,7 @@
 <script lang="ts">
 	import '../app.css';
 	import Sidebar from '$lib/components/Sidebar.svelte';
+	import Toast from '$lib/components/Toast.svelte';
 
 	let { children } = $props();
 </script>
@@ -11,3 +12,5 @@
 		{@render children()}
 	</main>
 </div>
+
+<Toast />

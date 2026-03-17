@@ -5,6 +5,9 @@
 	import type { ProjectWithProgress } from '$lib/stores/projects.svelte';
 	import { accountStore } from '$lib/stores/accounts.svelte';
 	import { formatCurrency, toEuros } from '$lib/utils/format';
+	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
+	import ErrorBanner from '$lib/components/ErrorBanner.svelte';
+	import { toastStore } from '$lib/stores/toast.svelte';
 
 	let showForm = $state(false);
 	let editingId = $state<number | null>(null);
@@ -58,6 +61,7 @@
 				account_id: accountId ?? undefined
 			});
 		}
+		toastStore.success(editingId ? 'Projet modifié' : 'Projet créé');
 		showForm = false;
 	}
 
@@ -67,6 +71,7 @@
 			label: itemLabel,
 			planned_amount: itemAmount
 		});
+		toastStore.success('Élément ajouté');
 		addingItemToProject = null;
 		itemLabel = '';
 		itemAmount = 0;
@@ -94,7 +99,13 @@
 		</button>
 	</div>
 
-	{#if projectStore.projects.length === 0 && !projectStore.loading}
+	{#if projectStore.error}
+		<ErrorBanner message={projectStore.error} ondismiss={() => (projectStore.error = null)} />
+	{/if}
+
+	{#if projectStore.loading}
+		<LoadingSpinner message="Chargement des projets..." />
+	{:else if projectStore.projects.length === 0}
 		<div class="flex flex-col items-center justify-center rounded-xl border border-border bg-bg-card p-12">
 			<FolderKanban size={48} class="mb-4 text-text-muted" />
 			<p class="text-lg font-medium text-text-secondary">Aucun projet</p>
