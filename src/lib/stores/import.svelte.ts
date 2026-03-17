@@ -1,48 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-
-export interface RawTransaction {
-	date: string;
-	label: string;
-	original_label: string;
-	amount: number;
-	note: string | null;
-	fitid: string | null;
-}
-
-export interface ImportPreview {
-	format: string;
-	account_number: string | null;
-	bank_id: string | null;
-	transactions: RawTransaction[];
-	duplicates: number[];
-	total_count: number;
-	new_count: number;
-}
-
-export interface ImportResult {
-	batch_id: number;
-	imported_count: number;
-	duplicates_skipped: number;
-	account_id: number;
-}
-
-export interface CsvConfig {
-	delimiter: string;
-	date_column: number;
-	label_column: number;
-	amount_column: number;
-	debit_column: number | null;
-	credit_column: number | null;
-	date_format: string;
-	skip_lines: number;
-	decimal_separator: string;
-}
-
-export interface CsvColumnInfo {
-	headers: string[];
-	sample_rows: string[][];
-	detected_config: CsvConfig;
-}
+import type { RawTransaction, ImportPreview, ImportResult, CsvConfig, CsvColumnInfo } from '$lib/types';
 
 class ImportStore {
 	preview = $state<ImportPreview | null>(null);

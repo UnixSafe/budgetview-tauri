@@ -109,7 +109,7 @@ class BudgetStore {
 		await this.loadBudgetView();
 	}
 
-	get groupedByArea(): Record<BudgetArea, BudgetLineItem[]> {
+	groupedByArea = $derived.by<Record<BudgetArea, BudgetLineItem[]>>(() => {
 		const groups: Record<BudgetArea, BudgetLineItem[]> = {
 			income: [],
 			recurring: [],
@@ -122,15 +122,11 @@ class BudgetStore {
 			groups[line.budget_area].push(line);
 		}
 		return groups;
-	}
+	});
 
-	get totalPlanned(): number {
-		return this.budgetLines.reduce((s, l) => s + l.planned_amount, 0);
-	}
+	totalPlanned = $derived(this.budgetLines.reduce((s, l) => s + l.planned_amount, 0));
 
-	get totalActual(): number {
-		return this.budgetLines.reduce((s, l) => s + l.actual_amount, 0);
-	}
+	totalActual = $derived(this.budgetLines.reduce((s, l) => s + l.actual_amount, 0));
 }
 
 export const budgetStore = new BudgetStore();

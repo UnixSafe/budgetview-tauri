@@ -32,12 +32,13 @@ class AccountStore {
 		}
 	}
 
-	async create(data: { name: string; account_number?: string; bank_name?: string; account_type: string; initial_balance: number }) {
-		await execute(
+	async create(data: { name: string; account_number?: string; bank_name?: string; account_type: string; initial_balance: number }): Promise<number> {
+		const result = await execute(
 			'INSERT INTO accounts (name, account_number, bank_name, account_type, initial_balance) VALUES ($1, $2, $3, $4, $5)',
 			[data.name, data.account_number ?? null, data.bank_name ?? null, data.account_type, toCents(data.initial_balance)]
 		);
 		await this.load();
+		return result.lastInsertId ?? 0;
 	}
 
 	private static readonly ALLOWED_COLUMNS = new Set(['name', 'account_number', 'bank_name', 'account_type', 'initial_balance']);
