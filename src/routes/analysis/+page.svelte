@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { BarChart3, TrendingUp, PieChart, ChevronLeft, ChevronRight } from 'lucide-svelte';
+	import { BarChart3, TrendingUp, PieChart, ChevronLeft, ChevronRight, CalendarClock } from 'lucide-svelte';
 	import { query } from '$lib/stores/db';
 	import { formatCurrency, formatMonth, BUDGET_AREA_LABELS } from '$lib/utils/format';
 	import { Chart, registerables } from 'chart.js';
@@ -21,13 +21,20 @@
 	let categoryData = $state<{ name: string; area: string; total: number }[]>([]);
 	let topExpenses = $state<{ label: string; total: number; count: number }[]>([]);
 
+	// Forecast data
+	let forecastLabels = $state<string[]>([]);
+	let forecastActual = $state<(number | null)[]>([]);
+	let forecastProjected = $state<(number | null)[]>([]);
+
 	// Chart refs
 	let barCanvas: HTMLCanvasElement;
 	let doughnutCanvas: HTMLCanvasElement;
 	let lineCanvas: HTMLCanvasElement;
+	let forecastCanvas: HTMLCanvasElement;
 	let barChart: Chart | null = null;
 	let doughnutChart: Chart | null = null;
 	let lineChart: Chart | null = null;
+	let forecastChart: Chart | null = null;
 
 	async function loadData() {
 		loading = true;
@@ -71,10 +78,101 @@
 				[String(year)]
 			);
 
+			// Cash flow forecast: current balance + projected from budget
+			await loadForecast();
+
 			renderCharts();
 		} finally {
 			loading = false;
 		}
+	}
+
+	async function loadForecast() {
+		const now = new Date();
+		const currentMonth = now.getMonth() + 1;
+		const currentYear = now.getFullYear();
+
+		// Get current total balance (initial + transactions)
+		const balResult = await query<{ total: number }>(
+			`SELECT COALESCE(SUM(a.initial_balance), 0) + COALESCE((SELECT SUM(t.amount) FROM transactions t JOIN accounts a2 ON t.account_id = a2.id WHERE a2.is_active = 1), 0) as total
+			 FROM accounts a WHERE a.is_active = 1`
+		);
+		let currentBalance = balResult[0]?.total ?? 0;
+
+		// Get monthly actuals for the past 3 months
+		const labels: string[] = [];
+		const actual: (number | null)[] = [];
+		const projected: (number | null)[] = [];
+
+		for (let offset = -3; offset <= 6; offset++) {
+			let m = currentMonth + offset;
+			let y = currentYear;
+			while (m <= 0) { m += 12; y--; }
+			while (m > 12) { m -= 12; y++; }
+
+			const monthLabel = new Intl.DateTimeFormat('fr-FR', { month: 'short', year: '2-digit' }).format(new Date(y, m - 1));
+			labels.push(monthLabel);
+
+			if (offset < 0) {
+				// Past month: get actual net flow
+				const startDate = `${y}-${String(m).padStart(2, '0')}-01`;
+				const endM = m === 12 ? 1 : m + 1;
+				const endY = m === 12 ? y + 1 : y;
+				const endDate = `${endY}-${String(endM).padStart(2, '0')}-01`;
+
+				const netResult = await query<{ net: number }>(
+					`SELECT COALESCE(SUM(amount), 0) as net FROM transactions WHERE date >= $1 AND date < $2`,
+					[startDate, endDate]
+				);
+				actual.push(null); // We don't track running historical balance here
+				projected.push(null);
+			} else if (offset === 0) {
+				// Current month: actual balance
+				actual.push(currentBalance);
+				projected.push(currentBalance);
+			} else {
+				// Future: project using budget data
+				const budgetNet = await query<{ net: number }>(
+					`SELECT COALESCE(SUM(
+						CASE WHEN bs.budget_area = 'income' THEN mb.planned_amount
+						ELSE -ABS(mb.planned_amount) END
+					), 0) as net
+					FROM monthly_budget mb
+					JOIN budget_series bs ON mb.series_id = bs.id
+					WHERE mb.year = $1 AND mb.month = $2`,
+					[y, m]
+				);
+				currentBalance += budgetNet[0]?.net ?? 0;
+				actual.push(null);
+				projected.push(currentBalance);
+			}
+		}
+
+		// Fill in past actual balances by working backwards from current
+		let bal = actual[3]!; // index 3 = current month (offset 0)
+		for (let i = 2; i >= 0; i--) {
+			const offset = i - 3;
+			let m = currentMonth + offset;
+			let y = currentYear;
+			while (m <= 0) { m += 12; y--; }
+			while (m > 12) { m -= 12; y++; }
+
+			const startDate = `${y}-${String(m).padStart(2, '0')}-01`;
+			const endM = m === 12 ? 1 : m + 1;
+			const endY = m === 12 ? y + 1 : y;
+			const endDate = `${endY}-${String(endM).padStart(2, '0')}-01`;
+
+			const netResult = await query<{ net: number }>(
+				`SELECT COALESCE(SUM(amount), 0) as net FROM transactions WHERE date >= $1 AND date < $2`,
+				[startDate, endDate]
+			);
+			bal -= netResult[0]?.net ?? 0;
+			actual[i] = bal;
+		}
+
+		forecastLabels = labels;
+		forecastActual = actual;
+		forecastProjected = projected;
 	}
 
 	const AREA_COLORS: Record<string, string> = {
@@ -96,6 +194,7 @@
 		barChart?.destroy();
 		doughnutChart?.destroy();
 		lineChart?.destroy();
+		forecastChart?.destroy();
 
 		if (!barCanvas || !doughnutCanvas || !lineCanvas) return;
 
@@ -232,6 +331,60 @@
 				}
 			}
 		});
+
+		// Forecast chart: cash flow projection
+		if (forecastCanvas && forecastLabels.length > 0) {
+			forecastChart = new Chart(forecastCanvas, {
+				type: 'line',
+				data: {
+					labels: forecastLabels,
+					datasets: [
+						{
+							label: 'Réalisé',
+							data: forecastActual,
+							borderColor: '#3b82f6',
+							backgroundColor: '#3b82f633',
+							fill: false,
+							tension: 0.3,
+							pointBackgroundColor: '#3b82f6',
+							pointRadius: 4,
+							spanGaps: false
+						},
+						{
+							label: 'Prévisionnel',
+							data: forecastProjected,
+							borderColor: '#f59e0b',
+							backgroundColor: '#f59e0b33',
+							borderDash: [5, 5],
+							fill: false,
+							tension: 0.3,
+							pointBackgroundColor: '#f59e0b',
+							pointRadius: 4,
+							spanGaps: false
+						}
+					]
+				},
+				options: {
+					responsive: true,
+					maintainAspectRatio: false,
+					plugins: {
+						legend: { position: 'top' },
+						tooltip: {
+							callbacks: {
+								label: (ctx) => `${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y ?? 0)}`
+							}
+						}
+					},
+					scales: {
+						y: {
+							ticks: {
+								callback: (v) => formatCurrency(Number(v))
+							}
+						}
+					}
+				}
+			});
+		}
 	}
 
 	function prevYear() { year--; loadData(); }
@@ -243,6 +396,7 @@
 			barChart?.destroy();
 			doughnutChart?.destroy();
 			lineChart?.destroy();
+			forecastChart?.destroy();
 		};
 	});
 
@@ -348,6 +502,18 @@
 				<div class="h-72">
 					<canvas bind:this={lineCanvas}></canvas>
 				</div>
+			</div>
+		</div>
+
+		<!-- Forecast chart: Cash flow projection -->
+		<div class="rounded-xl border border-border bg-bg-card p-4">
+			<div class="mb-3 flex items-center gap-2">
+				<CalendarClock size={18} class="text-warning" />
+				<h2 class="text-lg font-semibold text-text-primary">Trésorerie prévisionnelle</h2>
+			</div>
+			<p class="mb-2 text-xs text-text-muted">Projection basée sur le budget planifié pour les 6 prochains mois</p>
+			<div class="h-72">
+				<canvas bind:this={forecastCanvas}></canvas>
 			</div>
 		</div>
 
