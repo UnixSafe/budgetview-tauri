@@ -1,5 +1,6 @@
 import { query, execute } from './db';
 import type { Project, ProjectItem } from '$lib/types';
+import { toCents } from '$lib/utils/format';
 
 export interface ProjectWithProgress extends Project {
 	total_saved: number;
@@ -40,10 +41,12 @@ class ProjectStore {
 	async create(data: { name: string; target_amount?: number; target_date?: string; account_id?: number }) {
 		await execute(
 			'INSERT INTO projects (name, target_amount, target_date, account_id) VALUES ($1, $2, $3, $4)',
-			[data.name, data.target_amount ?? null, data.target_date ?? null, data.account_id ?? null]
+			[data.name, data.target_amount != null ? toCents(data.target_amount) : null, data.target_date ?? null, data.account_id ?? null]
 		);
 		await this.load();
 	}
+
+	private static readonly ALLOWED_COLUMNS = new Set(['name', 'target_amount', 'target_date', 'account_id']);
 
 	async update(id: number, data: Partial<{ name: string; target_amount: number | null; target_date: string | null; account_id: number | null }>) {
 		const fields: string[] = [];
@@ -51,9 +54,9 @@ class ProjectStore {
 		let i = 1;
 
 		for (const [key, val] of Object.entries(data)) {
-			if (val !== undefined) {
+			if (val !== undefined && ProjectStore.ALLOWED_COLUMNS.has(key)) {
 				fields.push(`${key} = $${i++}`);
-				values.push(val);
+				values.push(key === 'target_amount' && val != null ? toCents(val as number) : val);
 			}
 		}
 
@@ -72,7 +75,7 @@ class ProjectStore {
 	async addItem(projectId: number, data: { label: string; planned_amount: number; month?: number; year?: number }) {
 		await execute(
 			'INSERT INTO project_items (project_id, label, planned_amount, month, year) VALUES ($1, $2, $3, $4, $5)',
-			[projectId, data.label, data.planned_amount, data.month ?? null, data.year ?? null]
+			[projectId, data.label, toCents(data.planned_amount), data.month ?? null, data.year ?? null]
 		);
 		await this.load();
 	}

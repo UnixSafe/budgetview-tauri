@@ -1,5 +1,6 @@
 import { query, execute } from './db';
 import type { Account } from '$lib/types';
+import { toCents } from '$lib/utils/format';
 
 interface AccountWithBalance extends Account {
 	computed_balance: number;
@@ -34,10 +35,12 @@ class AccountStore {
 	async create(data: { name: string; account_number?: string; bank_name?: string; account_type: string; initial_balance: number }) {
 		await execute(
 			'INSERT INTO accounts (name, account_number, bank_name, account_type, initial_balance) VALUES ($1, $2, $3, $4, $5)',
-			[data.name, data.account_number ?? null, data.bank_name ?? null, data.account_type, data.initial_balance]
+			[data.name, data.account_number ?? null, data.bank_name ?? null, data.account_type, toCents(data.initial_balance)]
 		);
 		await this.load();
 	}
+
+	private static readonly ALLOWED_COLUMNS = new Set(['name', 'account_number', 'bank_name', 'account_type', 'initial_balance']);
 
 	async update(id: number, data: Partial<{ name: string; account_number: string | null; bank_name: string | null; account_type: string; initial_balance: number }>) {
 		const fields: string[] = [];
@@ -45,9 +48,9 @@ class AccountStore {
 		let i = 1;
 
 		for (const [key, val] of Object.entries(data)) {
-			if (val !== undefined) {
+			if (val !== undefined && AccountStore.ALLOWED_COLUMNS.has(key)) {
 				fields.push(`${key} = $${i++}`);
-				values.push(val);
+				values.push(key === 'initial_balance' ? toCents(val as number) : val);
 			}
 		}
 

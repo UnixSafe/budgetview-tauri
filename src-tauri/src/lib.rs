@@ -5,6 +5,9 @@ mod import;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(commands::ImportCache(std::sync::Mutex::new(
+            std::collections::HashMap::new(),
+        )))
         .plugin(
             tauri_plugin_sql::Builder::default()
                 .add_migrations("sqlite:budgetview.db", db::get_migrations())

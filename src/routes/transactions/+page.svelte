@@ -4,7 +4,7 @@
 	import { transactionStore } from '$lib/stores/transactions.svelte';
 	import { accountStore } from '$lib/stores/accounts.svelte';
 	import { budgetStore } from '$lib/stores/budget.svelte';
-	import { formatCurrency, formatDate } from '$lib/utils/format';
+	import { formatCurrency, formatDate, toEuros } from '$lib/utils/format';
 	import type { Transaction } from '$lib/types';
 
 	let showForm = $state(false);
@@ -43,7 +43,7 @@
 		formAccountId = tx.account_id;
 		formDate = tx.date;
 		formLabel = tx.label;
-		formAmount = tx.amount;
+		formAmount = toEuros(tx.amount);
 		formNote = tx.note ?? '';
 		formSeriesId = tx.series_id;
 		showForm = true;

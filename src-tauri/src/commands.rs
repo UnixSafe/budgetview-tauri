@@ -1,10 +1,15 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::Mutex;
 use tauri::command;
 use tauri_plugin_sql::{DbInstances, DbPool};
 
 use crate::import::{
-    self, CsvConfig, ImportPreview, ImportResult,
+    self, CsvConfig, ImportPreview, ImportResult, RawTransaction,
 };
+
+/// Cache for parsed import data to avoid double-parsing between preview and confirm
+pub struct ImportCache(pub Mutex<HashMap<String, Vec<RawTransaction>>>);
 
 #[command]
 pub fn greet(name: &str) -> String {
@@ -17,6 +22,7 @@ pub async fn import_preview(
     file_path: String,
     csv_config: Option<CsvConfig>,
     db: tauri::State<'_, DbInstances>,
+    cache: tauri::State<'_, ImportCache>,
 ) -> Result<ImportPreview, String> {
     // Read file with encoding detection
     let content = import::read_file_with_encoding(&file_path)?;
@@ -43,6 +49,10 @@ pub async fn import_preview(
     let duplicates = import::find_duplicate_indices(&transactions, &existing_fitids, &existing_hashes);
     let total_count = transactions.len();
     let new_count = total_count - duplicates.len();
+
+    // Cache parsed transactions for confirm step
+    cache.0.lock().map_err(|e| format!("Erreur cache: {}", e))?
+        .insert(file_path.clone(), transactions.clone());
 
     Ok(ImportPreview {
         format: format.to_string(),
@@ -100,28 +110,44 @@ pub async fn import_confirm(
     csv_config: Option<CsvConfig>,
     skip_indices: Vec<usize>,
     db: tauri::State<'_, DbInstances>,
+    cache: tauri::State<'_, ImportCache>,
 ) -> Result<ImportResult, String> {
-    let content = import::read_file_with_encoding(&file_path)?;
-    let format = import::detect_format(&content);
     let filename = std::path::Path::new(&file_path)
         .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("import")
         .to_string();
 
-    let (transactions, _, _) = match format {
-        "ofx" => import::parse_ofx(&content)?,
-        "qif" => {
-            let txs = import::parse_qif(&content)?;
-            (txs, None, None)
+    // Use cached transactions from preview, or re-parse as fallback
+    let transactions = {
+        let mut cache_map = cache.0.lock().map_err(|e| format!("Erreur cache: {}", e))?;
+        match cache_map.remove(&file_path) {
+            Some(txs) => txs,
+            None => {
+                // Fallback: re-parse if cache was cleared
+                let content = import::read_file_with_encoding(&file_path)?;
+                let format = import::detect_format(&content);
+                let (txs, _, _) = match format {
+                    "ofx" => import::parse_ofx(&content)?,
+                    "qif" => {
+                        let parsed = import::parse_qif(&content)?;
+                        (parsed, None, None)
+                    }
+                    "csv" => {
+                        let config = csv_config.unwrap_or_else(|| import::detect_csv_config(&content));
+                        let parsed = import::parse_csv(&content, &config)?;
+                        (parsed, None, None)
+                    }
+                    _ => return Err("Format non reconnu".to_string()),
+                };
+                txs
+            }
         }
-        "csv" => {
-            let config = csv_config.unwrap_or_else(|| import::detect_csv_config(&content));
-            let txs = import::parse_csv(&content, &config)?;
-            (txs, None, None)
-        }
-        _ => return Err("Format non reconnu".to_string()),
     };
+
+    // Detect format for batch record
+    let content = import::read_file_with_encoding(&file_path)?;
+    let format = import::detect_format(&content);
 
     let pool = get_db_pool(&db).await?;
 
@@ -135,6 +161,17 @@ pub async fn import_confirm(
         skip_set.insert(*idx);
     }
 
+    // Get categorization rules for auto-categorization
+    let rules: Vec<(String, i64)> = sqlx::query_as(
+        "SELECT pattern, series_id FROM categorization_rules ORDER BY match_count DESC"
+    )
+    .fetch_all(&pool)
+    .await
+    .map_err(|e| format!("Erreur chargement règles: {}", e))?;
+
+    // Wrap all inserts in a transaction for atomicity
+    let mut db_tx = pool.begin().await.map_err(|e| format!("Erreur début transaction: {}", e))?;
+
     // Create import batch
     let batch_result = sqlx::query(
         "INSERT INTO import_batches (filename, format, account_id, transaction_count) VALUES (?, ?, ?, ?)"
@@ -143,19 +180,11 @@ pub async fn import_confirm(
     .bind(format)
     .bind(account_id)
     .bind(0i32)
-    .execute(&pool)
+    .execute(&mut *db_tx)
     .await
     .map_err(|e| format!("Erreur création batch: {}", e))?;
 
     let batch_id = batch_result.last_insert_rowid();
-
-    // Get categorization rules for auto-categorization
-    let rules: Vec<(String, i64)> = sqlx::query_as(
-        "SELECT pattern, series_id FROM categorization_rules ORDER BY match_count DESC"
-    )
-    .fetch_all(&pool)
-    .await
-    .map_err(|e| format!("Erreur chargement règles: {}", e))?;
 
     // Insert transactions
     let mut imported_count = 0usize;
@@ -175,12 +204,12 @@ pub async fn import_confirm(
         .bind(&tx.date)
         .bind(&tx.label)
         .bind(&tx.original_label)
-        .bind(tx.amount)
+        .bind((tx.amount * 100.0).round() as i64)
         .bind(&tx.note)
         .bind(&tx.fitid)
         .bind(batch_id)
         .bind(series_id)
-        .execute(&pool)
+        .execute(&mut *db_tx)
         .await
         .map_err(|e| format!("Erreur insertion transaction: {}", e))?;
 
@@ -191,9 +220,11 @@ pub async fn import_confirm(
     sqlx::query("UPDATE import_batches SET transaction_count = ? WHERE id = ?")
         .bind(imported_count as i32)
         .bind(batch_id)
-        .execute(&pool)
+        .execute(&mut *db_tx)
         .await
         .map_err(|e| format!("Erreur mise à jour batch: {}", e))?;
+
+    db_tx.commit().await.map_err(|e| format!("Erreur commit transaction: {}", e))?;
 
     Ok(ImportResult {
         batch_id,
@@ -242,7 +273,7 @@ async fn get_db_pool(db: &DbInstances) -> Result<sqlx::SqlitePool, String> {
 
 async fn get_existing_transaction_data(
     pool: &sqlx::SqlitePool,
-) -> Result<(Vec<String>, Vec<(String, f64, String)>), String> {
+) -> Result<(Vec<String>, Vec<(String, i64, String)>), String> {
     // Get existing FITIDs
     let fitid_rows: Vec<(String,)> = sqlx::query_as(
         "SELECT fitid FROM transactions WHERE fitid IS NOT NULL AND fitid != ''"
@@ -253,7 +284,7 @@ async fn get_existing_transaction_data(
     let existing_fitids: Vec<String> = fitid_rows.into_iter().map(|r| r.0).collect();
 
     // Get existing (date, amount, label) for fuzzy dedup
-    let hash_rows: Vec<(String, f64, String)> = sqlx::query_as(
+    let hash_rows: Vec<(String, i64, String)> = sqlx::query_as(
         "SELECT date, amount, label FROM transactions"
     )
     .fetch_all(pool)

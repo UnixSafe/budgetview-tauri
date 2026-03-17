@@ -1,8 +1,19 @@
 const currencyFmt = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' });
 const dateFmt = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
-export function formatCurrency(amount: number): string {
-	return currencyFmt.format(amount);
+/** Format an amount stored in centimes as EUR currency */
+export function formatCurrency(cents: number): string {
+	return currencyFmt.format(cents / 100);
+}
+
+/** Convert euros to centimes for DB storage */
+export function toCents(euros: number): number {
+	return Math.round(euros * 100);
+}
+
+/** Convert centimes to euros for display in form inputs */
+export function toEuros(cents: number): number {
+	return cents / 100;
 }
 
 export function formatDate(date: string): string {

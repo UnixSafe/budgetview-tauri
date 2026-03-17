@@ -491,12 +491,12 @@ fn clean_label(s: &str) -> String {
 pub fn find_duplicate_indices(
     new_txs: &[RawTransaction],
     existing_fitids: &[String],
-    existing_hashes: &[(String, f64, String)], // (date, amount, label)
+    existing_hashes: &[(String, i64, String)], // (date, amount_cents, label)
 ) -> Vec<usize> {
     let fitid_set: std::collections::HashSet<&str> = existing_fitids.iter().map(|s| s.as_str()).collect();
     let hash_set: std::collections::HashSet<String> = existing_hashes
         .iter()
-        .map(|(d, a, l)| format!("{}|{:.2}|{}", d, a, l.to_uppercase()))
+        .map(|(d, a, l)| format!("{}|{}|{}", d, a, l.to_uppercase()))
         .collect();
 
     let mut duplicates = Vec::new();
@@ -508,8 +508,9 @@ pub fn find_duplicate_indices(
                 continue;
             }
         }
-        // Fallback: fuzzy match on date + amount + normalized label
-        let hash = format!("{}|{:.2}|{}", tx.date, tx.amount, tx.label.to_uppercase());
+        // Fallback: fuzzy match on date + amount (cents) + normalized label
+        let amount_cents = (tx.amount * 100.0).round() as i64;
+        let hash = format!("{}|{}|{}", tx.date, amount_cents, tx.label.to_uppercase());
         if hash_set.contains(&hash) {
             duplicates.push(i);
         }
