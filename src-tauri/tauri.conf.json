@@ -27,9 +27,7 @@
   },
   "plugins": {
     "sql": {
-      "preload": {
-        "db": "sqlite:budgetview.db"
-      }
+      "preload": ["sqlite:budgetview.db"]
     }
   },
   "bundle": {
