@@ -187,3 +187,54 @@ Pour comprendre la logique métier, consulte :
 - Les "Series" dans BudgetView = nos "budget_series" (catégories de budget)
 - Les "BudgetArea" = income/recurring/variable/extras/savings/transfers
 - L'import OFX est critique car c'est le format standard des banques françaises
+
+---
+
+## ⚠️ Leçons apprises (17/03/2026)
+
+### Compilation & Environnement
+- **`cargo build` sur Raspberry Pi = ~5G de cache** (`target/`). Toujours utiliser `cargo check` pour vérifier la compilation sans générer les binaires. Réserver `cargo build` pour la CI GitHub Actions.
+- **`cargo clean`** si le disque est plein — ça libère tout le dossier `target/`.
+- **La CI compile pour 5 cibles** (Linux x64/ARM64, Windows, macOS x64/ARM64). Ne jamais compiler en local sur le Pi pour un release.
+
+### Config Tauri — TOUJOURS VÉRIFIER
+- **`plugins.sql.preload` doit être un ARRAY**, pas un objet. Le format correct :
+  ```json
+  "sql": { "preload": ["sqlite:budgetview.db"] }
+  ```
+  PAS : `"preload": { "db": "sqlite:budgetview.db" }` ← crash au lancement avec "invalid type: map, expected a sequence"
+- **Toujours tester l'app au lancement** (`cargo tauri dev`), pas juste la compilation. `cargo check` passe ≠ l'app démarre.
+- **Vérifier `tauri.conf.json`** à chaque review — c'est un point aveugle fréquent des reviewers qui ne regardent que le code source.
+
+### Sécurité & Data
+- **Jamais de `REAL` pour les montants financiers** → stocker en centimes `INTEGER` (1234 = 12.34€). Les floats IEEE 754 accumulent des erreurs d'arrondi.
+- **Whitelist les noms de colonnes** dans les updates dynamiques. Ne jamais interpoler directement `Object.keys()` dans du SQL, même si les values sont paramétrisées.
+- **Wrapper les imports dans une transaction SQL** (`BEGIN TRANSACTION ... COMMIT`). Un crash au milieu d'un import = état incohérent.
+- **Activer la CSP** dans `tauri.conf.json` — ne jamais laisser `"csp": null` pour une app qui manipule des données financières.
+
+### Svelte 5 Runes
+- **`$derived(() => expr)`** pour les dérivations simples, **`$derived.by(() => { ... return ... })`** pour les blocs multi-lignes. Ne pas confondre.
+- **`$state` arrays** : `push()` fonctionne (deep reactivity Svelte 5) mais réassigner est plus explicite. Choisir un style et s'y tenir.
+- **Getters dans les classes store** ne sont PAS réactifs en Svelte 5 — utiliser `$derived` ou `$derived.by` à la place.
+
+### HTML / UI
+- **`<select>` avec `value={null}`** → la value HTML est toujours un string. `null` devient `"null"`. Utiliser `value=""` pour le choix "aucun filtre".
+- **Toujours un `confirm()` avant les suppressions** — un misclick = donnée perdue.
+- **Ajouter des loading states et des toasts** dès le début, pas en afterthought.
+
+### Review Process
+- **Review de code ≠ test d'exécution**. Le challenger doit aussi vérifier :
+  - Les fichiers de config (`tauri.conf.json`, `Cargo.toml`, `package.json`)
+  - Que l'app DÉMARRE réellement, pas juste qu'elle compile
+  - Les edge cases de désérialisation (formats attendus par les plugins)
+- **Inclure la vérification de la CI** dans le process de review.
+
+### Git
+- **Ajouter un `.gitignore` DÈS LE DÉBUT** avec au minimum :
+  ```
+  .ralph/
+  node_modules/
+  src-tauri/target/
+  .svelte-kit/
+  ```
+- **Ne jamais commiter les logs d'agents** (Ralph, Claude Code sessions, etc.)
