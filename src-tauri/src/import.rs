@@ -31,6 +31,7 @@ pub struct ImportResult {
     pub imported_count: usize,
     pub duplicates_skipped: usize,
     pub account_id: i64,
+    pub auto_categorized_count: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

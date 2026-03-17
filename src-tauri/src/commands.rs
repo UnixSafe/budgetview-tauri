@@ -8,6 +8,18 @@ use crate::import::{
     self, CsvConfig, ImportPreview, ImportResult, RawTransaction,
 };
 
+/// Categorization rule loaded from the database
+#[derive(Debug, Clone)]
+struct CatRule {
+    label_exact: String,
+    label_normalized: String,
+    account_id: i64,
+    sign: i32,
+    series_id: i64,
+    sub_series_id: Option<i64>,
+    match_count: i32,
+}
+
 /// Cache for parsed import data to avoid double-parsing between preview and confirm
 pub struct ImportCache(pub Mutex<HashMap<String, Vec<RawTransaction>>>);
 
@@ -162,12 +174,23 @@ pub async fn import_confirm(
     }
 
     // Get categorization rules for auto-categorization
-    let rules: Vec<(String, i64)> = sqlx::query_as(
-        "SELECT pattern, series_id FROM categorization_rules ORDER BY match_count DESC"
+    let rule_rows: Vec<(String, String, i64, i32, i64, Option<i64>, i32)> = sqlx::query_as(
+        "SELECT label_exact, label_normalized, account_id, sign, series_id, sub_series_id, match_count
+         FROM categorization_rules ORDER BY match_count DESC"
     )
     .fetch_all(&pool)
     .await
     .map_err(|e| format!("Erreur chargement règles: {}", e))?;
+
+    let rules: Vec<CatRule> = rule_rows.into_iter().map(|r| CatRule {
+        label_exact: r.0,
+        label_normalized: r.1,
+        account_id: r.2,
+        sign: r.3,
+        series_id: r.4,
+        sub_series_id: r.5,
+        match_count: r.6,
+    }).collect();
 
     // Wrap all inserts in a transaction for atomicity
     let mut db_tx = pool.begin().await.map_err(|e| format!("Erreur début transaction: {}", e))?;
@@ -188,27 +211,46 @@ pub async fn import_confirm(
 
     // Insert transactions
     let mut imported_count = 0usize;
+    let mut auto_categorized_count = 0usize;
     for (i, tx) in transactions.iter().enumerate() {
         if skip_set.contains(&i) {
             continue;
         }
 
-        // Auto-categorize based on rules
-        let series_id = find_matching_series(&tx.label, &tx.original_label, &rules);
+        let amount_cents = (tx.amount * 100.0).round() as i64;
+        let sign: i32 = if amount_cents >= 0 { 1 } else { -1 };
+        let label_upper = tx.label.to_uppercase().trim().to_string();
+        let label_normalized = normalize_label(&tx.label);
+
+        // Check if excluded from auto-categorization (checks, cash withdrawals/deposits)
+        let excluded = is_excluded_from_auto_categorization(&tx.label);
+
+        // Auto-categorize using 4-level matching (strict to loose)
+        let (series_id, sub_series_id, is_auto) = if excluded {
+            (None, None, false)
+        } else {
+            find_matching_series_multi_level(&label_upper, &label_normalized, sign, account_id, &rules)
+        };
+
+        if is_auto {
+            auto_categorized_count += 1;
+        }
 
         sqlx::query(
-            "INSERT INTO transactions (account_id, date, label, original_label, amount, note, fitid, import_batch_id, series_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO transactions (account_id, date, label, original_label, amount, note, fitid, import_batch_id, series_id, sub_series_id, is_auto_categorized)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         )
         .bind(account_id)
         .bind(&tx.date)
         .bind(&tx.label)
         .bind(&tx.original_label)
-        .bind((tx.amount * 100.0).round() as i64)
+        .bind(amount_cents)
         .bind(&tx.note)
         .bind(&tx.fitid)
         .bind(batch_id)
         .bind(series_id)
+        .bind(sub_series_id)
+        .bind(is_auto)
         .execute(&mut *db_tx)
         .await
         .map_err(|e| format!("Erreur insertion transaction: {}", e))?;
@@ -231,6 +273,7 @@ pub async fn import_confirm(
         imported_count,
         duplicates_skipped: skip_set.len(),
         account_id,
+        auto_categorized_count,
     })
 }
 
@@ -294,15 +337,94 @@ async fn get_existing_transaction_data(
     Ok((existing_fitids, hash_rows))
 }
 
-fn find_matching_series(label: &str, original_label: &str, rules: &[(String, i64)]) -> Option<i64> {
-    let upper_label = label.to_uppercase();
-    let upper_original = original_label.to_uppercase();
+/// Normalize a label for fuzzy matching: remove variable parts (dates, card/check numbers, references),
+/// lowercase, trim. Must match the TypeScript normalizeLabel() in utils/format.ts.
+fn normalize_label(label: &str) -> String {
+    let lower = label.to_lowercase();
 
-    for (pattern, series_id) in rules {
-        let upper_pattern = pattern.to_uppercase();
-        if upper_label.contains(&upper_pattern) || upper_original.contains(&upper_pattern) {
-            return Some(*series_id);
+    // Remove dates (DD/MM, DD/MM/YY, DD/MM/YYYY, DD-MM-YYYY)
+    let re_date = regex::Regex::new(r"\b\d{1,2}[/\-\.]\d{1,2}([/\-\.]\d{2,4})?\b").unwrap();
+    let s = re_date.replace_all(&lower, "");
+
+    // Remove YYYYMMDD patterns
+    let re_ymd = regex::Regex::new(r"\b\d{4}\d{2}\d{2}\b").unwrap();
+    let s = re_ymd.replace_all(&s, "");
+
+    // Remove DDMMYY patterns
+    let re_dmy = regex::Regex::new(r"\b\d{2}\d{2}\d{2}\b").unwrap();
+    let s = re_dmy.replace_all(&s, "");
+
+    // Remove long number sequences (4+ digits: card numbers, references, check numbers)
+    let re_long = regex::Regex::new(r"\b\d{4,}\b").unwrap();
+    let s = re_long.replace_all(&s, "");
+
+    // Remove isolated 1-3 digit numbers
+    let re_short = regex::Regex::new(r"\b\d{1,3}\b").unwrap();
+    let s = re_short.replace_all(&s, "");
+
+    // Collapse whitespace
+    let re_ws = regex::Regex::new(r"\s+").unwrap();
+    re_ws.replace_all(&s, " ").trim().to_string()
+}
+
+/// Check if a label corresponds to a check, cash withdrawal, or cash deposit (excluded from auto-cat)
+fn is_excluded_from_auto_categorization(label: &str) -> bool {
+    let lower = label.to_lowercase();
+    let re = regex::Regex::new(r"\b(cheque|chèque|chq|retrait\s*(dab|gab)?|remise\s*esp|depot\s*esp|versement\s*esp)\b").unwrap();
+    re.is_match(&lower)
+}
+
+/// 4-level matching for auto-categorization (strict to loose).
+/// Returns (series_id, sub_series_id, is_auto_categorized).
+/// Only auto-assigns if match_count >= 3.
+fn find_matching_series_multi_level(
+    label_exact_upper: &str,
+    label_normalized: &str,
+    sign: i32,
+    account_id: i64,
+    rules: &[CatRule],
+) -> (Option<i64>, Option<i64>, bool) {
+    // Level 1: exact label + same sign + same account
+    for r in rules {
+        if r.match_count >= 3
+            && r.account_id == account_id
+            && r.sign == sign
+            && r.label_exact.to_uppercase() == label_exact_upper
+        {
+            return (Some(r.series_id), r.sub_series_id, true);
         }
     }
-    None
+
+    // Level 2: exact label + same account (any sign)
+    for r in rules {
+        if r.match_count >= 3
+            && r.account_id == account_id
+            && r.label_exact.to_uppercase() == label_exact_upper
+        {
+            return (Some(r.series_id), r.sub_series_id, true);
+        }
+    }
+
+    // Level 3: normalized label + same sign + same account
+    for r in rules {
+        if r.match_count >= 3
+            && r.account_id == account_id
+            && r.sign == sign
+            && r.label_normalized == label_normalized
+        {
+            return (Some(r.series_id), r.sub_series_id, true);
+        }
+    }
+
+    // Level 4: normalized label + same account (any sign)
+    for r in rules {
+        if r.match_count >= 3
+            && r.account_id == account_id
+            && r.label_normalized == label_normalized
+        {
+            return (Some(r.series_id), r.sub_series_id, true);
+        }
+    }
+
+    (None, None, false)
 }

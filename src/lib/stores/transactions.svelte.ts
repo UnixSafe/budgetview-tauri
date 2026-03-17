@@ -1,6 +1,6 @@
 import { query, execute } from './db';
 import type { Transaction } from '$lib/types';
-import { toCents } from '$lib/utils/format';
+import { toCents, normalizeLabel, isExcludedFromAutoCategorization } from '$lib/utils/format';
 
 class TransactionStore {
 	transactions = $state<Transaction[]>([]);
@@ -83,22 +83,46 @@ class TransactionStore {
 		}
 	}
 
-	async categorize(transactionId: number, seriesId: number | null) {
-		await execute('UPDATE transactions SET series_id = $1 WHERE id = $2', [seriesId, transactionId]);
+	async categorize(transactionId: number, seriesId: number | null, subSeriesId: number | null = null) {
+		await execute('UPDATE transactions SET series_id = $1, sub_series_id = $2, is_auto_categorized = 0 WHERE id = $3', [seriesId, subSeriesId, transactionId]);
 
 		// If assigning a category, learn the pattern for auto-categorization
 		if (seriesId !== null) {
 			const tx = this.transactions.find((t) => t.id === transactionId);
-			if (tx) {
-				const label = (tx.original_label ?? tx.label).toUpperCase().trim();
-				// Upsert categorization rule
-				await execute(
-					`INSERT INTO categorization_rules (pattern, series_id, match_count)
-					 VALUES ($1, $2, 1)
-					 ON CONFLICT(pattern) DO UPDATE SET
-					 series_id = $2, match_count = match_count + 1`,
-					[label, seriesId]
+			if (tx && !isExcludedFromAutoCategorization(tx.original_label ?? tx.label)) {
+				const labelExact = (tx.original_label ?? tx.label).toUpperCase().trim();
+				const labelNorm = normalizeLabel(tx.original_label ?? tx.label);
+				const sign = tx.amount >= 0 ? 1 : -1;
+
+				// Check if a rule already exists for this exact label + account + sign
+				const existing = await query<{ id: number; series_id: number; match_count: number }>(
+					'SELECT id, series_id, match_count FROM categorization_rules WHERE label_exact = $1 AND account_id = $2 AND sign = $3',
+					[labelExact, tx.account_id, sign]
 				);
+
+				if (existing.length > 0) {
+					const rule = existing[0];
+					if (rule.series_id === seriesId) {
+						// Same series → increment match_count
+						await execute(
+							'UPDATE categorization_rules SET match_count = match_count + 1, last_used = CURRENT_TIMESTAMP, sub_series_id = $1 WHERE id = $2',
+							[subSeriesId, rule.id]
+						);
+					} else {
+						// Different series → reset to 1
+						await execute(
+							'UPDATE categorization_rules SET series_id = $1, sub_series_id = $2, match_count = 1, last_used = CURRENT_TIMESTAMP WHERE id = $3',
+							[seriesId, subSeriesId, rule.id]
+						);
+					}
+				} else {
+					// New rule
+					await execute(
+						`INSERT INTO categorization_rules (label_exact, label_normalized, account_id, sign, series_id, sub_series_id, match_count)
+						 VALUES ($1, $2, $3, $4, $5, $6, 1)`,
+						[labelExact, labelNorm, tx.account_id, sign, seriesId, subSeriesId]
+					);
+				}
 			}
 		}
 

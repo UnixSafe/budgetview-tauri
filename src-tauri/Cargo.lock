@@ -262,6 +262,7 @@ dependencies = [
  "embed-resource",
  "encoding_rs",
  "log",
+ "regex",
  "serde",
  "serde_json",
  "sqlx",
