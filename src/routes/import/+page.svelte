@@ -12,7 +12,8 @@
 		ChevronDown,
 		ChevronUp
 	} from 'lucide-svelte';
-	import { importStore, type RawTransaction } from '$lib/stores/import.svelte';
+	import { importStore } from '$lib/stores/import.svelte';
+	import type { RawTransaction } from '$lib/types';
 	import { accountStore } from '$lib/stores/accounts.svelte';
 	import { formatCurrency, formatDate, toCents } from '$lib/utils/format';
 
@@ -68,15 +69,14 @@
 
 		// Create account if needed
 		if (createNewAccount && newAccountName.trim()) {
-			await accountStore.create({
+			const newId = await accountStore.create({
 				name: newAccountName.trim(),
 				account_number: importStore.preview?.account_number ?? undefined,
 				bank_name: importStore.preview?.bank_id ?? undefined,
 				account_type: 'checking',
 				initial_balance: 0
 			});
-			await accountStore.load();
-			accountId = accountStore.accounts[accountStore.accounts.length - 1]?.id ?? null;
+			accountId = newId;
 		}
 
 		if (!accountId) return;
