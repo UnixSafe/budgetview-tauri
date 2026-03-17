@@ -14,7 +14,7 @@
 	let formLabel = $state('');
 	let formAmount = $state(0);
 	let formNote = $state('');
-	let formSeriesId = $state<number | null>(null);
+	let formSeriesId = $state<number | string>('');
 
 	// Categorization popover
 	let categorizingId = $state<number | null>(null);
@@ -34,7 +34,7 @@
 		formLabel = '';
 		formAmount = 0;
 		formNote = '';
-		formSeriesId = null;
+		formSeriesId = '';
 		showForm = true;
 	}
 
@@ -45,12 +45,13 @@
 		formLabel = tx.label;
 		formAmount = toEuros(tx.amount);
 		formNote = tx.note ?? '';
-		formSeriesId = tx.series_id;
+		formSeriesId = tx.series_id ?? '';
 		showForm = true;
 	}
 
 	async function handleSubmit() {
 		if (!formLabel.trim() || !formAccountId) return;
+		const seriesId = formSeriesId === '' ? null : Number(formSeriesId);
 		if (editingId) {
 			await transactionStore.update(editingId, {
 				account_id: formAccountId,
@@ -58,7 +59,7 @@
 				label: formLabel,
 				amount: formAmount,
 				note: formNote || null,
-				series_id: formSeriesId
+				series_id: seriesId
 			});
 		} else {
 			await transactionStore.create({
@@ -67,7 +68,7 @@
 				label: formLabel,
 				amount: formAmount,
 				note: formNote || undefined,
-				series_id: formSeriesId
+				series_id: seriesId
 			});
 		}
 		showForm = false;
@@ -84,8 +85,8 @@
 
 	function clearFilters() {
 		transactionStore.search = '';
-		transactionStore.filterAccountId = null;
-		transactionStore.filterSeriesId = null;
+		transactionStore.filterAccountId = '';
+		transactionStore.filterSeriesId = '';
 		transactionStore.load();
 	}
 
@@ -132,7 +133,7 @@
 			onchange={handleSearch}
 			class="rounded-lg border border-border bg-bg-card px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
 		>
-			<option value={null}>Tous les comptes</option>
+			<option value="">Tous les comptes</option>
 			{#each accountStore.accounts as account}
 				<option value={account.id}>{account.name}</option>
 			{/each}
@@ -142,7 +143,7 @@
 			onchange={handleSearch}
 			class="rounded-lg border border-border bg-bg-card px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
 		>
-			<option value={null}>Toutes les catégories</option>
+			<option value="">Toutes les catégories</option>
 			{#each budgetStore.series as series}
 				<option value={series.id}>{series.name}</option>
 			{/each}
@@ -225,7 +226,7 @@
 									<button onclick={() => openEdit(tx)} class="rounded p-1 text-text-muted hover:text-text-primary">
 										<Pencil size={14} />
 									</button>
-									<button onclick={() => transactionStore.remove(tx.id)} class="rounded p-1 text-text-muted hover:text-danger">
+									<button onclick={() => { if (confirm('Supprimer cette transaction ?')) transactionStore.remove(tx.id); }} class="rounded p-1 text-text-muted hover:text-danger">
 										<Trash2 size={14} />
 									</button>
 								</div>
@@ -310,7 +311,7 @@
 							bind:value={formSeriesId}
 							class="w-full rounded-lg border border-border bg-bg-primary px-3 py-2 text-text-primary outline-none focus:border-accent"
 						>
-							<option value={null}>Aucune</option>
+							<option value="">Aucune</option>
 							{#each budgetStore.series as series}
 								<option value={series.id}>{series.name}</option>
 							{/each}

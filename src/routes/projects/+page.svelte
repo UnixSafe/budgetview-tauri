@@ -11,7 +11,7 @@
 	let formName = $state('');
 	let formTargetAmount = $state<number | undefined>(undefined);
 	let formTargetDate = $state('');
-	let formAccountId = $state<number | null>(null);
+	let formAccountId = $state<number | string>('');
 
 	// Item form
 	let addingItemToProject = $state<number | null>(null);
@@ -27,7 +27,7 @@
 		formName = '';
 		formTargetAmount = undefined;
 		formTargetDate = '';
-		formAccountId = null;
+		formAccountId = '';
 		showForm = true;
 	}
 
@@ -36,25 +36,26 @@
 		formName = project.name;
 		formTargetAmount = project.target_amount ? toEuros(project.target_amount) : undefined;
 		formTargetDate = project.target_date ?? '';
-		formAccountId = project.account_id;
+		formAccountId = project.account_id ?? '';
 		showForm = true;
 	}
 
 	async function handleSubmit() {
 		if (!formName.trim()) return;
+		const accountId = formAccountId === '' ? null : Number(formAccountId);
 		if (editingId) {
 			await projectStore.update(editingId, {
 				name: formName,
 				target_amount: formTargetAmount ?? null,
 				target_date: formTargetDate || null,
-				account_id: formAccountId
+				account_id: accountId
 			});
 		} else {
 			await projectStore.create({
 				name: formName,
 				target_amount: formTargetAmount,
 				target_date: formTargetDate || undefined,
-				account_id: formAccountId ?? undefined
+				account_id: accountId ?? undefined
 			});
 		}
 		showForm = false;
@@ -118,7 +119,7 @@
 							<button onclick={() => openEdit(project)} class="rounded p-1.5 text-text-muted hover:text-text-primary">
 								<Pencil size={14} />
 							</button>
-							<button onclick={() => projectStore.remove(project.id)} class="rounded p-1.5 text-text-muted hover:text-danger">
+							<button onclick={() => { if (confirm('Supprimer ce projet ?')) projectStore.remove(project.id); }} class="rounded p-1.5 text-text-muted hover:text-danger">
 								<Trash2 size={14} />
 							</button>
 						</div>
@@ -149,7 +150,7 @@
 									<span class="text-text-primary">{item.label}</span>
 									<div class="flex items-center gap-2">
 										<span class="font-medium text-text-secondary">{formatCurrency(item.planned_amount)}</span>
-										<button onclick={() => projectStore.removeItem(item.id)} class="text-text-muted hover:text-danger">
+										<button onclick={() => { if (confirm('Supprimer cet élément ?')) projectStore.removeItem(item.id); }} class="text-text-muted hover:text-danger">
 											<X size={14} />
 										</button>
 									</div>
@@ -258,7 +259,7 @@
 						bind:value={formAccountId}
 						class="w-full rounded-lg border border-border bg-bg-primary px-3 py-2 text-text-primary outline-none focus:border-accent"
 					>
-						<option value={null}>Aucun</option>
+						<option value="">Aucun</option>
 						{#each accountStore.accounts as account}
 							<option value={account.id}>{account.name}</option>
 						{/each}

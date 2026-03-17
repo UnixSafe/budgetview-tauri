@@ -60,6 +60,7 @@
 	}
 
 	async function handleDelete(id: number) {
+		if (!confirm('Supprimer ce compte ?')) return;
 		await accountStore.remove(id);
 	}
 </script>
