@@ -1,5 +1,6 @@
 import { query, execute } from './db';
 import type { Transaction } from '$lib/types';
+import { toCents } from '$lib/utils/format';
 
 class TransactionStore {
 	transactions = $state<Transaction[]>([]);
@@ -56,10 +57,12 @@ class TransactionStore {
 	}) {
 		await execute(
 			'INSERT INTO transactions (account_id, date, label, amount, note, series_id) VALUES ($1, $2, $3, $4, $5, $6)',
-			[data.account_id, data.date, data.label, data.amount, data.note ?? null, data.series_id ?? null]
+			[data.account_id, data.date, data.label, toCents(data.amount), data.note ?? null, data.series_id ?? null]
 		);
 		await this.load();
 	}
+
+	private static readonly ALLOWED_COLUMNS = new Set(['label', 'amount', 'date', 'note', 'series_id', 'account_id']);
 
 	async update(id: number, data: Partial<{ label: string; amount: number; date: string; note: string | null; series_id: number | null; account_id: number }>) {
 		const fields: string[] = [];
@@ -67,9 +70,9 @@ class TransactionStore {
 		let i = 1;
 
 		for (const [key, val] of Object.entries(data)) {
-			if (val !== undefined) {
+			if (val !== undefined && TransactionStore.ALLOWED_COLUMNS.has(key)) {
 				fields.push(`${key} = $${i++}`);
-				values.push(val);
+				values.push(key === 'amount' ? toCents(val as number) : val);
 			}
 		}
 

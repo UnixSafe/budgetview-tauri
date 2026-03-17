@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { Plus, X, ChevronLeft, ChevronRight, Pencil, Trash2 } from 'lucide-svelte';
 	import { budgetStore } from '$lib/stores/budget.svelte';
-	import { formatCurrency, formatMonth, BUDGET_AREA_LABELS } from '$lib/utils/format';
+	import { formatCurrency, formatMonth, toEuros, BUDGET_AREA_LABELS } from '$lib/utils/format';
 	import type { BudgetArea, BudgetLineItem } from '$lib/types';
 
 	let showSeriesForm = $state(false);
@@ -55,7 +55,7 @@
 		editingSeriesId = s.id;
 		formName = s.name;
 		formArea = s.budget_area;
-		formTarget = s.target_amount ?? 0;
+		formTarget = s.target_amount ? toEuros(s.target_amount) : 0;
 		formDescription = s.description ?? '';
 		showSeriesForm = true;
 	}
@@ -82,7 +82,7 @@
 
 	function startEditBudget(line: BudgetLineItem) {
 		editingBudgetId = line.series_id;
-		editingBudgetAmount = line.planned_amount;
+		editingBudgetAmount = toEuros(line.planned_amount);
 	}
 
 	async function saveBudget(seriesId: number) {

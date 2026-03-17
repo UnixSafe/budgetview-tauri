@@ -14,7 +14,7 @@
 	} from 'lucide-svelte';
 	import { importStore, type RawTransaction } from '$lib/stores/import.svelte';
 	import { accountStore } from '$lib/stores/accounts.svelte';
-	import { formatCurrency, formatDate } from '$lib/utils/format';
+	import { formatCurrency, formatDate, toCents } from '$lib/utils/format';
 
 	// State
 	let selectedAccountId = $state<number | null>(null);
@@ -310,7 +310,7 @@
 							<td class="px-4 py-2 text-text-secondary">{formatDate(tx.date)}</td>
 							<td class="px-4 py-2 text-text-primary">{tx.label}</td>
 							<td class="px-4 py-2 text-right font-medium {tx.amount >= 0 ? 'text-income' : 'text-expense'}">
-								{formatCurrency(tx.amount)}
+								{formatCurrency(toCents(tx.amount))}
 							</td>
 						</tr>
 					{/each}

@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { Plus, Landmark, Pencil, Trash2, X } from 'lucide-svelte';
 	import { accountStore } from '$lib/stores/accounts.svelte';
-	import { formatCurrency, ACCOUNT_TYPE_LABELS } from '$lib/utils/format';
+	import { formatCurrency, toEuros, ACCOUNT_TYPE_LABELS } from '$lib/utils/format';
 	import type { Account } from '$lib/types';
 
 	let showForm = $state(false);
@@ -33,7 +33,7 @@
 		formNumber = account.account_number ?? '';
 		formBank = account.bank_name ?? '';
 		formType = account.account_type;
-		formBalance = account.initial_balance;
+		formBalance = toEuros(account.initial_balance);
 		showForm = true;
 	}
 

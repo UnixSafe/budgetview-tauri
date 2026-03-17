@@ -1,5 +1,6 @@
 import { query, execute } from './db';
 import type { BudgetSeries, MonthlyBudget, BudgetLineItem, BudgetArea } from '$lib/types';
+import { toCents } from '$lib/utils/format';
 
 class BudgetStore {
 	series = $state<BudgetSeries[]>([]);
@@ -67,10 +68,12 @@ class BudgetStore {
 	async createSeries(data: { name: string; budget_area: BudgetArea; target_amount?: number; description?: string }) {
 		await execute(
 			'INSERT INTO budget_series (name, budget_area, target_amount, description) VALUES ($1, $2, $3, $4)',
-			[data.name, data.budget_area, data.target_amount ?? null, data.description ?? null]
+			[data.name, data.budget_area, data.target_amount != null ? toCents(data.target_amount) : null, data.description ?? null]
 		);
 		await this.loadBudgetView();
 	}
+
+	private static readonly ALLOWED_COLUMNS = new Set(['name', 'budget_area', 'target_amount', 'description']);
 
 	async updateSeries(id: number, data: Partial<{ name: string; budget_area: BudgetArea; target_amount: number | null; description: string | null }>) {
 		const fields: string[] = [];
@@ -78,9 +81,9 @@ class BudgetStore {
 		let i = 1;
 
 		for (const [key, val] of Object.entries(data)) {
-			if (val !== undefined) {
+			if (val !== undefined && BudgetStore.ALLOWED_COLUMNS.has(key)) {
 				fields.push(`${key} = $${i++}`);
-				values.push(val);
+				values.push(key === 'target_amount' && val != null ? toCents(val as number) : val);
 			}
 		}
 
@@ -101,7 +104,7 @@ class BudgetStore {
 			`INSERT INTO monthly_budget (series_id, year, month, planned_amount)
 			 VALUES ($1, $2, $3, $4)
 			 ON CONFLICT(series_id, year, month) DO UPDATE SET planned_amount = $4`,
-			[seriesId, this.year, this.month, amount]
+			[seriesId, this.year, this.month, toCents(amount)]
 		);
 		await this.loadBudgetView();
 	}

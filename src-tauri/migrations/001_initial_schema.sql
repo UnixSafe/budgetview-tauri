@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS accounts (
     bank_name TEXT,
     account_type TEXT CHECK(account_type IN ('checking', 'savings', 'credit_card', 'cash')) DEFAULT 'checking',
     currency TEXT DEFAULT 'EUR',
-    initial_balance REAL DEFAULT 0,
+    initial_balance INTEGER DEFAULT 0,
     is_active BOOLEAN DEFAULT 1,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS budget_series (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     budget_area TEXT CHECK(budget_area IN ('income', 'recurring', 'variable', 'extras', 'savings', 'transfers')),
-    target_amount REAL,
+    target_amount INTEGER,
     day_of_month INTEGER,
     is_active BOOLEAN DEFAULT 1,
     description TEXT
@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     date DATE NOT NULL,
     label TEXT NOT NULL,
     original_label TEXT,
-    amount REAL NOT NULL,
+    amount INTEGER NOT NULL,
     note TEXT,
     is_planned BOOLEAN DEFAULT 0,
     series_id INTEGER REFERENCES budget_series(id) ON DELETE SET NULL,
@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS transaction_splits (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     transaction_id INTEGER NOT NULL REFERENCES transactions(id) ON DELETE CASCADE,
     series_id INTEGER NOT NULL REFERENCES budget_series(id),
-    amount REAL NOT NULL,
+    amount INTEGER NOT NULL,
     note TEXT
 );
 
@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS monthly_budget (
     series_id INTEGER NOT NULL REFERENCES budget_series(id) ON DELETE CASCADE,
     year INTEGER NOT NULL,
     month INTEGER NOT NULL,
-    planned_amount REAL NOT NULL,
+    planned_amount INTEGER NOT NULL,
     UNIQUE(series_id, year, month)
 );
 
@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS recurring_transactions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     account_id INTEGER NOT NULL REFERENCES accounts(id),
     label TEXT NOT NULL,
-    amount REAL NOT NULL,
+    amount INTEGER NOT NULL,
     series_id INTEGER REFERENCES budget_series(id),
     frequency TEXT CHECK(frequency IN ('monthly', 'weekly', 'biweekly', 'quarterly', 'yearly')),
     day_of_month INTEGER,
@@ -96,7 +96,7 @@ CREATE TABLE IF NOT EXISTS recurring_transactions (
 CREATE TABLE IF NOT EXISTS projects (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    target_amount REAL,
+    target_amount INTEGER,
     target_date DATE,
     account_id INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
     is_active BOOLEAN DEFAULT 1
@@ -107,7 +107,7 @@ CREATE TABLE IF NOT EXISTS project_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     label TEXT NOT NULL,
-    planned_amount REAL NOT NULL,
+    planned_amount INTEGER NOT NULL,
     month INTEGER,
     year INTEGER,
     series_id INTEGER REFERENCES budget_series(id) ON DELETE SET NULL

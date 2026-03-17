@@ -1,12 +1,12 @@
 import Database from '@tauri-apps/plugin-sql';
 
-let db: Database | null = null;
+let dbPromise: Promise<Database> | null = null;
 
 export async function getDb(): Promise<Database> {
-	if (!db) {
-		db = await Database.load('sqlite:budgetview.db');
+	if (!dbPromise) {
+		dbPromise = Database.load('sqlite:budgetview.db');
 	}
-	return db;
+	return dbPromise;
 }
 
 export async function query<T>(sql: string, params: unknown[] = []): Promise<T[]> {

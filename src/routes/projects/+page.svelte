@@ -4,7 +4,7 @@
 	import { projectStore } from '$lib/stores/projects.svelte';
 	import type { ProjectWithProgress } from '$lib/stores/projects.svelte';
 	import { accountStore } from '$lib/stores/accounts.svelte';
-	import { formatCurrency } from '$lib/utils/format';
+	import { formatCurrency, toEuros } from '$lib/utils/format';
 
 	let showForm = $state(false);
 	let editingId = $state<number | null>(null);
@@ -34,7 +34,7 @@
 	function openEdit(project: ProjectWithProgress) {
 		editingId = project.id;
 		formName = project.name;
-		formTargetAmount = project.target_amount ?? undefined;
+		formTargetAmount = project.target_amount ? toEuros(project.target_amount) : undefined;
 		formTargetDate = project.target_date ?? '';
 		formAccountId = project.account_id;
 		showForm = true;
