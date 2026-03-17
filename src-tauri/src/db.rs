@@ -14,5 +14,11 @@ pub fn get_migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/002_auto_categorization.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 3,
+            description: "simplify_categorization",
+            sql: include_str!("../migrations/003_simplify_categorization.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
