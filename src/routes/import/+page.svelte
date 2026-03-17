@@ -10,7 +10,8 @@
 		X,
 		ArrowLeft,
 		ChevronDown,
-		ChevronUp
+		ChevronUp,
+		Tag
 	} from 'lucide-svelte';
 	import { importStore } from '$lib/stores/import.svelte';
 	import type { RawTransaction } from '$lib/types';
@@ -347,12 +348,20 @@
 		<div class="flex flex-col items-center justify-center rounded-xl border border-income/30 bg-income/5 p-12">
 			<CheckCircle2 size={56} class="mb-4 text-income" />
 			<p class="mb-2 text-lg font-semibold text-text-primary">Import réussi</p>
-			<p class="mb-6 text-sm text-text-secondary">
+			<p class="mb-4 text-sm text-text-secondary">
 				{result.imported_count} transaction{result.imported_count > 1 ? 's' : ''} importée{result.imported_count > 1 ? 's' : ''}
 				{#if result.duplicates_skipped > 0}
 					— {result.duplicates_skipped} doublon{result.duplicates_skipped > 1 ? 's' : ''} ignoré{result.duplicates_skipped > 1 ? 's' : ''}
 				{/if}
 			</p>
+			{#if result.auto_categorized_count > 0}
+				<p class="mb-6 inline-flex items-center gap-2 rounded-lg bg-accent/10 px-4 py-2 text-sm font-medium text-accent">
+					<Tag size={16} />
+					{result.auto_categorized_count} transaction{result.auto_categorized_count > 1 ? 's' : ''} auto-catégorisée{result.auto_categorized_count > 1 ? 's' : ''}
+				</p>
+			{:else}
+				<p class="mb-6"></p>
+			{/if}
 			<div class="flex gap-3">
 				<button
 					onclick={goToTransactions}
