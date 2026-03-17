@@ -210,6 +210,9 @@
 									>
 										<Tag size={12} />
 										{tx.series_name ?? 'Non catégorisée'}
+										{#if tx.is_auto_categorized}
+											<span class="ml-1 rounded bg-accent/20 px-1 py-0.5 text-[10px] font-semibold text-accent">Auto</span>
+										{/if}
 									</button>
 									{#if categorizingId === tx.id}
 										<div class="absolute left-0 top-full z-10 mt-1 max-h-48 w-56 overflow-y-auto rounded-lg border border-border bg-bg-secondary shadow-xl">

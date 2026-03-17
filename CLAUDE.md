@@ -188,6 +188,45 @@ Pour comprendre la logique métier, consulte :
 - Les "BudgetArea" = income/recurring/variable/extras/savings/transfers
 - L'import OFX est critique car c'est le format standard des banques françaises
 
+## Auto-catégorisation des transactions
+
+### Principe (basé sur AutoCategorizationFunctor.java)
+Quand une transaction est importée, on cherche des transactions passées avec le même label. Si l'utilisateur a catégorisé 3+ fois le même label vers la même série, on auto-assigne.
+
+### Table `categorization_rules` (migration 002)
+- `label_exact` : label original en majuscules
+- `label_normalized` : label nettoyé (sans dates, numéros de carte/chèque, références)
+- `account_id`, `sign` (+1/-1) : contexte de la transaction
+- `series_id`, `sub_series_id` : catégorie cible
+- `match_count` : nombre de fois que l'utilisateur a confirmé cette association
+- `last_used` : date de dernière utilisation
+- Contrainte UNIQUE sur `(label_exact, account_id, sign)`
+
+### Normalisation des labels (`normalizeLabel()`)
+Implémentée en **TypeScript** (`src/lib/utils/format.ts`) et **Rust** (`src-tauri/src/commands.rs`).
+Supprime : dates (DD/MM/YYYY), numéros 4+ chiffres (CB, chèques, refs), chiffres isolés 1-3.
+Exemple : `'CARREFOUR 15/03 CB1234'` → `'carrefour cb'`
+
+### 4 niveaux de matching (du plus strict au plus lâche)
+1. Label exact + même signe + même compte
+2. Label exact + même compte (tout signe)
+3. Label normalisé + même signe + même compte
+4. Label normalisé + même compte (tout signe)
+
+Seuil : `match_count >= 3` requis pour auto-assigner.
+
+### Exclusions
+Chèques, retraits DAB/GAB, remises/dépôts d'espèces sont exclus de l'auto-catégorisation.
+
+### Apprentissage (catégorisation manuelle)
+- Même série que la règle existante → `match_count + 1`
+- Série différente → reset `match_count = 1` avec nouvelle série
+- Nouveau label → création de règle avec `match_count = 1`
+
+### Badge "Auto"
+Les transactions auto-catégorisées ont `is_auto_categorized = 1` et affichent un badge "Auto" dans la liste.
+La catégorisation manuelle remet `is_auto_categorized = 0`.
+
 ---
 
 ## ⚠️ Leçons apprises (17/03/2026)

@@ -26,6 +26,33 @@ export function formatMonth(year: number, month: number): string {
 	);
 }
 
+/**
+ * Normalize a transaction label for auto-categorization matching.
+ * Removes variable parts (dates, check numbers, card numbers, references),
+ * lowercases, and trims. Example: 'CARREFOUR 15/03 CB1234' → 'carrefour cb'
+ */
+export function normalizeLabel(label: string): string {
+	return label
+		.toLowerCase()
+		// Remove dates (DD/MM, DD/MM/YY, DD/MM/YYYY, DD-MM-YYYY, DDMMYY, YYYYMMDD)
+		.replace(/\b\d{1,2}[/\-.]\d{1,2}([/\-.]\d{2,4})?\b/g, '')
+		.replace(/\b\d{4}\d{2}\d{2}\b/g, '')
+		.replace(/\b\d{2}\d{2}\d{2}\b/g, '')
+		// Remove long number sequences (card numbers, references, check numbers: 4+ digits)
+		.replace(/\b\d{4,}\b/g, '')
+		// Remove isolated 1-3 digit numbers (amounts, short refs) but keep words with digits like "cb"
+		.replace(/\b\d{1,3}\b/g, '')
+		// Remove extra whitespace
+		.replace(/\s+/g, ' ')
+		.trim();
+}
+
+/** Check if a transaction label looks like a check, cash withdrawal, or cash deposit */
+export function isExcludedFromAutoCategorization(label: string): boolean {
+	const lower = label.toLowerCase();
+	return /\b(cheque|chèque|chq|retrait\s*(dab|gab)?|remise\s*esp|depot\s*esp|versement\s*esp)\b/.test(lower);
+}
+
 export const ACCOUNT_TYPE_LABELS: Record<string, string> = {
 	checking: 'Compte courant',
 	savings: "Livret d'épargne",
