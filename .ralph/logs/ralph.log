@@ -1,0 +1,17 @@
+[2026-03-17 16:24:00] [INFO] Loaded configuration from .ralphrc
+[2026-03-17 16:24:00] [INFO] Claude CLI version 2.1.77 (>= 2.0.76) - modern features enabled
+[2026-03-17 16:24:06] [INFO] Could not check for Claude CLI updates (npm registry unreachable)
+[2026-03-17 16:24:06] [SUCCESS] 🚀 Ralph loop starting with Claude Code
+[2026-03-17 16:24:06] [INFO] Max calls per hour: 100
+[2026-03-17 16:24:06] [INFO] Logs: .ralph/logs/ | Docs: .ralph/docs/generated/ | Status: .ralph/status.json
+[2026-03-17 16:24:11] [INFO] Initialized session tracking (session: ralph-1773761046-15503)
+[2026-03-17 16:24:11] [INFO] Reset exit signals for fresh start
+[2026-03-17 16:24:11] [INFO] Starting main loop...
+[2026-03-17 16:24:11] [INFO] Loop #1 - calling init_call_tracking...
+[2026-03-17 16:24:11] [INFO] Call counter reset for new hour: 2026031716
+[2026-03-17 16:24:11] [LOOP] === Starting Loop #1 ===
+[2026-03-17 16:24:11] [LOOP] Executing Claude Code (Call 1/100)
+[2026-03-17 16:24:11] [INFO] ⏳ Starting Claude Code execution... (timeout: 15m)
+[2026-03-17 16:24:11] [INFO] Starting new Claude session
+[2026-03-17 16:24:11] [INFO] Using modern CLI mode (json output)
+[2026-03-17 16:24:11] [INFO] 📺 Live output mode enabled - showing Claude Code streaming...
