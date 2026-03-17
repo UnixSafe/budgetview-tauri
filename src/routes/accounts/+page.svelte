@@ -115,8 +115,8 @@
 						</div>
 					</div>
 					<div class="flex items-center gap-3">
-						<span class="text-lg font-semibold {account.initial_balance >= 0 ? 'text-income' : 'text-expense'}">
-							{formatCurrency(account.initial_balance)}
+						<span class="text-lg font-semibold {account.computed_balance >= 0 ? 'text-income' : 'text-expense'}">
+							{formatCurrency(account.computed_balance)}
 						</span>
 						<button onclick={() => openEdit(account)} class="rounded-lg p-2 text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary">
 							<Pencil size={16} />

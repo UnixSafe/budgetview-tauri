@@ -1,8 +1,12 @@
 import { query, execute } from './db';
 import type { Account } from '$lib/types';
 
+interface AccountWithBalance extends Account {
+	computed_balance: number;
+}
+
 class AccountStore {
-	accounts = $state<Account[]>([]);
+	accounts = $state<AccountWithBalance[]>([]);
 	loading = $state(false);
 	error = $state<string | null>(null);
 
@@ -10,8 +14,15 @@ class AccountStore {
 		this.loading = true;
 		this.error = null;
 		try {
-			this.accounts = await query<Account>(
-				'SELECT * FROM accounts WHERE is_active = 1 ORDER BY name'
+			this.accounts = await query<AccountWithBalance>(
+				`SELECT a.*,
+					a.initial_balance + COALESCE(
+						(SELECT SUM(t.amount) FROM transactions t WHERE t.account_id = a.id),
+						0
+					) as computed_balance
+				 FROM accounts a
+				 WHERE a.is_active = 1
+				 ORDER BY a.name`
 			);
 		} catch (e) {
 			this.error = e instanceof Error ? e.message : 'Erreur inconnue';
@@ -52,12 +63,12 @@ class AccountStore {
 		await this.load();
 	}
 
-	getBalance(account: Account): number {
-		return account.initial_balance;
+	getBalance(account: AccountWithBalance): number {
+		return account.computed_balance;
 	}
 
 	get totalBalance(): number {
-		return this.accounts.reduce((sum, a) => sum + a.initial_balance, 0);
+		return this.accounts.reduce((sum, a) => sum + a.computed_balance, 0);
 	}
 }
 

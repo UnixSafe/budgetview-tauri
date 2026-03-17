@@ -125,8 +125,8 @@
 									<p class="text-xs text-text-muted">{ACCOUNT_TYPE_LABELS[account.account_type]}</p>
 								</div>
 							</div>
-							<span class="text-sm font-semibold {account.initial_balance >= 0 ? 'text-income' : 'text-expense'}">
-								{formatCurrency(account.initial_balance)}
+							<span class="text-sm font-semibold {account.computed_balance >= 0 ? 'text-income' : 'text-expense'}">
+								{formatCurrency(account.computed_balance)}
 							</span>
 						</div>
 					{/each}

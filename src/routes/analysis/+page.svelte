@@ -252,7 +252,7 @@
 	let balance = $derived(totalIncome - totalExpenses);
 
 	// Grouped categories by budget area
-	let categoryByArea = $derived(() => {
+	let categoryByArea = $derived.by(() => {
 		const groups: Record<string, { name: string; total: number }[]> = {};
 		for (const c of categoryData) {
 			if (!groups[c.area]) groups[c.area] = [];
@@ -387,7 +387,7 @@
 			<div class="rounded-xl border border-border bg-bg-card p-4">
 				<h2 class="mb-3 text-lg font-semibold text-text-primary">Détail par type de dépense</h2>
 				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-					{#each Object.entries(categoryByArea()) as [area, items]}
+					{#each Object.entries(categoryByArea) as [area, items]}
 						<div class="rounded-lg border border-border/50 p-3">
 							<h3 class="mb-2 text-sm font-semibold" style="color: {AREA_COLORS[area] ?? '#94a3b8'}">
 								{BUDGET_AREA_LABELS[area] ?? area}
