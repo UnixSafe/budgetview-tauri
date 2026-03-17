@@ -1,11 +1,13 @@
 <script lang="ts">
-	import favicon from '$lib/assets/favicon.svg';
+	import '../app.css';
+	import Sidebar from '$lib/components/Sidebar.svelte';
 
 	let { children } = $props();
 </script>
 
-<svelte:head>
-	<link rel="icon" href={favicon} />
-</svelte:head>
-
-{@render children()}
+<div class="flex h-screen overflow-hidden">
+	<Sidebar />
+	<main class="flex-1 overflow-y-auto p-6">
+		{@render children()}
+	</main>
+</div>
