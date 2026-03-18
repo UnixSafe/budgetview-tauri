@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Plus, Landmark, Pencil, Trash2, X, ArrowLeftRight } from 'lucide-svelte';
+	import { Plus, Landmark, Pencil, Trash2, X, ArrowLeftRight, CreditCard, Wallet, Banknote } from 'lucide-svelte';
 	import MiniSparkline from '$lib/components/MiniSparkline.svelte';
 	import { accountStore } from '$lib/stores/accounts.svelte';
 	import { formatCurrency, toEuros, toCents, ACCOUNT_TYPE_LABELS } from '$lib/utils/format';
@@ -158,12 +158,12 @@
 		toastStore.success('Compte supprimé');
 	}
 
-	const ACCOUNT_ICONS: Record<string, string> = {
-		checking: '🏦',
-		savings: '💰',
-		credit_card: '💳',
-		cash: '💵'
-	};
+	const ACCOUNT_ICONS = {
+		checking: Landmark,
+		savings: Wallet,
+		credit_card: CreditCard,
+		cash: Banknote
+	} as Record<string, typeof Landmark>;
 </script>
 
 <svelte:head>
@@ -262,8 +262,13 @@
 				<div class="group glass-card p-5 transition-smooth hover:bg-bg-hover/30 card-hover">
 					<div class="flex items-center justify-between">
 						<div class="flex items-center gap-4">
-							<div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/10 text-xl">
-								{ACCOUNT_ICONS[account.account_type] ?? '🏦'}
+							<div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/10">
+								{#if ACCOUNT_ICONS[account.account_type]}
+									{@const AccIcon = ACCOUNT_ICONS[account.account_type]}
+									<AccIcon size={22} class="text-accent" strokeWidth={1.5} />
+								{:else}
+									<Landmark size={22} class="text-accent" strokeWidth={1.5} />
+								{/if}
 							</div>
 							<div>
 								<p class="text-[15px] font-semibold text-text-primary">{account.name}</p>

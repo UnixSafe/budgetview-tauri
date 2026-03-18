@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Plus, X, ChevronLeft, ChevronRight, Pencil, Trash2, FolderOpen, ChevronDown, ChevronUp, ArrowRightLeft, TrendingUp, TrendingDown, Copy } from 'lucide-svelte';
+	import { Plus, X, ChevronLeft, ChevronRight, Pencil, Trash2, FolderOpen, ChevronDown, ChevronUp, ArrowRightLeft, TrendingUp, TrendingDown, Copy, Coins, RefreshCw, ShoppingCart, Sparkles, Landmark, ArrowLeftRight } from 'lucide-svelte';
 	import { budgetStore } from '$lib/stores/budget.svelte';
 	import { formatCurrency, formatMonth, toEuros, BUDGET_AREA_LABELS } from '$lib/utils/format';
 	import type { BudgetArea, BudgetLineItem } from '$lib/types';
@@ -143,14 +143,14 @@
 
 	const budgetAreas: BudgetArea[] = ['income', 'recurring', 'variable', 'extras', 'savings', 'transfers'];
 
-	const AREA_ICONS: Record<string, string> = {
-		income: '💰',
-		recurring: '🔄',
-		variable: '🛒',
-		extras: '✨',
-		savings: '🏦',
-		transfers: '↔️'
-	};
+	const AREA_ICONS = {
+		income: Coins,
+		recurring: RefreshCw,
+		variable: ShoppingCart,
+		extras: Sparkles,
+		savings: Landmark,
+		transfers: ArrowLeftRight
+	} as Record<string, typeof Coins>;
 </script>
 
 <svelte:head>
@@ -207,8 +207,8 @@
 		<LoadingSpinner message="Chargement du budget..." />
 	{:else if budgetStore.budgetLines.length === 0}
 		<div class="flex flex-col items-center justify-center glass-card p-16">
-			<div class="mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-accent/10 text-3xl">
-				💰
+			<div class="mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-accent/10">
+				<Coins size={36} class="text-accent" strokeWidth={1.3} />
 			</div>
 			<p class="text-xl font-semibold text-text-primary">Aucune catégorie</p>
 			<p class="mt-1 text-sm text-text-muted">Créez des catégories pour planifier votre budget mensuel</p>
@@ -300,7 +300,12 @@
 				{#if lines.length > 0}
 					<div class="glass-card overflow-hidden">
 						<div class="flex items-center gap-3 border-b border-border-light px-6 py-4">
-							<span class="text-lg">{AREA_ICONS[area] ?? '📁'}</span>
+							{#if AREA_ICONS[area]}
+								{@const Icon = AREA_ICONS[area]}
+								<div class="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10">
+									<Icon size={15} class="text-accent" strokeWidth={1.8} />
+								</div>
+							{/if}
 							<h3 class="text-[13px] font-bold text-text-secondary uppercase tracking-wider">
 								{BUDGET_AREA_LABELS[area]}
 							</h3>
