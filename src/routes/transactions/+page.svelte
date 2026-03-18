@@ -88,12 +88,12 @@
 		showForm = false;
 	}
 
-	async function handleCategorize(txId: number, seriesId: number | null) {
-		const similarCount = await transactionStore.categorize(txId, seriesId);
+	async function handleCategorize(txId: number, seriesId: number | null, subSeriesId: number | null = null) {
+		const similarCount = await transactionStore.categorize(txId, seriesId, subSeriesId);
 		categorizingId = null;
 
 		if (seriesId !== null && similarCount > 0) {
-			similarPrompt = { txId, seriesId, subSeriesId: null, count: similarCount };
+			similarPrompt = { txId, seriesId, subSeriesId, count: similarCount };
 		}
 	}
 
@@ -263,13 +263,13 @@
 											: 'bg-bg-hover text-text-muted hover:text-text-primary'}"
 									>
 										<Tag size={12} />
-										{tx.series_name ?? 'Non catégorisée'}
+										{tx.series_name ?? 'Non catégorisée'}{#if tx.sub_series_name} › {tx.sub_series_name}{/if}
 										{#if tx.is_auto_categorized}
 											<span class="ml-1 rounded bg-accent/20 px-1 py-0.5 text-[10px] font-semibold text-accent">Auto</span>
 										{/if}
 									</button>
 									{#if categorizingId === tx.id}
-										<div class="absolute left-0 top-full z-10 mt-1 max-h-48 w-56 overflow-y-auto rounded-lg border border-border bg-bg-secondary shadow-xl">
+										<div class="absolute left-0 top-full z-10 mt-1 max-h-64 w-64 overflow-y-auto rounded-lg border border-border bg-bg-secondary shadow-xl">
 											<button
 												onclick={() => handleCategorize(tx.id, null)}
 												class="w-full px-3 py-2 text-left text-sm text-text-muted hover:bg-bg-hover"
@@ -279,10 +279,18 @@
 											{#each budgetStore.series as series}
 												<button
 													onclick={() => handleCategorize(tx.id, series.id)}
-													class="w-full px-3 py-2 text-left text-sm text-text-primary hover:bg-bg-hover"
+													class="w-full px-3 py-2 text-left text-sm font-medium text-text-primary hover:bg-bg-hover"
 												>
 													{series.name}
 												</button>
+												{#each budgetStore.getSubSeries(series.id) as sub}
+													<button
+														onclick={() => handleCategorize(tx.id, series.id, sub.id)}
+														class="w-full py-1.5 pl-6 pr-3 text-left text-sm text-text-secondary hover:bg-bg-hover"
+													>
+														{sub.name}
+													</button>
+												{/each}
 											{/each}
 										</div>
 									{/if}

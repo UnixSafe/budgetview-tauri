@@ -1,9 +1,10 @@
 import { query, execute } from './db';
-import type { BudgetSeries, MonthlyBudget, BudgetLineItem, BudgetArea } from '$lib/types';
+import type { BudgetSeries, SubSeries, MonthlyBudget, BudgetLineItem, BudgetArea } from '$lib/types';
 import { toCents } from '$lib/utils/format';
 
 class BudgetStore {
 	series = $state<BudgetSeries[]>([]);
+	subSeries = $state<SubSeries[]>([]);
 	monthlyBudgets = $state<MonthlyBudget[]>([]);
 	budgetLines = $state<BudgetLineItem[]>([]);
 	loading = $state(false);
@@ -15,6 +16,29 @@ class BudgetStore {
 		this.series = await query<BudgetSeries>(
 			'SELECT * FROM budget_series WHERE is_active = 1 ORDER BY budget_area, name'
 		);
+		this.subSeries = await query<SubSeries>(
+			'SELECT * FROM sub_series ORDER BY name'
+		);
+	}
+
+	/** Get sub-series for a specific series */
+	getSubSeries(seriesId: number): SubSeries[] {
+		return this.subSeries.filter((s) => s.series_id === seriesId);
+	}
+
+	async createSubSeries(seriesId: number, name: string) {
+		await execute('INSERT INTO sub_series (series_id, name) VALUES ($1, $2)', [seriesId, name]);
+		await this.loadSeries();
+	}
+
+	async removeSubSeries(id: number) {
+		await execute('DELETE FROM sub_series WHERE id = $1', [id]);
+		await this.loadSeries();
+	}
+
+	async updateSubSeries(id: number, name: string) {
+		await execute('UPDATE sub_series SET name = $1 WHERE id = $2', [name, id]);
+		await this.loadSeries();
 	}
 
 	async loadBudgetView() {

@@ -738,6 +738,275 @@ pub async fn detect_recurring_patterns(
     Ok(patterns)
 }
 
+/// A recurring transaction from the DB
+#[derive(Debug, Serialize)]
+pub struct RecurringRecord {
+    pub id: i64,
+    pub account_id: i64,
+    pub label: String,
+    pub label_pattern: Option<String>,
+    pub amount: i64,
+    pub series_id: Option<i64>,
+    pub series_name: Option<String>,
+    pub frequency: Option<String>,
+    pub day_of_month: Option<i32>,
+    pub is_active: bool,
+    pub is_auto_detected: bool,
+    pub last_occurrence_date: Option<String>,
+    pub next_expected_date: Option<String>,
+    pub tolerance_days: Option<i32>,
+    pub account_name: Option<String>,
+}
+
+/// A missing recurrence alert
+#[derive(Debug, Serialize)]
+pub struct MissingRecurrence {
+    pub recurring_id: i64,
+    pub label: String,
+    pub amount: i64,
+    pub expected_date: String,
+    pub days_overdue: i32,
+    pub account_name: Option<String>,
+    pub series_name: Option<String>,
+}
+
+/// Confirm a detected pattern as a recurring transaction
+#[command]
+pub async fn create_recurring(
+    label: String,
+    label_pattern: String,
+    account_id: i64,
+    amount: i64,
+    series_id: Option<i64>,
+    frequency: String,
+    day_of_month: i32,
+    db: tauri::State<'_, DbInstances>,
+) -> Result<i64, String> {
+    let pool = get_db_pool(&db).await?;
+
+    let today = chrono::Local::now().date_naive();
+    let next_date = compute_next_expected(&frequency, day_of_month, &today.to_string());
+
+    let result = sqlx::query(
+        "INSERT INTO recurring_transactions (account_id, label, label_pattern, amount, series_id, frequency, day_of_month, is_active, is_auto_detected, next_expected_date)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1, ?)"
+    )
+    .bind(account_id)
+    .bind(&label)
+    .bind(&label_pattern)
+    .bind(amount)
+    .bind(series_id)
+    .bind(&frequency)
+    .bind(day_of_month)
+    .bind(&next_date)
+    .execute(&pool)
+    .await
+    .map_err(|e| format!("Erreur création récurrence: {}", e))?;
+
+    let recurring_id = result.last_insert_rowid();
+
+    // Link existing matching transactions
+    sqlx::query(
+        "UPDATE transactions SET recurring_id = ?
+         WHERE label_for_categorization = ? AND account_id = ? AND SIGN(amount) = SIGN(?)"
+    )
+    .bind(recurring_id)
+    .bind(&label_pattern)
+    .bind(account_id)
+    .bind(amount)
+    .execute(&pool)
+    .await
+    .map_err(|e| format!("Erreur liaison transactions: {}", e))?;
+
+    // Set last_occurrence_date from linked transactions
+    let last: Option<(Option<String>,)> = sqlx::query_as(
+        "SELECT MAX(date) FROM transactions WHERE recurring_id = ?"
+    )
+    .bind(recurring_id)
+    .fetch_optional(&pool)
+    .await
+    .map_err(|e| format!("Erreur: {}", e))?;
+
+    if let Some((Some(last_date),)) = last {
+        let next = compute_next_expected(&frequency, day_of_month, &last_date);
+        sqlx::query("UPDATE recurring_transactions SET last_occurrence_date = ?, next_expected_date = ? WHERE id = ?")
+            .bind(&last_date)
+            .bind(&next)
+            .bind(recurring_id)
+            .execute(&pool)
+            .await
+            .map_err(|e| format!("Erreur: {}", e))?;
+    }
+
+    Ok(recurring_id)
+}
+
+/// Get all recurring transactions
+#[command]
+pub async fn get_recurring_transactions(
+    db: tauri::State<'_, DbInstances>,
+) -> Result<Vec<RecurringRecord>, String> {
+    let pool = get_db_pool(&db).await?;
+
+    let rows: Vec<(i64, i64, String, Option<String>, i64, Option<i64>, Option<String>,
+                    Option<String>, Option<i32>, bool, bool,
+                    Option<String>, Option<String>, Option<i32>, Option<String>)> = sqlx::query_as(
+        "SELECT r.id, r.account_id, r.label, r.label_pattern, r.amount, r.series_id, bs.name,
+                r.frequency, r.day_of_month, r.is_active, COALESCE(r.is_auto_detected, 0),
+                r.last_occurrence_date, r.next_expected_date, r.tolerance_days, a.name
+         FROM recurring_transactions r
+         LEFT JOIN budget_series bs ON r.series_id = bs.id
+         LEFT JOIN accounts a ON r.account_id = a.id
+         ORDER BY r.is_active DESC, r.label"
+    )
+    .fetch_all(&pool)
+    .await
+    .map_err(|e| format!("Erreur lecture récurrences: {}", e))?;
+
+    Ok(rows.into_iter().map(|r| RecurringRecord {
+        id: r.0, account_id: r.1, label: r.2, label_pattern: r.3,
+        amount: r.4, series_id: r.5, series_name: r.6,
+        frequency: r.7, day_of_month: r.8,
+        is_active: r.9, is_auto_detected: r.10,
+        last_occurrence_date: r.11, next_expected_date: r.12,
+        tolerance_days: r.13, account_name: r.14,
+    }).collect())
+}
+
+/// Update a recurring transaction
+#[command]
+pub async fn update_recurring(
+    id: i64,
+    label: Option<String>,
+    amount: Option<i64>,
+    series_id: Option<i64>,
+    frequency: Option<String>,
+    day_of_month: Option<i32>,
+    is_active: Option<bool>,
+    tolerance_days: Option<i32>,
+    db: tauri::State<'_, DbInstances>,
+) -> Result<(), String> {
+    let pool = get_db_pool(&db).await?;
+
+    if let Some(v) = &label { sqlx::query("UPDATE recurring_transactions SET label = ? WHERE id = ?").bind(v).bind(id).execute(&pool).await.map_err(|e| format!("Erreur: {}", e))?; }
+    if let Some(v) = amount { sqlx::query("UPDATE recurring_transactions SET amount = ? WHERE id = ?").bind(v).bind(id).execute(&pool).await.map_err(|e| format!("Erreur: {}", e))?; }
+    if let Some(v) = series_id { sqlx::query("UPDATE recurring_transactions SET series_id = ? WHERE id = ?").bind(v).bind(id).execute(&pool).await.map_err(|e| format!("Erreur: {}", e))?; }
+    if let Some(v) = &frequency { sqlx::query("UPDATE recurring_transactions SET frequency = ? WHERE id = ?").bind(v).bind(id).execute(&pool).await.map_err(|e| format!("Erreur: {}", e))?; }
+    if let Some(v) = day_of_month { sqlx::query("UPDATE recurring_transactions SET day_of_month = ? WHERE id = ?").bind(v).bind(id).execute(&pool).await.map_err(|e| format!("Erreur: {}", e))?; }
+    if let Some(v) = is_active { sqlx::query("UPDATE recurring_transactions SET is_active = ? WHERE id = ?").bind(v).bind(id).execute(&pool).await.map_err(|e| format!("Erreur: {}", e))?; }
+    if let Some(v) = tolerance_days { sqlx::query("UPDATE recurring_transactions SET tolerance_days = ? WHERE id = ?").bind(v).bind(id).execute(&pool).await.map_err(|e| format!("Erreur: {}", e))?; }
+
+    // Recalculate next_expected_date
+    let current: (Option<String>, Option<i32>, Option<String>) = sqlx::query_as(
+        "SELECT frequency, day_of_month, last_occurrence_date FROM recurring_transactions WHERE id = ?"
+    )
+    .bind(id)
+    .fetch_one(&pool)
+    .await
+    .map_err(|e| format!("Erreur: {}", e))?;
+
+    if let (Some(freq), Some(dom)) = (&current.0, current.1) {
+        let today_str = chrono::Local::now().date_naive().to_string();
+        let last = current.2.as_deref().unwrap_or(&today_str);
+        let next = compute_next_expected(freq, dom, last);
+        sqlx::query("UPDATE recurring_transactions SET next_expected_date = ? WHERE id = ?")
+            .bind(&next).bind(id).execute(&pool).await.map_err(|e| format!("Erreur: {}", e))?;
+    }
+
+    Ok(())
+}
+
+/// Delete a recurring transaction
+#[command]
+pub async fn delete_recurring(
+    id: i64,
+    db: tauri::State<'_, DbInstances>,
+) -> Result<(), String> {
+    let pool = get_db_pool(&db).await?;
+    sqlx::query("UPDATE transactions SET recurring_id = NULL WHERE recurring_id = ?")
+        .bind(id).execute(&pool).await.map_err(|e| format!("Erreur: {}", e))?;
+    sqlx::query("DELETE FROM recurring_transactions WHERE id = ?")
+        .bind(id).execute(&pool).await.map_err(|e| format!("Erreur: {}", e))?;
+    Ok(())
+}
+
+/// Check for missing recurring transactions (overdue)
+#[command]
+pub async fn check_missing_recurrences(
+    db: tauri::State<'_, DbInstances>,
+) -> Result<Vec<MissingRecurrence>, String> {
+    let pool = get_db_pool(&db).await?;
+    let today = chrono::Local::now().date_naive();
+
+    let rows: Vec<(i64, String, i64, Option<String>, Option<i32>, Option<String>, Option<String>)> = sqlx::query_as(
+        "SELECT r.id, r.label, r.amount, r.next_expected_date, r.tolerance_days, a.name, bs.name
+         FROM recurring_transactions r
+         LEFT JOIN accounts a ON r.account_id = a.id
+         LEFT JOIN budget_series bs ON r.series_id = bs.id
+         WHERE r.is_active = 1 AND r.next_expected_date IS NOT NULL"
+    )
+    .fetch_all(&pool)
+    .await
+    .map_err(|e| format!("Erreur: {}", e))?;
+
+    let mut missing = Vec::new();
+    for (id, label, amount, next_str, tolerance, account_name, series_name) in rows {
+        if let Some(ref ns) = next_str {
+            if let Ok(next_date) = chrono::NaiveDate::parse_from_str(ns, "%Y-%m-%d") {
+                let overdue = (today - next_date).num_days() as i32;
+                if overdue > tolerance.unwrap_or(5) {
+                    missing.push(MissingRecurrence {
+                        recurring_id: id, label, amount,
+                        expected_date: ns.clone(), days_overdue: overdue,
+                        account_name, series_name,
+                    });
+                }
+            }
+        }
+    }
+
+    Ok(missing)
+}
+
+/// Compute next expected date from frequency, day of month, and last occurrence
+fn compute_next_expected(frequency: &str, day_of_month: i32, last_date: &str) -> Option<String> {
+    let last = chrono::NaiveDate::parse_from_str(last_date, "%Y-%m-%d").ok()?;
+    let today = chrono::Local::now().date_naive();
+
+    if frequency == "biweekly" || frequency == "weekly" {
+        let step = if frequency == "weekly" { 7 } else { 14 };
+        let mut candidate = last + chrono::Duration::days(step);
+        while candidate <= today { candidate += chrono::Duration::days(step); }
+        return Some(candidate.to_string());
+    }
+
+    let months_ahead: i32 = match frequency {
+        "monthly" => 1, "quarterly" => 3, "biannual" => 6, "yearly" => 12, _ => 1,
+    };
+
+    let mut y = last.year();
+    let mut m = last.month() as i32;
+    loop {
+        m += months_ahead;
+        while m > 12 { m -= 12; y += 1; }
+        let dom = day_of_month.min(days_in_month(y, m as u32) as i32).max(1) as u32;
+        if let Some(candidate) = chrono::NaiveDate::from_ymd_opt(y, m as u32, dom) {
+            if candidate > today {
+                return Some(candidate.to_string());
+            }
+        }
+    }
+}
+
+fn days_in_month(year: i32, month: u32) -> u32 {
+    match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 => if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) { 29 } else { 28 },
+        _ => 30,
+    }
+}
+
 // === Helpers ===
 
 async fn get_db_pool(db: &DbInstances) -> Result<sqlx::SqlitePool, String> {

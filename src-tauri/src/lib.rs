@@ -28,6 +28,11 @@ pub fn run() {
             commands::update_split,
             commands::get_transactions_with_splits,
             commands::detect_recurring_patterns,
+            commands::create_recurring,
+            commands::get_recurring_transactions,
+            commands::update_recurring,
+            commands::delete_recurring,
+            commands::check_missing_recurrences,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
