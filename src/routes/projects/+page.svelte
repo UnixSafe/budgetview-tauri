@@ -59,6 +59,24 @@
 		if (!project.target_amount || project.target_amount === 0) return 0;
 		return Math.min((project.total_saved / project.target_amount) * 100, 100);
 	}
+
+	function getDaysRemaining(targetDate: string | null): number | null {
+		if (!targetDate) return null;
+		const target = new Date(targetDate);
+		const today = new Date();
+		const diff = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+		return diff;
+	}
+
+	function getMonthlyTarget(project: ProjectWithProgress): number | null {
+		if (!project.target_amount || !project.target_date) return null;
+		const remaining = project.target_amount - project.total_saved;
+		if (remaining <= 0) return null;
+		const days = getDaysRemaining(project.target_date);
+		if (!days || days <= 0) return null;
+		const months = Math.max(days / 30, 1);
+		return remaining / months;
+	}
 </script>
 
 <svelte:head>
@@ -126,6 +144,30 @@
 							</button>
 						</div>
 					</div>
+
+					<!-- Countdown & monthly target -->
+					{#if project.target_date}
+						{@const daysLeft = getDaysRemaining(project.target_date)}
+						{@const monthlyNeeded = getMonthlyTarget(project)}
+						{#if daysLeft !== null}
+							<div class="mb-4 flex items-center gap-3 flex-wrap">
+								<span class="badge {daysLeft > 30 ? 'bg-accent/10 text-accent' : daysLeft > 0 ? 'bg-warning/10 text-warning' : 'bg-danger/10 text-danger'}">
+									{#if daysLeft > 0}
+										{daysLeft} jour{daysLeft > 1 ? 's' : ''} restant{daysLeft > 1 ? 's' : ''}
+									{:else if daysLeft === 0}
+										Échéance aujourd'hui
+									{:else}
+										{Math.abs(daysLeft)} jour{Math.abs(daysLeft) > 1 ? 's' : ''} de retard
+									{/if}
+								</span>
+								{#if monthlyNeeded}
+									<span class="badge bg-bg-elevated text-text-muted">
+										{formatCurrency(monthlyNeeded)} / mois nécessaire
+									</span>
+								{/if}
+							</div>
+						{/if}
+					{/if}
 
 					<!-- Progress bar -->
 					{#if project.target_amount}
