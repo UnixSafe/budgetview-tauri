@@ -142,12 +142,32 @@ html, body {
 	100% { background-position: 0% 50%; }
 }
 
+@keyframes slide-in-left {
+	from { opacity: 0; transform: translateX(-20px); }
+	to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes bounce-in {
+	0% { opacity: 0; transform: scale(0.3); }
+	50% { transform: scale(1.05); }
+	70% { transform: scale(0.9); }
+	100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes count-up {
+	from { opacity: 0; transform: translateY(8px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
 .animate-fade-in { animation: fade-in 0.35s ease-out; }
 .animate-slide-up { animation: slide-up 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
 .animate-slide-down { animation: slide-down 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
 .animate-slide-in-right { animation: slide-in-right 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
 .animate-scale-in { animation: scale-in 0.35s cubic-bezier(0.22, 1, 0.36, 1); }
 .animate-modal-in { animation: modal-in 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
+.animate-slide-in-left { animation: slide-in-left 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
+.animate-bounce-in { animation: bounce-in 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
+.animate-count-up { animation: count-up 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
 .animate-float { animation: float 3s ease-in-out infinite; }
 .animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
 
@@ -443,6 +463,53 @@ tr.hover-row:hover {
 	@apply mb-6 flex items-center justify-center rounded-[28px] bg-bg-elevated;
 	width: 5rem;
 	height: 5rem;
+}
+
+/* ─── Select none for labels ──────────────────────────── */
+
+.select-none-children * {
+	user-select: none;
+}
+
+/* ─── Smooth number transitions ───────────────────────── */
+
+.number-animate {
+	display: inline-block;
+	animation: count-up 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ─── Enhanced hover lift ─────────────────────────────── */
+
+.hover-lift {
+	transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.hover-lift:hover {
+	transform: translateY(-3px);
+	box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+/* ─── Frosted input ───────────────────────────────────── */
+
+.input-frosted {
+	background: rgba(28, 28, 30, 0.5);
+	backdrop-filter: blur(12px);
+	-webkit-backdrop-filter: blur(12px);
+	border: 1px solid rgba(84, 84, 88, 0.25);
+	border-radius: 14px;
+	padding: 0.75rem 1rem;
+	font-size: 0.875rem;
+	color: var(--color-text-primary);
+	outline: none;
+	transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.input-frosted:focus {
+	border-color: var(--color-accent);
+	box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.12);
+}
+
+.input-frosted::placeholder {
+	color: var(--color-text-muted);
 }
 
 /* ─── Print styles ─────────────────────────────────────── */
