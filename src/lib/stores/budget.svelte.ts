@@ -232,6 +232,32 @@ class BudgetStore {
 	totalPlanned = $derived(this.budgetLines.reduce((s, l) => s + l.planned_amount, 0));
 
 	totalActual = $derived(this.budgetLines.reduce((s, l) => s + l.actual_amount, 0));
+
+	// Previous month comparison data
+	prevMonthActuals = $state<Map<number, number>>(new Map());
+
+	async loadPrevMonthComparison() {
+		let prevMonth = this.month - 1;
+		let prevYear = this.year;
+		if (prevMonth === 0) { prevMonth = 12; prevYear--; }
+
+		const startDate = `${prevYear}-${String(prevMonth).padStart(2, '0')}-01`;
+		const endDate = `${this.year}-${String(this.month).padStart(2, '0')}-01`;
+
+		const actuals = await query<{ series_id: number; total: number }>(
+			`SELECT series_id, SUM(amount) as total
+			 FROM transactions
+			 WHERE date >= $1 AND date < $2 AND series_id IS NOT NULL
+			 GROUP BY series_id`,
+			[startDate, endDate]
+		);
+
+		this.prevMonthActuals = new Map(actuals.map(a => [a.series_id, a.total]));
+	}
+
+	getPrevMonthActual(seriesId: number): number {
+		return this.prevMonthActuals.get(seriesId) ?? 0;
+	}
 }
 
 export const budgetStore = new BudgetStore();
