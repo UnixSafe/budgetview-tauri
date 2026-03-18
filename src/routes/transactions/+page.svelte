@@ -11,6 +11,7 @@
 	import ErrorBanner from '$lib/components/ErrorBanner.svelte';
 	import SplitModal from '$lib/components/SplitModal.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { query } from '$lib/stores/db';
 
 	let showForm = $state(false);
 	let editingId = $state<number | null>(null);
@@ -24,6 +25,31 @@
 	let categorizingId = $state<number | null>(null);
 	let splittingTx = $state<Transaction | null>(null);
 	let similarPrompt = $state<{ txId: number; seriesId: number; subSeriesId: number | null; count: number } | null>(null);
+
+	// Autocomplete
+	let suggestions = $state<string[]>([]);
+	let showSuggestions = $state(false);
+	let autocompleteTimeout: ReturnType<typeof setTimeout> | null = null;
+
+	function handleSearchInput() {
+		if (autocompleteTimeout) clearTimeout(autocompleteTimeout);
+		const val = transactionStore.search.trim();
+		if (val.length < 2) { suggestions = []; showSuggestions = false; return; }
+		autocompleteTimeout = setTimeout(async () => {
+			const results = await query<{ label: string }>(
+				`SELECT DISTINCT label FROM transactions WHERE label LIKE $1 ORDER BY label LIMIT 8`,
+				[`%${val}%`]
+			);
+			suggestions = results.map(r => r.label);
+			showSuggestions = suggestions.length > 0;
+		}, 200);
+	}
+
+	function selectSuggestion(label: string) {
+		transactionStore.search = label;
+		showSuggestions = false;
+		handleSearch();
+	}
 
 	onMount(async () => {
 		await Promise.all([
@@ -200,10 +226,25 @@
 			<Search size={15} class="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
 			<input
 				bind:value={transactionStore.search}
-				onkeydown={(e) => e.key === 'Enter' && handleSearch()}
+				oninput={handleSearchInput}
+				onkeydown={(e) => { if (e.key === 'Enter') { showSuggestions = false; handleSearch(); } }}
+				onfocus={handleSearchInput}
+				onblur={() => setTimeout(() => (showSuggestions = false), 200)}
 				placeholder="Rechercher une transaction..."
 				class="w-full rounded-xl border border-border bg-bg-card/60 py-2.5 pl-10 pr-4 text-[13px] text-text-primary outline-none focus-ring placeholder:text-text-muted"
 			/>
+			{#if showSuggestions && suggestions.length > 0}
+				<div class="absolute left-0 top-full z-20 mt-1 w-full glass-card shadow-2xl animate-scale-in p-1 max-h-48 overflow-y-auto">
+					{#each suggestions as suggestion}
+						<button
+							onmousedown={() => selectSuggestion(suggestion)}
+							class="w-full rounded-lg px-3 py-2 text-left text-[13px] text-text-primary hover:bg-bg-hover transition-smooth truncate"
+						>
+							{suggestion}
+						</button>
+					{/each}
+				</div>
+			{/if}
 		</div>
 		<select
 			bind:value={transactionStore.filterAccountId}
