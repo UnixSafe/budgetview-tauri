@@ -50,5 +50,11 @@ pub fn get_migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/008_reconciliation_and_groups.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 9,
+            description: "notes",
+            sql: include_str!("../migrations/009_notes.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }

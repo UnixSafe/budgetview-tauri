@@ -21,7 +21,6 @@
 	let saving = $state(false);
 	let loadingExisting = $state(true);
 
-	// Amount is stored in cents, could be negative (expense) or positive (income)
 	let isExpense = transaction.amount < 0;
 	let totalCents = Math.abs(transaction.amount);
 	let totalEuros = toEuros(totalCents);
@@ -63,7 +62,7 @@
 	}
 
 	async function handleRemoveSplits() {
-		if (!confirm('Supprimer la ventilation de cette transaction ?')) return;
+		if (!confirm('Supprimer la ventilation ?')) return;
 		try {
 			await splitStore.remove(transaction.id);
 			toastStore.success('Ventilation supprimée');
@@ -77,7 +76,6 @@
 		if (e.key === 'Escape') onclose();
 	}
 
-	// Load existing splits on mount (properly awaited)
 	onMount(async () => {
 		await splitStore.load(transaction.id);
 		if (splitStore.splits.length > 0) {
@@ -94,96 +92,79 @@
 
 <svelte:window on:keydown={handleKeydown} />
 
-<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" role="dialog" aria-label="Ventiler la transaction">
+<div class="fixed inset-0 z-50 flex items-center justify-center modal-overlay animate-fade-in" role="dialog" aria-label="Ventiler la transaction">
 	<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 	<div class="absolute inset-0" onclick={onclose}></div>
-	<div class="relative w-full max-w-lg rounded-xl border border-border bg-bg-secondary p-6 shadow-xl">
-		<div class="mb-4 flex items-center justify-between">
-			<h2 class="text-lg font-semibold text-text-primary">Ventiler la transaction</h2>
-			<button onclick={onclose} class="text-text-muted hover:text-text-primary" aria-label="Fermer">
-				<X size={20} />
+	<div class="relative w-full max-w-lg glass-card p-7 shadow-2xl animate-modal-in mx-4">
+		<div class="mb-6 flex items-center justify-between">
+			<h2 class="text-xl font-bold tracking-tight text-text-primary">Ventiler la transaction</h2>
+			<button onclick={onclose} class="rounded-xl p-2 text-text-muted hover:text-text-primary hover:bg-bg-hover transition-smooth" aria-label="Fermer">
+				<X size={18} />
 			</button>
 		</div>
 
 		<!-- Transaction info -->
-		<div class="mb-4 rounded-lg border border-border bg-bg-primary p-3">
-			<p class="text-sm font-medium text-text-primary">{transaction.label}</p>
-			<p class="text-sm font-semibold {transaction.amount >= 0 ? 'text-income' : 'text-expense'}">
+		<div class="mb-6 rounded-2xl bg-bg-primary/40 p-4">
+			<p class="text-[14px] font-medium text-text-primary">{transaction.label}</p>
+			<p class="mt-1 text-lg font-bold tabular-nums {transaction.amount >= 0 ? 'text-income' : 'text-expense'}">
 				{formatCurrency(transaction.amount)}
 			</p>
 		</div>
 
 		{#if loadingExisting}
-			<p class="mb-4 text-sm text-text-muted">Chargement...</p>
+			<div class="flex items-center gap-3 py-8 justify-center">
+				<div class="h-5 w-5 animate-spin rounded-full border-2 border-accent/20 border-t-accent"></div>
+				<span class="text-[13px] text-text-muted">Chargement...</span>
+			</div>
 		{:else}
 			<!-- Split lines -->
-			<div class="mb-4 space-y-3 max-h-64 overflow-y-auto">
+			<div class="mb-5 space-y-4 max-h-64 overflow-y-auto scrollbar-hide">
 				{#each lines as line, i}
-					<div class="flex items-start gap-2">
-						<div class="flex-1 grid grid-cols-[1fr_1.5fr] gap-2">
-							<div>
-								<label for="split-amount-{i}" class="mb-1 block text-xs text-text-muted">Montant</label>
-								<input
-									id="split-amount-{i}"
-									type="number"
-									step="0.01"
-									min="0.01"
-									bind:value={line.amount}
-									class="w-full rounded-lg border border-border bg-bg-primary px-2 py-1.5 text-sm text-text-primary outline-none focus:border-accent"
-								/>
+					<div class="rounded-xl bg-bg-primary/30 p-4">
+						<div class="flex items-start gap-3">
+							<div class="flex-1 grid grid-cols-[1fr_1.5fr] gap-3">
+								<div>
+									<label for="split-amount-{i}" class="mb-1 block text-[11px] font-semibold text-text-muted uppercase tracking-wider">Montant</label>
+									<input id="split-amount-{i}" type="number" step="0.01" min="0.01" bind:value={line.amount}
+										class="w-full rounded-xl border border-border bg-bg-primary/60 px-3 py-2.5 text-[14px] text-text-primary outline-none focus-ring" />
+								</div>
+								<div>
+									<label for="split-series-{i}" class="mb-1 block text-[11px] font-semibold text-text-muted uppercase tracking-wider">Catégorie</label>
+									<select id="split-series-{i}" bind:value={line.seriesId}
+										class="w-full rounded-xl border border-border bg-bg-primary/60 px-3 py-2.5 text-[14px] text-text-primary outline-none focus-ring">
+										<option value={0}>Choisir...</option>
+										{#each budgetStore.series as series}
+											<option value={series.id}>{series.name}</option>
+										{/each}
+									</select>
+								</div>
 							</div>
-							<div>
-								<label for="split-series-{i}" class="mb-1 block text-xs text-text-muted">Catégorie</label>
-								<select
-									id="split-series-{i}"
-									bind:value={line.seriesId}
-									class="w-full rounded-lg border border-border bg-bg-primary px-2 py-1.5 text-sm text-text-primary outline-none focus:border-accent"
-								>
-									<option value={0}>Choisir...</option>
-									{#each budgetStore.series as series}
-										<option value={series.id}>{series.name}</option>
-									{/each}
-								</select>
+							<div class="pt-6">
+								<button onclick={() => removeLine(i)} disabled={lines.length <= 1}
+									class="rounded-xl p-2 text-text-muted hover:text-danger hover:bg-danger/10 transition-smooth disabled:opacity-20"
+									aria-label="Supprimer la ligne {i + 1}">
+									<Trash2 size={14} />
+								</button>
 							</div>
 						</div>
-						<div class="flex-shrink-0 pt-5">
-							<button
-								onclick={() => removeLine(i)}
-								disabled={lines.length <= 1}
-								class="rounded p-1 text-text-muted hover:text-danger disabled:opacity-30"
-								aria-label="Supprimer la ligne {i + 1}"
-							>
-								<Trash2 size={14} />
-							</button>
+						<div class="mt-2">
+							<label for="split-note-{i}" class="sr-only">Note</label>
+							<input id="split-note-{i}" placeholder="Note (optionnel)" bind:value={line.note}
+								class="w-full rounded-lg border border-border-light bg-bg-primary/40 px-3 py-2 text-[12px] text-text-secondary outline-none focus-ring placeholder:text-text-muted" />
 						</div>
-					</div>
-					<div class="pl-0">
-						<label for="split-note-{i}" class="sr-only">Note pour la ligne {i + 1}</label>
-						<input
-							id="split-note-{i}"
-							placeholder="Note (optionnel)"
-							bind:value={line.note}
-							class="w-full rounded-lg border border-border bg-bg-primary px-2 py-1 text-xs text-text-secondary outline-none focus:border-accent"
-						/>
 					</div>
 				{/each}
 			</div>
 
-			<!-- Add line button -->
-			<button
-				onclick={addLine}
-				class="mb-4 flex items-center gap-1 text-sm text-accent hover:text-accent-hover"
-			>
-				<Plus size={14} />
-				Ajouter une ligne
+			<button onclick={addLine}
+				class="mb-5 flex items-center gap-1.5 text-[13px] font-medium text-accent hover:text-accent-hover transition-smooth">
+				<Plus size={14} />Ajouter une ligne
 			</button>
 
-			<!-- Remaining display -->
-			<div class="mb-4 flex items-center justify-between rounded-lg border border-border bg-bg-primary px-3 py-2">
-				<span class="text-sm text-text-secondary">Reste à ventiler</span>
-				<span
-					class="text-sm font-semibold {remainingCents === 0 ? 'text-income' : remainingCents < 0 ? 'text-expense' : 'text-text-primary'}"
-				>
+			<!-- Remaining -->
+			<div class="mb-5 flex items-center justify-between rounded-2xl bg-bg-primary/40 px-5 py-3">
+				<span class="text-[13px] text-text-secondary">Reste à ventiler</span>
+				<span class="text-[14px] font-bold tabular-nums {remainingCents === 0 ? 'text-income' : remainingCents < 0 ? 'text-expense' : 'text-text-primary'}">
 					{formatCurrency(remainingCents)}
 				</span>
 			</div>
@@ -192,26 +173,18 @@
 			<div class="flex items-center justify-between">
 				<div>
 					{#if splitStore.splits.length > 0}
-						<button
-							onclick={handleRemoveSplits}
-							class="text-sm text-danger hover:underline"
-						>
+						<button onclick={handleRemoveSplits}
+							class="text-[13px] font-medium text-danger hover:text-danger/80 transition-smooth">
 							Supprimer la ventilation
 						</button>
 					{/if}
 				</div>
 				<div class="flex gap-3">
-					<button
-						onclick={onclose}
-						class="rounded-lg px-4 py-2 text-sm text-text-secondary hover:text-text-primary"
-					>
+					<button onclick={onclose} class="rounded-xl px-5 py-2.5 text-[13px] font-medium text-text-secondary hover:text-text-primary transition-smooth">
 						Annuler
 					</button>
-					<button
-						onclick={handleSave}
-						disabled={!isValid || saving}
-						class="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50"
-					>
+					<button onclick={handleSave} disabled={!isValid || saving}
+						class="rounded-xl bg-accent px-6 py-2.5 text-[13px] font-semibold text-white transition-smooth btn-press hover:bg-accent-hover shadow-lg shadow-accent/20 disabled:opacity-40">
 						{saving ? 'Enregistrement...' : 'Sauvegarder'}
 					</button>
 				</div>
