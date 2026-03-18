@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Plus, Upload, Search, X, Pencil, Trash2, Tag, Scissors } from 'lucide-svelte';
+	import { Plus, Upload, Search, X, Pencil, Trash2, Tag, Scissors, Calendar, CheckCircle2, Circle } from 'lucide-svelte';
 	import { transactionStore } from '$lib/stores/transactions.svelte';
 	import { accountStore } from '$lib/stores/accounts.svelte';
 	import { budgetStore } from '$lib/stores/budget.svelte';
@@ -21,13 +21,8 @@
 	let formNote = $state('');
 	let formSeriesId = $state<number | string>('');
 
-	// Categorization popover
 	let categorizingId = $state<number | null>(null);
-
-	// Split modal
 	let splittingTx = $state<Transaction | null>(null);
-
-	// "Apply to similar" prompt
 	let similarPrompt = $state<{ txId: number; seriesId: number; subSeriesId: number | null; count: number } | null>(null);
 
 	onMount(async () => {
@@ -119,28 +114,51 @@
 		transactionStore.load();
 	}
 
+	async function toggleReconciled(tx: Transaction) {
+		const newValue = tx.is_reconciled ? 0 : 1;
+		await transactionStore.update(tx.id, { is_reconciled: newValue });
+		tx.is_reconciled = !!newValue;
+		toastStore.success(newValue ? 'Transaction pointée' : 'Pointage annulé');
+	}
+
+	let filterReconciled = $state<'' | 'yes' | 'no'>('');
+
+	let filteredTransactions = $derived.by(() => {
+		let txs = transactionStore.transactions;
+		if (filterReconciled === 'yes') txs = txs.filter(t => t.is_reconciled);
+		if (filterReconciled === 'no') txs = txs.filter(t => !t.is_reconciled);
+		return txs;
+	});
+
+	function formatDateShort(dateStr: string) {
+		const d = new Date(dateStr);
+		return new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short' }).format(d);
+	}
 </script>
 
 <svelte:head>
 	<title>Transactions — BudgetView</title>
 </svelte:head>
 
-<div class="space-y-4">
+<div class="space-y-6">
 	<div class="flex items-center justify-between">
-		<h1 class="text-2xl font-bold text-text-primary">Transactions</h1>
+		<div>
+			<h1 class="text-3xl font-bold tracking-tight text-text-primary">Transactions</h1>
+			<p class="mt-1 text-sm text-text-muted">{filteredTransactions.length} opérations</p>
+		</div>
 		<div class="flex gap-2">
 			<a
 				href="/import"
-				class="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
+				class="flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-[13px] font-medium text-text-secondary transition-smooth btn-press hover:bg-bg-hover hover:text-text-primary"
 			>
-				<Upload size={16} />
+				<Upload size={15} />
 				Importer
 			</a>
 			<button
 				onclick={openCreate}
-				class="flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
+				class="flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-[13px] font-semibold text-white transition-smooth btn-press hover:bg-accent-hover shadow-lg shadow-accent/20"
 			>
-				<Plus size={16} />
+				<Plus size={15} strokeWidth={2.5} />
 				Ajouter
 			</button>
 		</div>
@@ -151,23 +169,22 @@
 	{/if}
 
 	{#if similarPrompt}
-		<div class="flex items-center justify-between rounded-xl border border-accent/30 bg-accent/5 p-4">
-			<p class="text-sm text-text-primary">
-				<strong>{similarPrompt.count}</strong> autre{similarPrompt.count > 1 ? 's' : ''} transaction{similarPrompt.count > 1 ? 's' : ''} similaire{similarPrompt.count > 1 ? 's' : ''} non catégorisée{similarPrompt.count > 1 ? 's' : ''}.
-				Appliquer la même catégorie ?
+		<div class="flex items-center justify-between glass-card p-5 border-accent/20 animate-slide-up">
+			<p class="text-[13px] text-text-primary">
+				<strong class="text-accent">{similarPrompt.count}</strong> transaction{similarPrompt.count > 1 ? 's' : ''} similaire{similarPrompt.count > 1 ? 's' : ''} non catégorisée{similarPrompt.count > 1 ? 's' : ''}.
 			</p>
 			<div class="flex gap-2">
 				<button
 					onclick={handleApplyToSimilar}
-					class="rounded-lg bg-accent px-4 py-1.5 text-sm font-medium text-white hover:bg-accent-hover"
+					class="rounded-xl bg-accent px-4 py-2 text-[13px] font-semibold text-white transition-smooth btn-press hover:bg-accent-hover"
 				>
 					Appliquer
 				</button>
 				<button
 					onclick={dismissSimilarPrompt}
-					class="rounded-lg border border-border px-4 py-1.5 text-sm text-text-secondary hover:text-text-primary"
+					class="rounded-xl border border-border px-4 py-2 text-[13px] text-text-secondary transition-smooth hover:text-text-primary"
 				>
-					Non merci
+					Ignorer
 				</button>
 			</div>
 		</div>
@@ -177,21 +194,21 @@
 		<LoadingSpinner message="Chargement des transactions..." />
 	{:else}
 
-	<!-- Filtres -->
+	<!-- Filters -->
 	<div class="flex flex-wrap items-center gap-3">
-		<div class="relative flex-1">
-			<Search size={16} class="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+		<div class="relative flex-1 min-w-[200px]">
+			<Search size={15} class="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
 			<input
 				bind:value={transactionStore.search}
 				onkeydown={(e) => e.key === 'Enter' && handleSearch()}
-				placeholder="Rechercher..."
-				class="w-full rounded-lg border border-border bg-bg-card py-2 pl-9 pr-3 text-sm text-text-primary outline-none focus:border-accent"
+				placeholder="Rechercher une transaction..."
+				class="w-full rounded-xl border border-border bg-bg-card/60 py-2.5 pl-10 pr-4 text-[13px] text-text-primary outline-none focus-ring placeholder:text-text-muted"
 			/>
 		</div>
 		<select
 			bind:value={transactionStore.filterAccountId}
 			onchange={handleSearch}
-			class="rounded-lg border border-border bg-bg-card px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
+			class="rounded-xl border border-border bg-bg-card/60 px-4 py-2.5 text-[13px] text-text-primary outline-none focus-ring"
 		>
 			<option value="">Tous les comptes</option>
 			{#each accountStore.accounts as account}
@@ -201,199 +218,223 @@
 		<select
 			bind:value={transactionStore.filterSeriesId}
 			onchange={handleSearch}
-			class="rounded-lg border border-border bg-bg-card px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
+			class="rounded-xl border border-border bg-bg-card/60 px-4 py-2.5 text-[13px] text-text-primary outline-none focus-ring"
 		>
-			<option value="">Toutes les catégories</option>
+			<option value="">Toutes catégories</option>
 			{#each budgetStore.series as series}
 				<option value={series.id}>{series.name}</option>
 			{/each}
 		</select>
-		{#if transactionStore.search || transactionStore.filterAccountId || transactionStore.filterSeriesId}
-			<button onclick={clearFilters} class="text-sm text-text-muted hover:text-text-primary">
-				Effacer les filtres
+		<select
+			bind:value={filterReconciled}
+			class="rounded-xl border border-border bg-bg-card/60 px-4 py-2.5 text-[13px] text-text-primary outline-none focus-ring"
+		>
+			<option value="">Pointage</option>
+			<option value="yes">Pointées</option>
+			<option value="no">Non pointées</option>
+		</select>
+		{#if transactionStore.search || transactionStore.filterAccountId || transactionStore.filterSeriesId || filterReconciled}
+			<button onclick={() => { clearFilters(); filterReconciled = ''; }} class="text-[12px] font-medium text-accent hover:text-accent-hover transition-smooth">
+				Effacer
 			</button>
 		{/if}
 	</div>
 
-	<!-- Liste -->
-	{#if transactionStore.transactions.length === 0 && !transactionStore.loading}
-		<div class="flex flex-col items-center justify-center rounded-xl border border-border bg-bg-card p-12">
-			<Upload size={48} class="mb-4 text-text-muted" />
-			<p class="text-lg font-medium text-text-secondary">Aucune transaction</p>
-			<p class="text-sm text-text-muted">Ajoutez une transaction ou importez un fichier bancaire</p>
+	<!-- Transaction list -->
+	{#if filteredTransactions.length === 0 && !transactionStore.loading}
+		<div class="flex flex-col items-center justify-center glass-card p-16">
+			<div class="mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-bg-elevated">
+				<Upload size={32} class="text-text-muted" strokeWidth={1.5} />
+			</div>
+			<p class="text-xl font-semibold text-text-primary">Aucune transaction</p>
+			<p class="mt-1 text-sm text-text-muted">Ajoutez une transaction ou importez un fichier bancaire</p>
 		</div>
 	{:else}
-		<div class="overflow-hidden rounded-xl border border-border">
-			<table class="w-full">
-				<thead>
-					<tr class="border-b border-border bg-bg-secondary text-left text-sm text-text-secondary">
-						<th class="px-4 py-3 font-medium">Date</th>
-						<th class="px-4 py-3 font-medium">Libellé</th>
-						<th class="px-4 py-3 font-medium">Compte</th>
-						<th class="px-4 py-3 font-medium">Catégorie</th>
-						<th class="px-4 py-3 text-right font-medium">Montant</th>
-						<th class="px-4 py-3 w-20"></th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each transactionStore.transactions as tx (tx.id)}
-						<tr class="border-b border-border transition-colors hover:bg-bg-hover">
-							<td class="px-4 py-3 text-sm text-text-secondary">{formatDate(tx.date)}</td>
-							<td class="px-4 py-3">
-								<p class="text-sm font-medium text-text-primary">
-									{tx.label}
-									{#if splitStore.hasSplits(tx.id)}
-										<span class="ml-1 inline-flex items-center gap-0.5 rounded bg-purple-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-purple-400" title="Transaction ventilée">
-											<Scissors size={10} />Ventilé
-										</span>
-									{/if}
-								</p>
-								{#if tx.note}
-									<p class="text-xs text-text-muted">{tx.note}</p>
-								{/if}
-							</td>
-							<td class="px-4 py-3 text-sm text-text-secondary">{tx.account_name ?? ''}</td>
-							<td class="px-4 py-3">
-								<div class="relative">
+		<div class="glass-card overflow-hidden">
+			<!-- Desktop table -->
+			<div class="hidden md:block">
+				<table class="w-full">
+					<thead>
+						<tr class="border-b border-border-light text-left text-[12px] font-semibold text-text-muted uppercase tracking-wider">
+							<th class="px-3 py-3.5 w-10"></th>
+							<th class="px-5 py-3.5">Date</th>
+							<th class="px-5 py-3.5">Libellé</th>
+							<th class="px-5 py-3.5">Compte</th>
+							<th class="px-5 py-3.5">Catégorie</th>
+							<th class="px-5 py-3.5 text-right">Montant</th>
+							<th class="px-5 py-3.5 w-20"></th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each filteredTransactions as tx (tx.id)}
+							<tr class="border-b border-border-light/50 hover-row">
+								<td class="px-3 py-3.5">
 									<button
-										onclick={() => (categorizingId = categorizingId === tx.id ? null : tx.id)}
-										class="flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors
-											{tx.series_name
-											? 'bg-accent/10 text-accent'
-											: 'bg-bg-hover text-text-muted hover:text-text-primary'}"
+										onclick={() => toggleReconciled(tx)}
+										class="rounded-lg p-1 transition-smooth {tx.is_reconciled ? 'text-income' : 'text-text-muted/40 hover:text-text-muted'}"
+										title={tx.is_reconciled ? 'Pointée — cliquer pour annuler' : 'Non pointée — cliquer pour pointer'}
+										aria-label={tx.is_reconciled ? 'Annuler le pointage' : 'Pointer la transaction'}
 									>
-										<Tag size={12} />
-										{tx.series_name ?? 'Non catégorisée'}{#if tx.sub_series_name} › {tx.sub_series_name}{/if}
-										{#if tx.is_auto_categorized}
-											<span class="ml-1 rounded bg-accent/20 px-1 py-0.5 text-[10px] font-semibold text-accent">Auto</span>
+										{#if tx.is_reconciled}
+											<CheckCircle2 size={16} strokeWidth={2.2} />
+										{:else}
+											<Circle size={16} />
 										{/if}
 									</button>
-									{#if categorizingId === tx.id}
-										<div class="absolute left-0 top-full z-10 mt-1 max-h-64 w-64 overflow-y-auto rounded-lg border border-border bg-bg-secondary shadow-xl">
-											<button
-												onclick={() => handleCategorize(tx.id, null)}
-												class="w-full px-3 py-2 text-left text-sm text-text-muted hover:bg-bg-hover"
-											>
-												Aucune catégorie
-											</button>
-											{#each budgetStore.series as series}
-												<button
-													onclick={() => handleCategorize(tx.id, series.id)}
-													class="w-full px-3 py-2 text-left text-sm font-medium text-text-primary hover:bg-bg-hover"
-												>
-													{series.name}
-												</button>
-												{#each budgetStore.getSubSeries(series.id) as sub}
-													<button
-														onclick={() => handleCategorize(tx.id, series.id, sub.id)}
-														class="w-full py-1.5 pl-6 pr-3 text-left text-sm text-text-secondary hover:bg-bg-hover"
-													>
-														{sub.name}
-													</button>
-												{/each}
-											{/each}
-										</div>
+								</td>
+								<td class="px-5 py-3.5 text-[13px] text-text-muted tabular-nums">{formatDate(tx.date)}</td>
+								<td class="px-5 py-3.5">
+									<p class="text-[13px] font-medium text-text-primary">
+										{tx.label}
+										{#if splitStore.hasSplits(tx.id)}
+											<span class="badge bg-purple/10 text-purple ml-1.5">
+												<Scissors size={9} />Ventilé
+											</span>
+										{/if}
+									</p>
+									{#if tx.note}
+										<p class="text-[11px] text-text-muted mt-0.5">{tx.note}</p>
 									{/if}
-								</div>
-							</td>
-							<td class="px-4 py-3 text-right text-sm font-medium {tx.amount >= 0 ? 'text-income' : 'text-expense'}">
-								{formatCurrency(tx.amount)}
-							</td>
-							<td class="px-4 py-3">
-								<div class="flex gap-1">
-									<button onclick={() => (splittingTx = tx)} class="rounded p-1 text-text-muted hover:text-accent" title="Ventiler" aria-label="Ventiler la transaction {tx.label}">
-										<Scissors size={14} />
-									</button>
-									<button onclick={() => openEdit(tx)} class="rounded p-1 text-text-muted hover:text-text-primary">
-										<Pencil size={14} />
-									</button>
-									<button onclick={() => { if (confirm('Supprimer cette transaction ?')) transactionStore.remove(tx.id); }} class="rounded p-1 text-text-muted hover:text-danger">
-										<Trash2 size={14} />
-									</button>
-								</div>
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
+								</td>
+								<td class="px-5 py-3.5 text-[13px] text-text-muted">{tx.account_name ?? ''}</td>
+								<td class="px-5 py-3.5">
+									<div class="relative">
+										<button
+											onclick={() => (categorizingId = categorizingId === tx.id ? null : tx.id)}
+											class="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-smooth
+												{tx.series_name
+												? 'bg-accent/10 text-accent hover:bg-accent/15'
+												: 'bg-bg-elevated text-text-muted hover:text-text-primary hover:bg-bg-hover'}"
+										>
+											<Tag size={11} />
+											{tx.series_name ?? 'Non catégorisée'}{#if tx.sub_series_name} › {tx.sub_series_name}{/if}
+											{#if tx.is_auto_categorized}
+												<span class="badge bg-accent/15 text-accent">Auto</span>
+											{/if}
+										</button>
+										{#if categorizingId === tx.id}
+											<div class="absolute left-0 top-full z-10 mt-1.5 max-h-64 w-60 overflow-y-auto glass-card shadow-2xl animate-scale-in p-1">
+												<button
+													onclick={() => handleCategorize(tx.id, null)}
+													class="w-full rounded-lg px-3 py-2 text-left text-[13px] text-text-muted hover:bg-bg-hover transition-smooth"
+												>
+													Aucune catégorie
+												</button>
+												{#each budgetStore.series as series}
+													<button
+														onclick={() => handleCategorize(tx.id, series.id)}
+														class="w-full rounded-lg px-3 py-2 text-left text-[13px] font-medium text-text-primary hover:bg-bg-hover transition-smooth"
+													>
+														{series.name}
+													</button>
+													{#each budgetStore.getSubSeries(series.id) as sub}
+														<button
+															onclick={() => handleCategorize(tx.id, series.id, sub.id)}
+															class="w-full rounded-lg py-1.5 pl-7 pr-3 text-left text-[13px] text-text-secondary hover:bg-bg-hover transition-smooth"
+														>
+															{sub.name}
+														</button>
+													{/each}
+												{/each}
+											</div>
+										{/if}
+									</div>
+								</td>
+								<td class="px-5 py-3.5 text-right text-[14px] font-semibold tabular-nums {tx.amount >= 0 ? 'text-income' : 'text-expense'}">
+									{formatCurrency(tx.amount)}
+								</td>
+								<td class="px-5 py-3.5">
+									<div class="flex gap-0.5 opacity-0 transition-smooth group-hover:opacity-100" style="opacity: 1;">
+										<button onclick={() => (splittingTx = tx)} class="rounded-lg p-1.5 text-text-muted hover:text-purple hover:bg-purple/10 transition-smooth" title="Ventiler" aria-label="Ventiler la transaction {tx.label}">
+											<Scissors size={14} />
+										</button>
+										<button onclick={() => openEdit(tx)} class="rounded-lg p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-hover transition-smooth" aria-label="Modifier">
+											<Pencil size={14} />
+										</button>
+										<button onclick={() => { if (confirm('Supprimer cette transaction ?')) transactionStore.remove(tx.id); }} class="rounded-lg p-1.5 text-text-muted hover:text-danger hover:bg-danger/10 transition-smooth" aria-label="Supprimer">
+											<Trash2 size={14} />
+										</button>
+									</div>
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+
+			<!-- Mobile list -->
+			<div class="md:hidden divide-y divide-border-light">
+				{#each filteredTransactions as tx (tx.id)}
+					<div class="flex items-center justify-between px-4 py-3.5" onclick={() => openEdit(tx)}>
+						<div class="min-w-0 flex-1">
+							<p class="text-[14px] font-medium text-text-primary truncate">{tx.label}</p>
+							<p class="text-[11px] text-text-muted mt-0.5">
+								{formatDateShort(tx.date)} · {tx.account_name ?? ''}
+								{#if tx.series_name} · {tx.series_name}{/if}
+							</p>
+						</div>
+						<span class="ml-3 text-[14px] font-semibold tabular-nums {tx.amount >= 0 ? 'text-income' : 'text-expense'}">
+							{formatCurrency(tx.amount)}
+						</span>
+					</div>
+				{/each}
+			</div>
 		</div>
 	{/if}
 
 	{/if}
 </div>
 
-<!-- Modal ajout/édition -->
+<!-- Modal add/edit -->
 {#if showForm}
-	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" role="dialog">
+	<div class="fixed inset-0 z-50 flex items-center justify-center modal-overlay animate-fade-in" role="dialog">
 		<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 		<div class="absolute inset-0" onclick={() => (showForm = false)}></div>
-		<div class="relative w-full max-w-md rounded-xl border border-border bg-bg-secondary p-6 shadow-xl">
-			<div class="mb-4 flex items-center justify-between">
-				<h2 class="text-lg font-semibold text-text-primary">
-					{editingId ? 'Modifier la transaction' : 'Nouvelle transaction'}
+		<div class="relative w-full max-w-md glass-card p-7 shadow-2xl animate-modal-in mx-4">
+			<div class="mb-6 flex items-center justify-between">
+				<h2 class="text-xl font-bold tracking-tight text-text-primary">
+					{editingId ? 'Modifier' : 'Nouvelle transaction'}
 				</h2>
-				<button onclick={() => (showForm = false)} class="text-text-muted hover:text-text-primary">
-					<X size={20} />
+				<button onclick={() => (showForm = false)} class="rounded-xl p-2 text-text-muted hover:text-text-primary hover:bg-bg-hover transition-smooth">
+					<X size={18} />
 				</button>
 			</div>
 
-			<form onsubmit={handleSubmit} class="space-y-4">
+			<form onsubmit={handleSubmit} class="space-y-5">
 				<div class="grid grid-cols-2 gap-4">
 					<div>
-						<label for="tx-date" class="mb-1 block text-sm font-medium text-text-secondary">Date *</label>
-						<input
-							id="tx-date"
-							type="date"
-							bind:value={formDate}
-							required
-							class="w-full rounded-lg border border-border bg-bg-primary px-3 py-2 text-text-primary outline-none focus:border-accent"
-						/>
+						<label for="tx-date" class="mb-1.5 block text-[13px] font-medium text-text-secondary">Date *</label>
+						<input id="tx-date" type="date" bind:value={formDate} required
+							class="w-full rounded-xl border border-border bg-bg-primary/60 px-4 py-3 text-[14px] text-text-primary outline-none focus-ring" />
 					</div>
 					<div>
-						<label for="tx-amount" class="mb-1 block text-sm font-medium text-text-secondary">Montant *</label>
-						<input
-							id="tx-amount"
-							type="number"
-							step="0.01"
-							bind:value={formAmount}
-							required
-							class="w-full rounded-lg border border-border bg-bg-primary px-3 py-2 text-text-primary outline-none focus:border-accent"
-						/>
+						<label for="tx-amount" class="mb-1.5 block text-[13px] font-medium text-text-secondary">Montant *</label>
+						<input id="tx-amount" type="number" step="0.01" bind:value={formAmount} required
+							class="w-full rounded-xl border border-border bg-bg-primary/60 px-4 py-3 text-[14px] text-text-primary outline-none focus-ring" />
 					</div>
 				</div>
 
 				<div>
-					<label for="tx-label" class="mb-1 block text-sm font-medium text-text-secondary">Libellé *</label>
-					<input
-						id="tx-label"
-						bind:value={formLabel}
-						required
-						class="w-full rounded-lg border border-border bg-bg-primary px-3 py-2 text-text-primary outline-none focus:border-accent"
-						placeholder="Courses Carrefour"
-					/>
+					<label for="tx-label" class="mb-1.5 block text-[13px] font-medium text-text-secondary">Libellé *</label>
+					<input id="tx-label" bind:value={formLabel} required
+						class="w-full rounded-xl border border-border bg-bg-primary/60 px-4 py-3 text-[14px] text-text-primary outline-none focus-ring placeholder:text-text-muted"
+						placeholder="Courses Carrefour" />
 				</div>
 
 				<div class="grid grid-cols-2 gap-4">
 					<div>
-						<label for="tx-account" class="mb-1 block text-sm font-medium text-text-secondary">Compte *</label>
-						<select
-							id="tx-account"
-							bind:value={formAccountId}
-							required
-							class="w-full rounded-lg border border-border bg-bg-primary px-3 py-2 text-text-primary outline-none focus:border-accent"
-						>
+						<label for="tx-account" class="mb-1.5 block text-[13px] font-medium text-text-secondary">Compte *</label>
+						<select id="tx-account" bind:value={formAccountId} required
+							class="w-full rounded-xl border border-border bg-bg-primary/60 px-4 py-3 text-[14px] text-text-primary outline-none focus-ring">
 							{#each accountStore.accounts as account}
 								<option value={account.id}>{account.name}</option>
 							{/each}
 						</select>
 					</div>
 					<div>
-						<label for="tx-series" class="mb-1 block text-sm font-medium text-text-secondary">Catégorie</label>
-						<select
-							id="tx-series"
-							bind:value={formSeriesId}
-							class="w-full rounded-lg border border-border bg-bg-primary px-3 py-2 text-text-primary outline-none focus:border-accent"
-						>
+						<label for="tx-series" class="mb-1.5 block text-[13px] font-medium text-text-secondary">Catégorie</label>
+						<select id="tx-series" bind:value={formSeriesId}
+							class="w-full rounded-xl border border-border bg-bg-primary/60 px-4 py-3 text-[14px] text-text-primary outline-none focus-ring">
 							<option value="">Aucune</option>
 							{#each budgetStore.series as series}
 								<option value={series.id}>{series.name}</option>
@@ -403,20 +444,17 @@
 				</div>
 
 				<div>
-					<label for="tx-note" class="mb-1 block text-sm font-medium text-text-secondary">Note</label>
-					<input
-						id="tx-note"
-						bind:value={formNote}
-						class="w-full rounded-lg border border-border bg-bg-primary px-3 py-2 text-text-primary outline-none focus:border-accent"
-						placeholder="Note optionnelle"
-					/>
+					<label for="tx-note" class="mb-1.5 block text-[13px] font-medium text-text-secondary">Note</label>
+					<input id="tx-note" bind:value={formNote}
+						class="w-full rounded-xl border border-border bg-bg-primary/60 px-4 py-3 text-[14px] text-text-primary outline-none focus-ring placeholder:text-text-muted"
+						placeholder="Note optionnelle" />
 				</div>
 
-				<div class="flex justify-end gap-3 pt-2">
-					<button type="button" onclick={() => (showForm = false)} class="rounded-lg px-4 py-2 text-sm text-text-secondary hover:text-text-primary">
+				<div class="flex justify-end gap-3 pt-3">
+					<button type="button" onclick={() => (showForm = false)} class="rounded-xl px-5 py-2.5 text-[13px] font-medium text-text-secondary hover:text-text-primary transition-smooth">
 						Annuler
 					</button>
-					<button type="submit" class="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover">
+					<button type="submit" class="rounded-xl bg-accent px-6 py-2.5 text-[13px] font-semibold text-white transition-smooth btn-press hover:bg-accent-hover shadow-lg shadow-accent/20">
 						{editingId ? 'Enregistrer' : 'Créer'}
 					</button>
 				</div>
