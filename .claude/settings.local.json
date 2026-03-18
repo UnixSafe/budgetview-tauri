@@ -1,0 +1,23 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/stop-hook.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(.claude/scripts/setup-ralph-loop.sh:*)",
+      "Bash(test -f .claude/ralph-loop.local.md:*)",
+      "Bash(rm .claude/ralph-loop.local.md)",
+      "Read(.claude/ralph-loop.local.md)"
+    ]
+  }
+}

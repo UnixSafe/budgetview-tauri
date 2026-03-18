@@ -406,7 +406,8 @@
 			<!-- Mobile list -->
 			<div class="md:hidden divide-y divide-border-light">
 				{#each filteredTransactions as tx (tx.id)}
-					<div class="flex items-center justify-between px-4 py-3.5" onclick={() => openEdit(tx)}>
+					<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+					<div class="flex items-center justify-between px-4 py-3.5" role="button" tabindex="0" onclick={() => openEdit(tx)} onkeydown={(e) => e.key === "Enter" && openEdit(tx)}>
 						<div class="min-w-0 flex-1">
 							<p class="text-[14px] font-medium text-text-primary truncate">{tx.label}</p>
 							<p class="text-[11px] text-text-muted mt-0.5">
