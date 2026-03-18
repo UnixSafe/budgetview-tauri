@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Plus, Landmark, Pencil, Trash2, X } from 'lucide-svelte';
+	import { Plus, Landmark, Pencil, Trash2, X, ArrowLeftRight } from 'lucide-svelte';
+	import MiniSparkline from '$lib/components/MiniSparkline.svelte';
 	import { accountStore } from '$lib/stores/accounts.svelte';
 	import { formatCurrency, toEuros, ACCOUNT_TYPE_LABELS } from '$lib/utils/format';
 	import { query } from '$lib/stores/db';
@@ -28,11 +29,43 @@
 	});
 
 	let monthlyFlows = $state<{ account_id: number; account_name: string; months: { label: string; net: number }[] }[]>([]);
+	let sparklineData = $state<Map<number, number[]>>(new Map());
 
 	onMount(async () => {
 		await accountStore.load();
 		await loadMonthlyFlows();
+		await loadSparklines();
 	});
+
+	async function loadSparklines() {
+		const now = new Date();
+		const data = new Map<number, number[]>();
+
+		for (const acc of accountStore.accounts) {
+			const values: number[] = [];
+			let running = acc.initial_balance;
+
+			for (let offset = -5; offset <= 0; offset++) {
+				let m = now.getMonth() + 1 + offset;
+				let y = now.getFullYear();
+				while (m <= 0) { m += 12; y--; }
+				const start = `${y}-${String(m).padStart(2, '0')}-01`;
+				const endM = m === 12 ? 1 : m + 1;
+				const endY = m === 12 ? y + 1 : y;
+				const end = `${endY}-${String(endM).padStart(2, '0')}-01`;
+
+				const result = await query<{ net: number }>(
+					'SELECT COALESCE(SUM(amount), 0) as net FROM transactions WHERE account_id = $1 AND date < $2',
+					[acc.id, end]
+				);
+				values.push(acc.initial_balance + (result[0]?.net ?? 0));
+			}
+
+			data.set(acc.id, values);
+		}
+
+		sparklineData = data;
+	}
 
 	async function loadMonthlyFlows() {
 		const now = new Date();
@@ -215,35 +248,46 @@
 		<!-- Account list -->
 		<div class="space-y-3 stagger-children">
 			{#each accountStore.accounts as account (account.id)}
-				<div class="group flex items-center justify-between glass-card p-5 transition-smooth hover:bg-bg-hover/30">
-					<div class="flex items-center gap-4">
-						<div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/10 text-xl">
-							{ACCOUNT_ICONS[account.account_type] ?? '🏦'}
+				<div class="group glass-card p-5 transition-smooth hover:bg-bg-hover/30 card-hover">
+					<div class="flex items-center justify-between">
+						<div class="flex items-center gap-4">
+							<div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/10 text-xl">
+								{ACCOUNT_ICONS[account.account_type] ?? '🏦'}
+							</div>
+							<div>
+								<p class="text-[15px] font-semibold text-text-primary">{account.name}</p>
+								<p class="text-[12px] text-text-muted">
+									{ACCOUNT_TYPE_LABELS[account.account_type]}
+									{#if account.bank_name}
+										· {account.bank_name}
+									{/if}
+									{#if account.account_number}
+										· {account.account_number}
+									{/if}
+								</p>
+							</div>
 						</div>
-						<div>
-							<p class="text-[15px] font-semibold text-text-primary">{account.name}</p>
-							<p class="text-[12px] text-text-muted">
-								{ACCOUNT_TYPE_LABELS[account.account_type]}
-								{#if account.bank_name}
-									· {account.bank_name}
-								{/if}
-								{#if account.account_number}
-									· {account.account_number}
-								{/if}
-							</p>
-						</div>
-					</div>
-					<div class="flex items-center gap-4">
-						<span class="text-lg font-bold tabular-nums {account.computed_balance >= 0 ? 'text-income' : 'text-expense'}">
-							{formatCurrency(account.computed_balance)}
-						</span>
-						<div class="flex gap-1 opacity-0 transition-smooth group-hover:opacity-100">
-							<button onclick={() => openEdit(account)} class="rounded-xl p-2 text-text-muted transition-smooth hover:bg-bg-hover hover:text-text-primary" aria-label="Modifier">
-								<Pencil size={15} />
-							</button>
-							<button onclick={() => handleDelete(account.id)} class="rounded-xl p-2 text-text-muted transition-smooth hover:bg-danger/10 hover:text-danger" aria-label="Supprimer">
-								<Trash2 size={15} />
-							</button>
+						<div class="flex items-center gap-4">
+							{#if sparklineData.has(account.id)}
+								<MiniSparkline
+									values={sparklineData.get(account.id) ?? []}
+									color={account.computed_balance >= 0 ? '#30d158' : '#ff453a'}
+								/>
+							{/if}
+							<span class="text-lg font-bold tabular-nums {account.computed_balance >= 0 ? 'text-income' : 'text-expense'}">
+								{formatCurrency(account.computed_balance)}
+							</span>
+							<div class="flex gap-1 opacity-0 transition-smooth group-hover:opacity-100">
+								<a href="/transactions" class="rounded-xl p-2 text-text-muted transition-smooth hover:bg-bg-hover hover:text-text-primary" aria-label="Transactions" title="Voir les transactions">
+									<ArrowLeftRight size={15} />
+								</a>
+								<button onclick={() => openEdit(account)} class="rounded-xl p-2 text-text-muted transition-smooth hover:bg-bg-hover hover:text-text-primary" aria-label="Modifier">
+									<Pencil size={15} />
+								</button>
+								<button onclick={() => handleDelete(account.id)} class="rounded-xl p-2 text-text-muted transition-smooth hover:bg-danger/10 hover:text-danger" aria-label="Supprimer">
+									<Trash2 size={15} />
+								</button>
+							</div>
 						</div>
 					</div>
 				</div>
