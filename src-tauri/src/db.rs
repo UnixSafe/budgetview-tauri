@@ -44,5 +44,11 @@ pub fn get_migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/007_encryption_settings.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 8,
+            description: "reconciliation_groups_carryover",
+            sql: include_str!("../migrations/008_reconciliation_and_groups.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
