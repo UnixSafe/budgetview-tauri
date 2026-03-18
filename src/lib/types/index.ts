@@ -24,6 +24,7 @@ export interface BudgetSeries {
 	day_of_month: number | null;
 	is_active: boolean;
 	description: string | null;
+	group_id: number | null;
 }
 
 export interface SubSeries {
@@ -63,6 +64,23 @@ export interface MonthlyBudget {
 	year: number;
 	month: number;
 	planned_amount: number;
+}
+
+// === Series Groups ===
+export interface SeriesGroup {
+	id: number;
+	name: string;
+	is_expanded: boolean;
+	sort_order: number;
+}
+
+// === Budget Carry-over ===
+export interface BudgetCarryOver {
+	id: number;
+	series_id: number;
+	year: number;
+	month: number;
+	carry_amount: number;
 }
 
 // === Budget view (agrégé) ===

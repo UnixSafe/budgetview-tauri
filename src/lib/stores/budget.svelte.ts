@@ -1,5 +1,5 @@
 import { query, execute } from './db';
-import type { BudgetSeries, SubSeries, MonthlyBudget, BudgetLineItem, BudgetArea } from '$lib/types';
+import type { BudgetSeries, SubSeries, MonthlyBudget, BudgetLineItem, BudgetArea, SeriesGroup, BudgetCarryOver } from '$lib/types';
 import { toCents } from '$lib/utils/format';
 
 class BudgetStore {
@@ -7,6 +7,8 @@ class BudgetStore {
 	subSeries = $state<SubSeries[]>([]);
 	monthlyBudgets = $state<MonthlyBudget[]>([]);
 	budgetLines = $state<BudgetLineItem[]>([]);
+	groups = $state<SeriesGroup[]>([]);
+	carryOvers = $state<BudgetCarryOver[]>([]);
 	loading = $state(false);
 	error = $state<string | null>(null);
 	year = $state(new Date().getFullYear());
@@ -18,6 +20,9 @@ class BudgetStore {
 		);
 		this.subSeries = await query<SubSeries>(
 			'SELECT * FROM sub_series ORDER BY name'
+		);
+		this.groups = await query<SeriesGroup>(
+			'SELECT * FROM series_groups ORDER BY sort_order, name'
 		);
 	}
 
@@ -46,6 +51,7 @@ class BudgetStore {
 		this.error = null;
 		try {
 			await this.loadSeries();
+			await this.loadCarryOvers();
 
 			// Get monthly budgets for current period
 			this.monthlyBudgets = await query<MonthlyBudget>(
@@ -97,7 +103,7 @@ class BudgetStore {
 		await this.loadBudgetView();
 	}
 
-	private static readonly ALLOWED_COLUMNS = new Set(['name', 'budget_area', 'target_amount', 'description']);
+	private static readonly ALLOWED_COLUMNS = new Set(['name', 'budget_area', 'target_amount', 'description', 'group_id']);
 
 	async updateSeries(id: number, data: Partial<{ name: string; budget_area: BudgetArea; target_amount: number | null; description: string | null }>) {
 		const fields: string[] = [];
@@ -131,6 +137,81 @@ class BudgetStore {
 			[seriesId, this.year, this.month, toCents(amount)]
 		);
 		await this.loadBudgetView();
+	}
+
+	// === Series Groups ===
+	async createGroup(name: string) {
+		await execute('INSERT INTO series_groups (name) VALUES ($1)', [name]);
+		await this.loadSeries();
+	}
+
+	async updateGroup(id: number, name: string) {
+		await execute('UPDATE series_groups SET name = $1 WHERE id = $2', [name, id]);
+		await this.loadSeries();
+	}
+
+	async removeGroup(id: number) {
+		await execute('DELETE FROM series_groups WHERE id = $1', [id]);
+		await this.loadSeries();
+	}
+
+	async toggleGroupExpanded(id: number) {
+		const group = this.groups.find(g => g.id === id);
+		if (!group) return;
+		await execute('UPDATE series_groups SET is_expanded = $1 WHERE id = $2', [group.is_expanded ? 0 : 1, id]);
+		group.is_expanded = !group.is_expanded;
+	}
+
+	async assignSeriesToGroup(seriesId: number, groupId: number | null) {
+		await execute('UPDATE budget_series SET group_id = $1 WHERE id = $2', [groupId, seriesId]);
+		await this.loadSeries();
+	}
+
+	// === Budget Carry-over ===
+	async loadCarryOvers() {
+		this.carryOvers = await query<BudgetCarryOver>(
+			'SELECT * FROM budget_carry_over WHERE year = $1 AND month = $2',
+			[this.year, this.month]
+		);
+	}
+
+	async calculateCarryOver(seriesId: number) {
+		// Previous month
+		let prevMonth = this.month - 1;
+		let prevYear = this.year;
+		if (prevMonth === 0) { prevMonth = 12; prevYear--; }
+
+		const startDate = `${prevYear}-${String(prevMonth).padStart(2, '0')}-01`;
+		const endDate = `${this.year}-${String(this.month).padStart(2, '0')}-01`;
+
+		// Get previous month planned
+		const prevBudget = await query<{ planned_amount: number }>(
+			'SELECT planned_amount FROM monthly_budget WHERE series_id = $1 AND year = $2 AND month = $3',
+			[seriesId, prevYear, prevMonth]
+		);
+		const planned = prevBudget[0]?.planned_amount ?? 0;
+
+		// Get previous month actual
+		const prevActual = await query<{ total: number }>(
+			'SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE series_id = $1 AND date >= $2 AND date < $3',
+			[seriesId, startDate, endDate]
+		);
+		const actual = prevActual[0]?.total ?? 0;
+
+		// Carry = planned - |actual| (remaining budget carries forward)
+		const carry = planned - Math.abs(actual);
+
+		await execute(
+			`INSERT INTO budget_carry_over (series_id, year, month, carry_amount)
+			 VALUES ($1, $2, $3, $4)
+			 ON CONFLICT(series_id, year, month) DO UPDATE SET carry_amount = $4`,
+			[seriesId, this.year, this.month, carry]
+		);
+		await this.loadCarryOvers();
+	}
+
+	getCarryOver(seriesId: number): number {
+		return this.carryOvers.find(c => c.series_id === seriesId)?.carry_amount ?? 0;
 	}
 
 	groupedByArea = $derived.by<Record<BudgetArea, BudgetLineItem[]>>(() => {
