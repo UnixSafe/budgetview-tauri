@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { invoke } from '@tauri-apps/api/core';
-	import { Wallet, TrendingUp, TrendingDown, ArrowLeftRight, Landmark, Tag, ChevronRight, AlertCircle, Clock } from 'lucide-svelte';
+	import { Wallet, TrendingUp, TrendingDown, ArrowLeftRight, Landmark, Tag, ChevronRight, AlertCircle, Clock, ShieldAlert } from 'lucide-svelte';
 	import { formatCurrency, ACCOUNT_TYPE_LABELS } from '$lib/utils/format';
 	import { accountStore } from '$lib/stores/accounts.svelte';
 	import { budgetStore } from '$lib/stores/budget.svelte';
@@ -221,6 +221,21 @@
 					<p class="text-[11px] text-text-muted truncate">{missingRecurrences.map(r => r.label).join(', ')}</p>
 				</div>
 				<ChevronRight size={16} class="text-text-muted/50 group-hover:text-orange transition-smooth" />
+			</a>
+		{/if}
+
+		{#if accountStore.lowBalanceAlerts.length > 0}
+			<a href="/accounts" class="group flex items-center gap-4 glass-card-sm p-4 border-l-[3px] border-l-expense transition-smooth hover:bg-bg-hover/30 btn-press">
+				<div class="flex h-10 w-10 items-center justify-center rounded-xl bg-expense/10">
+					<ShieldAlert size={18} class="text-expense" strokeWidth={1.8} />
+				</div>
+				<div class="flex-1 min-w-0">
+					<p class="text-[13px] font-semibold text-text-primary">Solde bas</p>
+					<p class="text-[11px] text-text-muted truncate">
+						{accountStore.lowBalanceAlerts.map(a => `${a.name}: ${formatCurrency(a.computed_balance)}`).join(', ')}
+					</p>
+				</div>
+				<ChevronRight size={16} class="text-text-muted/50 group-hover:text-expense transition-smooth" />
 			</a>
 		{/if}
 	</div>

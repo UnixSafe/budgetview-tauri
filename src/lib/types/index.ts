@@ -8,6 +8,8 @@ export interface Account {
 	currency: string;
 	initial_balance: number;
 	is_active: boolean;
+	low_balance_threshold: number | null;
+	low_balance_enabled: boolean;
 	created_at: string;
 }
 
