@@ -36,6 +36,10 @@ pub fn run() {
             commands::check_missing_recurrences,
             export::export_transactions_csv,
             export::export_budget_csv,
+            commands::set_app_password,
+            commands::verify_app_password,
+            commands::has_app_password,
+            commands::remove_app_password,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

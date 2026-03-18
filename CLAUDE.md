@@ -181,6 +181,28 @@ Pour comprendre la logique métier, consulte :
 5. Teste chaque fonctionnalité avant de passer à la suivante
 6. Fais des commits Git réguliers avec des messages clairs
 
+## Tests de non-régression
+
+**Obligatoire** : chaque feature implémentée DOIT avoir des tests.
+
+### Backend Rust
+- Tests unitaires dans `src-tauri/src/` avec `#[cfg(test)]` et `mod tests`
+- Tester les commandes Tauri : cas nominal + edge cases (montants négatifs, strings vides, IDs inexistants)
+- Tester les migrations : vérifier que chaque migration s'applique proprement
+- Tester l'import : OFX, QIF, CSV avec des fichiers de test dans `tests/fixtures/`
+- **Lancer `cargo test` après chaque modification backend**
+
+### Frontend TypeScript/Svelte
+- Tests unitaires avec Vitest pour les utilitaires (`src/lib/utils/`)
+- Tests des stores : vérifier les états, transitions, edge cases
+- Config Vitest dans `vite.config.ts`
+- **Lancer `npx vitest run` après chaque modification frontend**
+
+### Règles
+- Pas de commit sans que `cargo test` ET `npx vitest run` passent
+- Chaque bug fix doit ajouter un test qui reproduit le bug AVANT le fix
+- Couvrir au minimum : validation des montants, intégrité des splits, import/export, catégorisation auto
+
 ## Notes
 
 - Le projet original utilise un framework custom "globsFramework" — on n'en a pas besoin, SQLite + Svelte stores suffisent
