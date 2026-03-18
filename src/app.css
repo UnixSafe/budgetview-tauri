@@ -292,7 +292,20 @@ input::placeholder, textarea::placeholder {
 /* ─── Progress Bar ─────────────────────────────────────── */
 
 .progress-bar {
-	transition: width 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+	transition: width 0.7s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.4s ease;
+	position: relative;
+}
+
+.progress-bar::after {
+	content: '';
+	position: absolute;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	width: 30%;
+	max-width: 60px;
+	background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15));
+	border-radius: inherit;
 }
 
 /* ─── Table ────────────────────────────────────────────── */
