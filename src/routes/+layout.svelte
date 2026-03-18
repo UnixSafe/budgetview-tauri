@@ -15,7 +15,6 @@
 			const hasPassword = await invoke<boolean>('has_app_password');
 			locked = hasPassword;
 		} catch {
-			// If app_settings table doesn't exist yet, no password
 			locked = false;
 		}
 		checkingLock = false;
@@ -27,15 +26,17 @@
 
 {#if checkingLock}
 	<div class="flex h-screen items-center justify-center bg-bg-primary">
-		<div class="h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent"></div>
+		<div class="h-10 w-10 animate-spin rounded-full border-[3px] border-accent/20 border-t-accent"></div>
 	</div>
 {:else if locked}
 	<LockScreen onunlock={() => (locked = false)} />
 {:else}
-	<div class="flex h-screen overflow-hidden">
+	<div class="flex h-screen overflow-hidden bg-bg-primary">
 		<Sidebar />
-		<main class="flex-1 overflow-y-auto p-6">
-			{@render children()}
+		<main class="flex-1 overflow-y-auto pb-20 md:pb-0">
+			<div class="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-8 animate-fade-in">
+				{@render children()}
+			</div>
 		</main>
 	</div>
 {/if}
