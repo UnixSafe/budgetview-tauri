@@ -21,6 +21,7 @@ pub fn run() {
             commands::import_confirm,
             commands::import_rollback,
             commands::detect_csv_columns,
+            commands::backfill_categorization_labels,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

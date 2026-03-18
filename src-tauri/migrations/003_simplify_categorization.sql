@@ -16,3 +16,8 @@ CREATE TABLE categorization_rules (
 );
 
 CREATE INDEX IF NOT EXISTS idx_cat_rules_pattern ON categorization_rules(label_pattern);
+
+-- Backfill label_for_categorization for existing transactions with a rough UPPER value.
+-- The app refines this with proper anonymization (stripping dates/digit sequences) on startup.
+UPDATE transactions SET label_for_categorization = UPPER(COALESCE(original_label, label))
+WHERE label_for_categorization IS NULL;

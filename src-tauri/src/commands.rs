@@ -271,6 +271,43 @@ pub async fn import_confirm(
     })
 }
 
+/// Backfill label_for_categorization for existing transactions using proper anonymization.
+/// Called once on app startup to refine the rough UPPER() values set by migration 003.
+#[command]
+pub async fn backfill_categorization_labels(
+    db: tauri::State<'_, DbInstances>,
+) -> Result<usize, String> {
+    let pool = get_db_pool(&db).await?;
+
+    let rows: Vec<(i64, String, Option<String>)> = sqlx::query_as(
+        "SELECT id, label, original_label FROM transactions WHERE label_for_categorization IS NULL
+         OR label_for_categorization = UPPER(COALESCE(original_label, label))"
+    )
+    .fetch_all(&pool)
+    .await
+    .map_err(|e| format!("Erreur lecture transactions: {}", e))?;
+
+    if rows.is_empty() {
+        return Ok(0);
+    }
+
+    let mut tx = pool.begin().await.map_err(|e| format!("Erreur début transaction: {}", e))?;
+
+    for (id, label, original_label) in &rows {
+        let source = original_label.as_deref().unwrap_or(label);
+        let anon = anonymize_label(source);
+        sqlx::query("UPDATE transactions SET label_for_categorization = ? WHERE id = ?")
+            .bind(&anon)
+            .bind(id)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| format!("Erreur mise à jour transaction {}: {}", id, e))?;
+    }
+
+    tx.commit().await.map_err(|e| format!("Erreur commit: {}", e))?;
+    Ok(rows.len())
+}
+
 /// Rollback an import batch (delete all transactions from a batch)
 #[command]
 pub async fn import_rollback(
