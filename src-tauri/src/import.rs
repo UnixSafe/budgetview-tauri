@@ -537,3 +537,123 @@ pub fn read_file_with_encoding(path: &str) -> Result<String, String> {
     // Last resort: lossy UTF-8
     Ok(String::from_utf8_lossy(&bytes).into_owned())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_ofx_basic() {
+        let ofx = r#"
+<OFX>
+<BANKACCTFROM>
+<BANKID>12345
+<ACCTID>67890
+</BANKACCTFROM>
+<BANKTRANLIST>
+<STMTTRN>
+<DTPOSTED>20260315
+<TRNAMT>-50.00
+<NAME>CARREFOUR
+<FITID>TX001
+</STMTTRN>
+<STMTTRN>
+<DTPOSTED>20260316
+<TRNAMT>1500.00
+<NAME>SALAIRE MARS
+<FITID>TX002
+</STMTTRN>
+</BANKTRANLIST>
+</OFX>"#;
+        let result = parse_ofx(ofx);
+        assert!(result.is_ok());
+        let (txs, acct, bank) = result.unwrap();
+        assert_eq!(txs.len(), 2);
+        assert_eq!(acct, Some("67890".to_string()));
+        assert_eq!(bank, Some("12345".to_string()));
+        assert_eq!(txs[0].label, "CARREFOUR");
+        assert!((txs[0].amount - (-50.0)).abs() < 0.01);
+        assert_eq!(txs[0].date, "2026-03-15");
+        assert_eq!(txs[1].label, "SALAIRE MARS");
+        assert!((txs[1].amount - 1500.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_parse_ofx_empty() {
+        let ofx = "<OFX></OFX>";
+        let result = parse_ofx(ofx);
+        assert!(result.is_ok());
+        let (txs, _, _) = result.unwrap();
+        assert!(txs.is_empty());
+    }
+
+    #[test]
+    fn test_parse_qif_basic() {
+        let qif = "!Type:Bank\nD03/15/2026\nT-50.00\nPCARREFOUR\n^\nD03/16/2026\nT1500.00\nPSALAIRE\n^\n";
+        let result = parse_qif(qif);
+        assert!(result.is_ok());
+        let txs = result.unwrap();
+        assert_eq!(txs.len(), 2);
+        assert_eq!(txs[0].label, "CARREFOUR");
+        assert!((txs[0].amount - (-50.0)).abs() < 0.01);
+        assert_eq!(txs[1].label, "SALAIRE");
+        assert!((txs[1].amount - 1500.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_parse_csv_basic() {
+        let csv = "date;label;amount\n15/03/2026;CARREFOUR;-50,00\n16/03/2026;SALAIRE;1500,00\n";
+        let config = CsvConfig {
+            delimiter: ';',
+            date_column: 0,
+            label_column: 1,
+            amount_column: 2,
+            debit_column: None,
+            credit_column: None,
+            date_format: "%d/%m/%Y".to_string(),
+            skip_lines: 1,
+            decimal_separator: ',',
+        };
+        let result = parse_csv(csv, &config);
+        assert!(result.is_ok());
+        let txs = result.unwrap();
+        assert_eq!(txs.len(), 2);
+        assert_eq!(txs[0].label, "CARREFOUR");
+        assert!((txs[0].amount - (-50.0)).abs() < 0.01);
+        assert_eq!(txs[1].label, "SALAIRE");
+        assert!((txs[1].amount - 1500.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_parse_csv_debit_credit_columns() {
+        let csv = "date;label;debit;credit\n15/03/2026;CARREFOUR;50,00;\n16/03/2026;SALAIRE;;1500,00\n";
+        let config = CsvConfig {
+            delimiter: ';',
+            date_column: 0,
+            label_column: 1,
+            amount_column: 2,
+            debit_column: Some(2),
+            credit_column: Some(3),
+            date_format: "%d/%m/%Y".to_string(),
+            skip_lines: 1,
+            decimal_separator: ',',
+        };
+        let result = parse_csv(csv, &config);
+        assert!(result.is_ok());
+        let txs = result.unwrap();
+        assert_eq!(txs.len(), 2);
+        // Debit should be negative
+        assert!(txs[0].amount < 0.0);
+        // Credit should be positive
+        assert!(txs[1].amount > 0.0);
+    }
+
+    #[test]
+    fn test_csv_config_default() {
+        let config = CsvConfig::default();
+        assert_eq!(config.delimiter, ';');
+        assert_eq!(config.decimal_separator, ',');
+        assert_eq!(config.skip_lines, 0);
+        assert_eq!(config.date_format, "%d/%m/%Y");
+    }
+}
