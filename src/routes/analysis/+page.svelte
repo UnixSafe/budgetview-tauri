@@ -320,7 +320,7 @@
 			</div>
 			<div class="glass-card p-6 card-hover">
 				<div class="flex items-center gap-3 mb-3">
-					<div class="flex h-10 w-10 items-center justify-center rounded-2xl" class:bg-income/10={balance >= 0} class:bg-expense/10={balance < 0}>
+					<div class="flex h-10 w-10 items-center justify-center rounded-2xl {balance >= 0 ? 'bg-income/10' : 'bg-expense/10'}">
 						<Scale size={20} class={balance >= 0 ? 'text-income' : 'text-expense'} strokeWidth={2} />
 					</div>
 					<p class="text-caption text-text-muted uppercase tracking-wider">Balance</p>

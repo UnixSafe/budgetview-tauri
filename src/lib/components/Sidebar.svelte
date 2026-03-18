@@ -68,6 +68,21 @@
 		<div class="divider mt-4"></div>
 	</div>
 
+	<!-- Quick search hint -->
+	<div class="px-3 mb-2">
+		<button
+			onclick={() => {
+				const event = new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true });
+				window.dispatchEvent(event);
+			}}
+			class="flex w-full items-center gap-2.5 rounded-xl bg-bg-hover/50 px-3 py-2 text-[12px] text-text-muted/60 transition-smooth hover:bg-bg-hover hover:text-text-muted"
+		>
+			<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+			<span class="flex-1 text-left">Rechercher...</span>
+			<kbd class="rounded bg-bg-elevated/80 px-1.5 py-0.5 text-[9px] font-semibold text-text-muted/50">⌘K</kbd>
+		</button>
+	</div>
+
 	<!-- Main nav -->
 	<nav class="flex-1 overflow-y-auto px-3 pb-2 space-y-0.5 scrollbar-hide">
 		<p class="sidebar-section-label px-3 pt-1 pb-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted/70">
