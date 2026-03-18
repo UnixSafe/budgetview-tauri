@@ -204,8 +204,9 @@ Quand une transaction est importée, on cherche des transactions passées avec l
 
 ### Normalisation des labels (`normalizeLabel()`)
 Implémentée en **TypeScript** (`src/lib/utils/format.ts`) et **Rust** (`src-tauri/src/commands.rs`).
-Supprime : dates (DD/MM/YYYY), numéros 4+ chiffres (CB, chèques, refs), chiffres isolés 1-3.
-Exemple : `'CARREFOUR 15/03 CB1234'` → `'carrefour cb'`
+Supprime : dates (DD/MM/YYYY), mots purement numériques de 4+ chiffres (numéros de carte, chèques, refs).
+Conserve : mots mixtes alphanumériques (3SUISSES, LIDL2GO, PARIS13), petits nombres (1-3 chiffres).
+Exemple : `'CARREFOUR 15/03 CB*1234 5678'` → `'CARREFOUR CB*1234'`
 
 ### 4 niveaux de matching (du plus strict au plus lâche)
 1. Label exact + même signe + même compte

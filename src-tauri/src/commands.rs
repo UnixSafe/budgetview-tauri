@@ -400,16 +400,16 @@ async fn get_existing_transaction_data(
 }
 
 /// Anonymize a label for auto-categorization.
-/// Removes date patterns and short purely-digit words (1-3 digits, likely noise).
-/// Keeps mixed alphanumeric words (CB1234, LIDL2GO, PARIS13) and longer numbers (store codes).
+/// Removes date patterns (DD/MM, DD/MM/YYYY) and long purely-digit words (4+ digits: card/check/ref numbers).
+/// Keeps mixed alphanumeric words (3SUISSES, LIDL2GO, PARIS13) and short numbers.
 /// Must match the TypeScript anonymizeLabel() in utils/format.ts.
-/// Example: 'CARTE 17/03 CARREFOUR CB1234' → 'CARTE CARREFOUR CB1234'
+/// Example: 'CARTE 17/03 CARREFOUR CB*1234 5678' → 'CARTE CARREFOUR CB*1234'
 fn anonymize_label(label: &str) -> String {
     static RE_DATE: OnceLock<regex::Regex> = OnceLock::new();
-    static RE_SHORT_DIGITS: OnceLock<regex::Regex> = OnceLock::new();
+    static RE_LONG_DIGITS: OnceLock<regex::Regex> = OnceLock::new();
 
     let re_date = RE_DATE.get_or_init(|| regex::Regex::new(r"\d{1,2}/\d{1,2}(/\d{2,4})?").unwrap());
-    let re_short_digits = RE_SHORT_DIGITS.get_or_init(|| regex::Regex::new(r"^\d{1,3}$").unwrap());
+    let re_short_digits = RE_LONG_DIGITS.get_or_init(|| regex::Regex::new(r"^\d{4,}$").unwrap());
 
     let s = re_date.replace_all(label, "");
     s.split_whitespace()
