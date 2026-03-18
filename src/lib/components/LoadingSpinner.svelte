@@ -23,7 +23,7 @@
 	</div>
 {:else}
 	<!-- Apple-style spinner -->
-	<div class="flex flex-col items-center justify-center gap-5 py-16 animate-fade-in">
+	<div class="flex flex-col items-center justify-center gap-5 py-16 animate-fade-in" role="status" aria-live="polite">
 		<div class="relative flex items-center justify-center">
 			<!-- Outer glow ring -->
 			<div class="absolute h-14 w-14 rounded-full animate-pulse-glow"></div>

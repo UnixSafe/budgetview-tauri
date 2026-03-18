@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { invoke } from '@tauri-apps/api/core';
-	import { Wallet, TrendingUp, TrendingDown, ArrowLeftRight, Landmark, Tag, ChevronRight, AlertCircle, Clock, ShieldAlert } from 'lucide-svelte';
+	import { Wallet, TrendingUp, TrendingDown, ArrowLeftRight, Landmark, Tag, ChevronRight, AlertCircle, Clock, ShieldAlert, Sun, CloudRain, Cloud } from 'lucide-svelte';
 	import { formatCurrency, ACCOUNT_TYPE_LABELS } from '$lib/utils/format';
 	import { accountStore } from '$lib/stores/accounts.svelte';
 	import { budgetStore } from '$lib/stores/budget.svelte';
@@ -132,10 +132,45 @@
 </svelte:head>
 
 <div class="space-y-8">
-	<!-- Header -->
-	<div>
-		<h1 class="text-3xl font-bold tracking-tight text-text-primary">Bonjour</h1>
-		<p class="mt-1 text-base text-text-muted capitalize">{currentMonthLabel}</p>
+	<!-- Header with budget weather -->
+	<div class="flex items-start justify-between">
+		<div>
+			<h1 class="text-3xl font-bold tracking-tight text-text-primary">Bonjour</h1>
+			<p class="mt-1 text-base text-text-muted capitalize">{currentMonthLabel}</p>
+		</div>
+		{#if !loading && budgetStore.budgetLines.length > 0}
+			{@const expenseLines = budgetStore.budgetLines.filter((l) => l.budget_area !== 'income' && l.planned_amount !== 0)}
+			{@const totalPlanned = expenseLines.reduce((s, l) => s + Math.abs(l.planned_amount), 0)}
+			{@const totalSpent = expenseLines.reduce((s, l) => s + Math.abs(l.actual_amount), 0)}
+			{@const pct = totalPlanned === 0 ? 0 : (totalSpent / totalPlanned) * 100}
+			<div class="glass-card-sm px-4 py-3 flex items-center gap-3">
+				{#if pct <= 70}
+					<div class="flex h-10 w-10 items-center justify-center rounded-xl bg-income/10">
+						<Sun size={20} class="text-income" strokeWidth={1.8} />
+					</div>
+					<div>
+						<p class="text-[12px] font-semibold text-income">Budget au beau fixe</p>
+						<p class="text-[11px] text-text-muted">{Math.round(pct)}% utilisé</p>
+					</div>
+				{:else if pct <= 100}
+					<div class="flex h-10 w-10 items-center justify-center rounded-xl bg-warning/10">
+						<Cloud size={20} class="text-warning" strokeWidth={1.8} />
+					</div>
+					<div>
+						<p class="text-[12px] font-semibold text-warning">Vigilance budget</p>
+						<p class="text-[11px] text-text-muted">{Math.round(pct)}% utilisé</p>
+					</div>
+				{:else}
+					<div class="flex h-10 w-10 items-center justify-center rounded-xl bg-expense/10">
+						<CloudRain size={20} class="text-expense" strokeWidth={1.8} />
+					</div>
+					<div>
+						<p class="text-[12px] font-semibold text-expense">Budget dépassé</p>
+						<p class="text-[11px] text-text-muted">{Math.round(pct)}% utilisé</p>
+					</div>
+				{/if}
+			</div>
+		{/if}
 	</div>
 
 	<OnboardingGuide />
