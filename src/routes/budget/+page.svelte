@@ -208,7 +208,13 @@
 		</div>
 	{:else}
 		<!-- Summary -->
-		<div class="grid grid-cols-3 gap-3 md:gap-4 stagger-children">
+		{@const remaining = budgetStore.totalPlanned - budgetStore.totalActual}
+		{@const now = new Date()}
+		{@const daysInMonth = new Date(budgetStore.year, budgetStore.month, 0).getDate()}
+		{@const daysLeft = Math.max(daysInMonth - now.getDate() + 1, 1)}
+		{@const isCurrentMonth = budgetStore.year === now.getFullYear() && budgetStore.month === now.getMonth() + 1}
+		{@const dailyBudget = remaining / daysLeft}
+		<div class="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4 stagger-children">
 			<div class="glass-card p-5 text-center">
 				<p class="text-[11px] font-semibold text-text-muted uppercase tracking-wider">Planifié</p>
 				<p class="mt-2 text-2xl font-bold tracking-tight text-text-primary">{formatCurrency(budgetStore.totalPlanned)}</p>
@@ -219,10 +225,19 @@
 			</div>
 			<div class="glass-card p-5 text-center">
 				<p class="text-[11px] font-semibold text-text-muted uppercase tracking-wider">Reste</p>
-				<p class="mt-2 text-2xl font-bold tracking-tight {budgetStore.totalPlanned - budgetStore.totalActual >= 0 ? 'text-income' : 'text-expense'}">
-					{formatCurrency(budgetStore.totalPlanned - budgetStore.totalActual)}
+				<p class="mt-2 text-2xl font-bold tracking-tight {remaining >= 0 ? 'text-income' : 'text-expense'}">
+					{formatCurrency(remaining)}
 				</p>
 			</div>
+			{#if isCurrentMonth}
+				<div class="glass-card p-5 text-center">
+					<p class="text-[11px] font-semibold text-text-muted uppercase tracking-wider">Par jour</p>
+					<p class="mt-2 text-2xl font-bold tracking-tight {dailyBudget >= 0 ? 'text-income' : 'text-expense'}">
+						{formatCurrency(dailyBudget)}
+					</p>
+					<p class="text-[10px] text-text-muted mt-1">{daysLeft} jour{daysLeft > 1 ? 's' : ''} restant{daysLeft > 1 ? 's' : ''}</p>
+				</div>
+			{/if}
 		</div>
 
 		<!-- Groups management -->
