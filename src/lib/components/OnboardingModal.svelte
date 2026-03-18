@@ -73,6 +73,7 @@
 <div class="fixed inset-0 z-50 flex items-center justify-center modal-overlay animate-fade-in" role="dialog">
 	<div class="absolute inset-0" onclick={onclose}></div>
 	<div class="relative w-full max-w-lg glass-card p-10 shadow-2xl animate-modal-in mx-4 text-center">
+		{#if steps[step]}
 		{@const s = steps[step]}
 
 		<div class="mb-8 flex justify-center">
@@ -132,5 +133,6 @@
 		<button onclick={onclose} class="mt-4 text-[12px] text-text-muted hover:text-text-secondary transition-smooth">
 			Passer l'introduction
 		</button>
+		{/if}
 	</div>
 </div>
