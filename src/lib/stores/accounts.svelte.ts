@@ -44,7 +44,7 @@ class AccountStore {
 		return rows[0]?.id ?? 0;
 	}
 
-	private static readonly ALLOWED_COLUMNS = new Set(['name', 'account_number', 'bank_name', 'account_type', 'initial_balance']);
+	private static readonly ALLOWED_COLUMNS = new Set(['name', 'account_number', 'bank_name', 'account_type', 'initial_balance', 'low_balance_threshold', 'low_balance_enabled']);
 
 	async update(id: number, data: Partial<{ name: string; account_number: string | null; bank_name: string | null; account_type: string; initial_balance: number }>) {
 		const fields: string[] = [];
@@ -76,6 +76,23 @@ class AccountStore {
 
 	get totalBalance(): number {
 		return this.accounts.reduce((sum, a) => sum + a.computed_balance, 0);
+	}
+
+	/** Accounts with balance below threshold */
+	get lowBalanceAlerts(): AccountWithBalance[] {
+		return this.accounts.filter(a =>
+			a.low_balance_enabled &&
+			a.low_balance_threshold !== null &&
+			a.computed_balance < a.low_balance_threshold
+		);
+	}
+
+	async setThreshold(accountId: number, threshold: number | null, enabled: boolean) {
+		await execute(
+			'UPDATE accounts SET low_balance_threshold = $1, low_balance_enabled = $2 WHERE id = $3',
+			[threshold, enabled ? 1 : 0, accountId]
+		);
+		await this.load();
 	}
 }
 

@@ -56,5 +56,11 @@ pub fn get_migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/009_notes.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 10,
+            description: "account_thresholds_and_indexes",
+            sql: include_str!("../migrations/010_account_thresholds.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }

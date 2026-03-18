@@ -3,7 +3,7 @@
 	import { Plus, Landmark, Pencil, Trash2, X, ArrowLeftRight } from 'lucide-svelte';
 	import MiniSparkline from '$lib/components/MiniSparkline.svelte';
 	import { accountStore } from '$lib/stores/accounts.svelte';
-	import { formatCurrency, toEuros, ACCOUNT_TYPE_LABELS } from '$lib/utils/format';
+	import { formatCurrency, toEuros, toCents, ACCOUNT_TYPE_LABELS } from '$lib/utils/format';
 	import { query } from '$lib/stores/db';
 	import type { Account, AccountType } from '$lib/types';
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
@@ -17,6 +17,8 @@
 	let formBank = $state('');
 	let formType = $state<string>('checking');
 	let formBalance = $state(0);
+	let formThresholdEnabled = $state(false);
+	let formThreshold = $state(0);
 
 	let byType = $derived.by(() => {
 		const groups: Record<string, { count: number; total: number }> = {};
@@ -104,6 +106,8 @@
 		formBank = '';
 		formType = 'checking';
 		formBalance = 0;
+		formThresholdEnabled = false;
+		formThreshold = 0;
 		showForm = true;
 	}
 
@@ -114,6 +118,8 @@
 		formBank = account.bank_name ?? '';
 		formType = account.account_type;
 		formBalance = toEuros(account.initial_balance);
+		formThresholdEnabled = !!account.low_balance_enabled;
+		formThreshold = account.low_balance_threshold ? toEuros(account.low_balance_threshold) : 0;
 		showForm = true;
 	}
 
@@ -127,6 +133,11 @@
 				account_type: formType,
 				initial_balance: formBalance
 			});
+			await accountStore.setThreshold(
+				editingId,
+				formThresholdEnabled ? toCents(formThreshold) : null,
+				formThresholdEnabled
+			);
 			toastStore.success('Compte modifié');
 		} else {
 			await accountStore.create({
@@ -274,9 +285,14 @@
 									color={account.computed_balance >= 0 ? '#30d158' : '#ff453a'}
 								/>
 							{/if}
-							<span class="text-lg font-bold tabular-nums {account.computed_balance >= 0 ? 'text-income' : 'text-expense'}">
-								{formatCurrency(account.computed_balance)}
-							</span>
+							<div class="text-right">
+								<span class="text-lg font-bold tabular-nums {account.computed_balance >= 0 ? 'text-income' : 'text-expense'}">
+									{formatCurrency(account.computed_balance)}
+								</span>
+								{#if account.low_balance_enabled && account.low_balance_threshold !== null && account.computed_balance < account.low_balance_threshold}
+									<p class="text-[10px] font-medium text-expense mt-0.5">Sous le seuil de {formatCurrency(account.low_balance_threshold)}</p>
+								{/if}
+							</div>
 							<div class="flex gap-1 opacity-0 transition-smooth group-hover:opacity-100">
 								<a href="/transactions" class="rounded-xl p-2 text-text-muted transition-smooth hover:bg-bg-hover hover:text-text-primary" aria-label="Transactions" title="Voir les transactions">
 									<ArrowLeftRight size={15} />
@@ -367,6 +383,34 @@
 						class="w-full rounded-xl border border-border bg-bg-primary/60 px-4 py-3 text-[14px] text-text-primary outline-none focus-ring"
 					/>
 				</div>
+
+				<!-- Balance threshold alert -->
+				{#if editingId}
+					<div class="border-t border-border-light pt-4">
+						<label class="flex items-center gap-3 cursor-pointer">
+							<input
+								type="checkbox"
+								bind:checked={formThresholdEnabled}
+								class="accent-accent rounded"
+							/>
+							<span class="text-[13px] font-medium text-text-secondary">Alerte solde bas</span>
+						</label>
+						{#if formThresholdEnabled}
+							<div class="mt-3">
+								<label for="threshold" class="mb-1.5 block text-[12px] font-medium text-text-muted">Seuil d'alerte (€)</label>
+								<input
+									id="threshold"
+									type="number"
+									step="0.01"
+									bind:value={formThreshold}
+									class="w-full rounded-xl border border-border bg-bg-primary/60 px-4 py-2.5 text-[13px] text-text-primary outline-none focus-ring"
+									placeholder="500"
+								/>
+								<p class="mt-1 text-[11px] text-text-muted">Alerte sur le tableau de bord si le solde passe sous ce montant</p>
+							</div>
+						{/if}
+					</div>
+				{/if}
 
 				<div class="flex justify-end gap-3 pt-3">
 					<button type="button" onclick={() => (showForm = false)} class="rounded-xl px-5 py-2.5 text-[13px] font-medium text-text-secondary hover:text-text-primary transition-smooth">
