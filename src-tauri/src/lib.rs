@@ -40,6 +40,9 @@ pub fn run() {
             commands::verify_app_password,
             commands::has_app_password,
             commands::remove_app_password,
+            commands::backup_database,
+            commands::restore_database,
+            commands::list_backups,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

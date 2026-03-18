@@ -2,7 +2,7 @@ use chrono::Datelike;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
-use tauri::command;
+use tauri::{command, Manager};
 use tauri_plugin_sql::{DbInstances, DbPool};
 
 use crate::import::{
@@ -1178,6 +1178,105 @@ fn hash_password(password: &str, salt_hex: &str) -> String {
     let mut hash = [0u8; 32];
     pbkdf2_hmac::<Sha256>(password.as_bytes(), &salt, 100_000, &mut hash);
     hex::encode(hash)
+}
+
+// === Backup / Restore ===
+
+#[command]
+pub async fn backup_database(
+    destination_path: String,
+    app_handle: tauri::AppHandle,
+) -> Result<String, String> {
+    let app_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Cannot find app data dir: {}", e))?;
+    let db_path = app_dir.join("budgetview.db");
+
+    if !db_path.exists() {
+        return Err("Base de données introuvable".to_string());
+    }
+
+    std::fs::copy(&db_path, &destination_path)
+        .map_err(|e| format!("Erreur de copie: {}", e))?;
+
+    Ok(destination_path)
+}
+
+#[command]
+pub async fn restore_database(
+    source_path: String,
+    app_handle: tauri::AppHandle,
+) -> Result<(), String> {
+    let app_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Cannot find app data dir: {}", e))?;
+    let db_path = app_dir.join("budgetview.db");
+
+    // Verify the source file is a valid SQLite database
+    let header = std::fs::read(&source_path)
+        .map_err(|e| format!("Erreur de lecture: {}", e))?;
+    if header.len() < 16 || &header[..16] != b"SQLite format 3\0" {
+        return Err("Le fichier n'est pas une base de données SQLite valide".to_string());
+    }
+
+    // Create a backup of the current database before restoring
+    let backup_path = app_dir.join("budgetview.db.bak");
+    if db_path.exists() {
+        std::fs::copy(&db_path, &backup_path)
+            .map_err(|e| format!("Erreur de sauvegarde: {}", e))?;
+    }
+
+    std::fs::copy(&source_path, &db_path)
+        .map_err(|e| format!("Erreur de restauration: {}", e))?;
+
+    Ok(())
+}
+
+#[command]
+pub async fn list_backups(
+    directory_path: String,
+) -> Result<Vec<BackupInfo>, String> {
+    let dir = std::path::Path::new(&directory_path);
+    if !dir.exists() {
+        return Ok(vec![]);
+    }
+
+    let mut backups = Vec::new();
+    let entries = std::fs::read_dir(dir)
+        .map_err(|e| format!("Erreur de lecture: {}", e))?;
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().and_then(|e| e.to_str()) == Some("db") {
+            if let Ok(metadata) = entry.metadata() {
+                let modified = metadata.modified()
+                    .ok()
+                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                    .map(|d| d.as_secs())
+                    .unwrap_or(0);
+                let size_bytes = metadata.len();
+                backups.push(BackupInfo {
+                    path: path.to_string_lossy().to_string(),
+                    filename: path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default(),
+                    modified_timestamp: modified,
+                    size_bytes,
+                });
+            }
+        }
+    }
+
+    backups.sort_by(|a, b| b.modified_timestamp.cmp(&a.modified_timestamp));
+    Ok(backups)
+}
+
+#[derive(Debug, Serialize)]
+pub struct BackupInfo {
+    pub path: String,
+    pub filename: String,
+    pub modified_timestamp: u64,
+    pub size_bytes: u64,
 }
 
 #[cfg(test)]
