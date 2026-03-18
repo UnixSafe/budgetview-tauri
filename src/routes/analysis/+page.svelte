@@ -57,6 +57,16 @@
 				GROUP BY UPPER(label) ORDER BY total DESC LIMIT 10`, [String(year)]
 			);
 
+			// Load previous year for YoY comparison
+			const prevYearData = await query<{ income: number; expenses: number }>(
+				`SELECT
+					COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) as income,
+					COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 0) as expenses
+				FROM transactions WHERE strftime('%Y', date) = $1`, [String(year - 1)]
+			);
+			prevYearIncome = prevYearData[0]?.income ?? 0;
+			prevYearExpenses = prevYearData[0]?.expenses ?? 0;
+
 			await loadForecast();
 			renderCharts();
 		} finally { loading = false; }
@@ -228,6 +238,12 @@
 	let totalExpenses = $derived(monthlyData.reduce((s, d) => s + d.expenses, 0));
 	let balance = $derived(totalIncome - totalExpenses);
 
+	// Year-over-year comparison
+	let prevYearIncome = $state(0);
+	let prevYearExpenses = $state(0);
+	let yoyIncomeChange = $derived(prevYearIncome === 0 ? 0 : ((totalIncome - prevYearIncome) / prevYearIncome) * 100);
+	let yoyExpenseChange = $derived(prevYearExpenses === 0 ? 0 : ((totalExpenses - prevYearExpenses) / prevYearExpenses) * 100);
+
 	let categoryByArea = $derived.by(() => {
 		const groups: Record<string, { name: string; total: number }[]> = {};
 		for (const c of categoryData) {
@@ -308,6 +324,11 @@
 					<p class="text-caption text-text-muted uppercase tracking-wider">Revenus {year}</p>
 				</div>
 				<p class="text-[1.75rem] font-bold tracking-tight text-income tabular-nums">{formatCurrency(totalIncome)}</p>
+				{#if prevYearIncome > 0}
+					<p class="mt-1 text-[11px] font-medium tabular-nums {yoyIncomeChange >= 0 ? 'text-income' : 'text-expense'}">
+						{yoyIncomeChange >= 0 ? '+' : ''}{yoyIncomeChange.toFixed(0)}% vs {year - 1}
+					</p>
+				{/if}
 			</div>
 			<div class="glass-card p-6 card-hover">
 				<div class="flex items-center gap-3 mb-3">
@@ -317,6 +338,11 @@
 					<p class="text-caption text-text-muted uppercase tracking-wider">Depenses {year}</p>
 				</div>
 				<p class="text-[1.75rem] font-bold tracking-tight text-expense tabular-nums">{formatCurrency(totalExpenses)}</p>
+				{#if prevYearExpenses > 0}
+					<p class="mt-1 text-[11px] font-medium tabular-nums {yoyExpenseChange <= 0 ? 'text-income' : 'text-expense'}">
+						{yoyExpenseChange >= 0 ? '+' : ''}{yoyExpenseChange.toFixed(0)}% vs {year - 1}
+					</p>
+				{/if}
 			</div>
 			<div class="glass-card p-6 card-hover">
 				<div class="flex items-center gap-3 mb-3">
