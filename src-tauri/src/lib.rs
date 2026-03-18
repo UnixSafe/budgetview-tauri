@@ -1,5 +1,6 @@
 mod commands;
 mod db;
+mod export;
 mod import;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -33,6 +34,8 @@ pub fn run() {
             commands::update_recurring,
             commands::delete_recurring,
             commands::check_missing_recurrences,
+            export::export_transactions_csv,
+            export::export_budget_csv,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
