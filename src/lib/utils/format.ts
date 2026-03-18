@@ -65,6 +65,15 @@ export const BUDGET_AREA_LABELS: Record<string, string> = {
 	transfers: 'Virements'
 };
 
+/**
+ * Detect if a transaction label looks like a transfer between accounts.
+ * Common French patterns: VIR SEPA, VIREMENT, VIR EMIS, VIR RECU
+ */
+export function isTransferLabel(label: string): boolean {
+	const lower = label.toLowerCase();
+	return /\b(vir(ement)?(\s+(sepa|emis|recu|interne))?|transfert|mouvement\s+interne)\b/.test(lower);
+}
+
 export const BUDGET_AREA_COLORS: Record<string, string> = {
 	income: 'text-income',
 	recurring: 'text-accent',

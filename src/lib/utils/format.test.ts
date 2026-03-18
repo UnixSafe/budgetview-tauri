@@ -6,7 +6,8 @@ import {
 	formatDate,
 	formatMonth,
 	anonymizeLabel,
-	isExcludedFromAutoCategorization
+	isExcludedFromAutoCategorization,
+	isTransferLabel
 } from './format';
 
 describe('toCents', () => {
@@ -134,6 +135,25 @@ describe('anonymizeLabel edge cases', () => {
 
 	it('preserves reference codes with mixed chars', () => {
 		expect(anonymizeLabel('REF-ABC123')).toBe('REF-ABC123');
+	});
+});
+
+describe('isTransferLabel', () => {
+	it('detects VIR SEPA', () => {
+		expect(isTransferLabel('VIR SEPA EPARGNE')).toBe(true);
+		expect(isTransferLabel('VIR EMIS VERS LIVRET')).toBe(true);
+		expect(isTransferLabel('VIR RECU DE COMPTE JOINT')).toBe(true);
+	});
+
+	it('detects VIREMENT', () => {
+		expect(isTransferLabel('VIREMENT INTERNE')).toBe(true);
+		expect(isTransferLabel('Virement permanent')).toBe(true);
+	});
+
+	it('does not match normal transactions', () => {
+		expect(isTransferLabel('CARREFOUR CB')).toBe(false);
+		expect(isTransferLabel('PRLV EDF')).toBe(false);
+		expect(isTransferLabel('SALAIRE MARS')).toBe(false);
 	});
 });
 
