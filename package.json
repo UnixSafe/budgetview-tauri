@@ -22,7 +22,8 @@
 		"svelte-check": "^4.4.2",
 		"tailwindcss": "^4.2.1",
 		"typescript": "^5.9.3",
-		"vite": "^7.3.1"
+		"vite": "^7.3.1",
+		"vitest": "^4.1.0"
 	},
 	"dependencies": {
 		"@tauri-apps/api": "^2.10.1",

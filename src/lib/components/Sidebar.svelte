@@ -10,7 +10,8 @@
 		Upload,
 		Download,
 		Settings,
-		RefreshCw
+		RefreshCw,
+		Shield
 	} from 'lucide-svelte';
 
 	const navItems = [
@@ -23,7 +24,8 @@
 		{ label: 'Récurrences', href: '/recurring', icon: RefreshCw },
 		{ label: 'Analyse', href: '/analysis', icon: BarChart3 },
 		{ label: 'Projets', href: '/projects', icon: FolderKanban },
-		{ label: 'Règles auto', href: '/settings/rules', icon: Settings }
+		{ label: 'Règles auto', href: '/settings/rules', icon: Settings },
+		{ label: 'Sécurité', href: '/settings/security', icon: Shield }
 	];
 </script>
 

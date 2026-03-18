@@ -1071,6 +1071,115 @@ fn is_excluded_from_auto_categorization(label: &str) -> bool {
     re.is_match(label)
 }
 
+// === Password protection ===
+
+/// Set app password. Stores PBKDF2-HMAC-SHA256 hash in app_settings.
+#[command]
+pub async fn set_app_password(
+    password: String,
+    db: tauri::State<'_, DbInstances>,
+) -> Result<(), String> {
+    use rand::Rng;
+
+    if password.len() < 4 {
+        return Err("Le mot de passe doit contenir au moins 4 caractères".to_string());
+    }
+
+    let pool = get_db_pool(&db).await?;
+
+    // Generate random salt
+    let salt: [u8; 16] = rand::thread_rng().gen();
+    let salt_hex = hex::encode(salt);
+
+    // Hash password with PBKDF2
+    let hash = hash_password(&password, &salt_hex);
+
+    // Store hash and salt
+    let value = format!("{}:{}", salt_hex, hash);
+    sqlx::query(
+        "INSERT INTO app_settings (key, value) VALUES ('password_hash', ?)
+         ON CONFLICT(key) DO UPDATE SET value = ?, updated_at = CURRENT_TIMESTAMP"
+    )
+    .bind(&value)
+    .bind(&value)
+    .execute(&pool)
+    .await
+    .map_err(|e| format!("Erreur sauvegarde mot de passe: {}", e))?;
+
+    Ok(())
+}
+
+/// Verify the app password. Returns true if correct.
+#[command]
+pub async fn verify_app_password(
+    password: String,
+    db: tauri::State<'_, DbInstances>,
+) -> Result<bool, String> {
+    let pool = get_db_pool(&db).await?;
+
+    let row: Option<(String,)> = sqlx::query_as(
+        "SELECT value FROM app_settings WHERE key = 'password_hash'"
+    )
+    .fetch_optional(&pool)
+    .await
+    .map_err(|e| format!("Erreur lecture mot de passe: {}", e))?;
+
+    match row {
+        None => Ok(true), // No password set
+        Some((stored,)) => {
+            let parts: Vec<&str> = stored.splitn(2, ':').collect();
+            if parts.len() != 2 {
+                return Err("Format de hash invalide".to_string());
+            }
+            let hash = hash_password(&password, parts[0]);
+            Ok(hash == parts[1])
+        }
+    }
+}
+
+/// Check if a password is set.
+#[command]
+pub async fn has_app_password(
+    db: tauri::State<'_, DbInstances>,
+) -> Result<bool, String> {
+    let pool = get_db_pool(&db).await?;
+    let row: Option<(String,)> = sqlx::query_as(
+        "SELECT value FROM app_settings WHERE key = 'password_hash'"
+    )
+    .fetch_optional(&pool)
+    .await
+    .map_err(|e| format!("Erreur: {}", e))?;
+    Ok(row.is_some())
+}
+
+/// Remove the app password.
+#[command]
+pub async fn remove_app_password(
+    current_password: String,
+    db: tauri::State<'_, DbInstances>,
+) -> Result<(), String> {
+    let valid = verify_app_password(current_password, db.clone()).await?;
+    if !valid {
+        return Err("Mot de passe incorrect".to_string());
+    }
+    let pool = get_db_pool(&db).await?;
+    sqlx::query("DELETE FROM app_settings WHERE key = 'password_hash'")
+        .execute(&pool)
+        .await
+        .map_err(|e| format!("Erreur: {}", e))?;
+    Ok(())
+}
+
+fn hash_password(password: &str, salt_hex: &str) -> String {
+    use pbkdf2::pbkdf2_hmac;
+    use sha2::Sha256;
+
+    let salt = hex::decode(salt_hex).unwrap_or_default();
+    let mut hash = [0u8; 32];
+    pbkdf2_hmac::<Sha256>(password.as_bytes(), &salt, 100_000, &mut hash);
+    hex::encode(hash)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
