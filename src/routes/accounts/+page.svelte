@@ -3,7 +3,8 @@
 	import { Plus, Landmark, Pencil, Trash2, X } from 'lucide-svelte';
 	import { accountStore } from '$lib/stores/accounts.svelte';
 	import { formatCurrency, toEuros, ACCOUNT_TYPE_LABELS } from '$lib/utils/format';
-	import type { Account } from '$lib/types';
+	import { query } from '$lib/stores/db';
+	import type { Account, AccountType } from '$lib/types';
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 	import ErrorBanner from '$lib/components/ErrorBanner.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
@@ -16,9 +17,54 @@
 	let formType = $state<string>('checking');
 	let formBalance = $state(0);
 
-	onMount(() => {
-		accountStore.load();
+	// Consolidated breakdown by account type
+	let byType = $derived.by(() => {
+		const groups: Record<string, { count: number; total: number }> = {};
+		for (const a of accountStore.accounts) {
+			if (!groups[a.account_type]) groups[a.account_type] = { count: 0, total: 0 };
+			groups[a.account_type].count++;
+			groups[a.account_type].total += a.computed_balance;
+		}
+		return groups;
 	});
+
+	// Monthly flow per account (last 3 months)
+	let monthlyFlows = $state<{ account_id: number; account_name: string; months: { label: string; net: number }[] }[]>([]);
+
+	onMount(async () => {
+		await accountStore.load();
+		await loadMonthlyFlows();
+	});
+
+	async function loadMonthlyFlows() {
+		const now = new Date();
+		const months: { y: number; m: number; label: string }[] = [];
+		for (let offset = -2; offset <= 0; offset++) {
+			let m = now.getMonth() + 1 + offset;
+			let y = now.getFullYear();
+			while (m <= 0) { m += 12; y--; }
+			const label = new Intl.DateTimeFormat('fr-FR', { month: 'short' }).format(new Date(y, m - 1));
+			months.push({ y, m, label });
+		}
+
+		const flows: typeof monthlyFlows = [];
+		for (const acc of accountStore.accounts) {
+			const accMonths: { label: string; net: number }[] = [];
+			for (const { y, m, label } of months) {
+				const start = `${y}-${String(m).padStart(2, '0')}-01`;
+				const endM = m === 12 ? 1 : m + 1;
+				const endY = m === 12 ? y + 1 : y;
+				const end = `${endY}-${String(endM).padStart(2, '0')}-01`;
+				const result = await query<{ net: number }>(
+					'SELECT COALESCE(SUM(amount), 0) as net FROM transactions WHERE account_id = $1 AND date >= $2 AND date < $3',
+					[acc.id, start, end]
+				);
+				accMonths.push({ label, net: result[0]?.net ?? 0 });
+			}
+			flows.push({ account_id: acc.id, account_name: acc.name, months: accMonths });
+		}
+		monthlyFlows = flows;
+	}
 
 	function openCreate() {
 		editingId = null;
@@ -100,11 +146,53 @@
 			<p class="text-sm text-text-muted">Ajoutez votre premier compte bancaire pour commencer</p>
 		</div>
 	{:else}
-		<!-- Solde total -->
-		<div class="rounded-xl border border-border bg-bg-card p-4">
-			<span class="text-sm text-text-secondary">Solde total</span>
-			<span class="ml-2 text-xl font-bold text-text-primary">{formatCurrency(accountStore.totalBalance)}</span>
+		<!-- Vue consolidée -->
+		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+			<div class="rounded-xl border border-border bg-bg-card p-4">
+				<p class="text-xs text-text-muted">Solde total</p>
+				<p class="text-xl font-bold text-text-primary">{formatCurrency(accountStore.totalBalance)}</p>
+			</div>
+			{#each Object.entries(byType) as [type, data]}
+				<div class="rounded-xl border border-border bg-bg-card p-4">
+					<p class="text-xs text-text-muted">{ACCOUNT_TYPE_LABELS[type]} ({data.count})</p>
+					<p class="text-lg font-bold {data.total >= 0 ? 'text-income' : 'text-expense'}">{formatCurrency(data.total)}</p>
+				</div>
+			{/each}
 		</div>
+
+		<!-- Flux mensuels par compte -->
+		{#if monthlyFlows.length > 0}
+			<div class="rounded-xl border border-border bg-bg-card p-4">
+				<h2 class="mb-3 text-sm font-semibold text-text-secondary">Flux mensuels par compte (3 derniers mois)</h2>
+				<div class="overflow-x-auto">
+					<table class="w-full text-sm">
+						<thead>
+							<tr class="border-b border-border text-left text-text-muted">
+								<th class="pb-2 font-medium">Compte</th>
+								{#each monthlyFlows[0]?.months ?? [] as m}
+									<th class="pb-2 text-right font-medium capitalize">{m.label}</th>
+								{/each}
+								<th class="pb-2 text-right font-medium">Solde</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each monthlyFlows as flow}
+								{@const acc = accountStore.accounts.find(a => a.id === flow.account_id)}
+								<tr class="border-b border-border/50">
+									<td class="py-2 text-text-primary">{flow.account_name}</td>
+									{#each flow.months as m}
+										<td class="py-2 text-right font-medium {m.net >= 0 ? 'text-income' : 'text-expense'}">{formatCurrency(m.net)}</td>
+									{/each}
+									<td class="py-2 text-right font-semibold {(acc?.computed_balance ?? 0) >= 0 ? 'text-income' : 'text-expense'}">
+										{formatCurrency(acc?.computed_balance ?? 0)}
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		{/if}
 
 		<!-- Liste des comptes -->
 		<div class="space-y-3">
