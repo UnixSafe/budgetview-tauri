@@ -166,6 +166,8 @@
 		transactionStore.search = '';
 		transactionStore.filterAccountId = '';
 		transactionStore.filterSeriesId = '';
+		transactionStore.filterDateFrom = '';
+		transactionStore.filterDateTo = '';
 		transactionStore.load();
 	}
 
@@ -352,11 +354,30 @@
 			<option value="yes">Pointées</option>
 			<option value="no">Non pointées</option>
 		</select>
-		{#if transactionStore.search || transactionStore.filterAccountId || transactionStore.filterSeriesId || filterReconciled}
-			<button onclick={() => { clearFilters(); filterReconciled = ''; }} class="text-[12px] font-medium text-accent hover:text-accent-hover transition-smooth">
+		{#if transactionStore.search || transactionStore.filterAccountId || transactionStore.filterSeriesId || filterReconciled || transactionStore.filterDateFrom || transactionStore.filterDateTo}
+			<button onclick={() => { clearFilters(); filterReconciled = ''; transactionStore.filterDateFrom = ''; transactionStore.filterDateTo = ''; }} class="text-[12px] font-medium text-accent hover:text-accent-hover transition-smooth">
 				Effacer
 			</button>
 		{/if}
+	</div>
+
+	<!-- Date range filter (collapsible) -->
+	<div class="flex items-center gap-3">
+		<input
+			type="date"
+			bind:value={transactionStore.filterDateFrom}
+			onchange={handleSearch}
+			class="rounded-xl border border-border bg-bg-card/60 px-3 py-2 text-[12px] text-text-primary outline-none focus-ring"
+			title="Date de début"
+		/>
+		<span class="text-[12px] text-text-muted">à</span>
+		<input
+			type="date"
+			bind:value={transactionStore.filterDateTo}
+			onchange={handleSearch}
+			class="rounded-xl border border-border bg-bg-card/60 px-3 py-2 text-[12px] text-text-primary outline-none focus-ring"
+			title="Date de fin"
+		/>
 	</div>
 
 	<!-- Transaction list -->

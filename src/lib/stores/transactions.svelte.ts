@@ -10,6 +10,8 @@ class TransactionStore {
 	search = $state('');
 	filterAccountId = $state<number | string>('');
 	filterSeriesId = $state<number | string>('');
+	filterDateFrom = $state('');
+	filterDateTo = $state('');
 
 	async load() {
 		this.loading = true;
@@ -37,6 +39,14 @@ class TransactionStore {
 			if (this.search) {
 				sql += ` AND t.label LIKE $${i++}`;
 				params.push(`%${this.search}%`);
+			}
+			if (this.filterDateFrom) {
+				sql += ` AND t.date >= $${i++}`;
+				params.push(this.filterDateFrom);
+			}
+			if (this.filterDateTo) {
+				sql += ` AND t.date <= $${i++}`;
+				params.push(this.filterDateTo);
 			}
 
 			sql += ' ORDER BY t.date DESC, t.id DESC LIMIT 500';
