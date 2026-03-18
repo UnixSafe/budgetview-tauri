@@ -28,15 +28,16 @@ export function formatMonth(year: number, month: number): string {
 
 /**
  * Anonymize a transaction label for auto-categorization matching.
- * Removes date patterns and short purely-digit words (1-3 digits, likely noise).
- * Keeps mixed alphanumeric words (CB1234, LIDL2GO, PARIS13) and longer numbers (store codes).
- * Example: 'CARTE 17/03 CARREFOUR CB1234' → 'CARTE CARREFOUR CB1234'
+ * Removes date patterns (DD/MM, DD/MM/YYYY) and long purely-digit words (4+ digits: card numbers,
+ * check numbers, references). Keeps mixed alphanumeric words (3SUISSES, LIDL2GO, PARIS13)
+ * and short numbers.
+ * Example: 'CARTE 17/03 CARREFOUR CB*1234 5678' → 'CARTE CARREFOUR CB*1234'
  */
 export function anonymizeLabel(label: string): string {
 	return label
 		.replace(/\d{1,2}\/\d{1,2}(\/\d{2,4})?/g, '') // remove date patterns DD/MM or DD/MM/YYYY
 		.split(/\s+/)
-		.filter((word) => word.length > 0 && !/^\d{1,3}$/.test(word)) // remove short purely-digit words (noise)
+		.filter((word) => word.length > 0 && !/^\d{4,}$/.test(word)) // remove purely-digit words 4+ chars (card/check/ref numbers)
 		.join(' ')
 		.trim()
 		.toUpperCase();
