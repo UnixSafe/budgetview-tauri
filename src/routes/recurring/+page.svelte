@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { RefreshCw, Plus, Trash2, Check, X, Zap } from 'lucide-svelte';
+	import { invoke } from '@tauri-apps/api/core';
 	import { recurringStore } from '$lib/stores/recurring.svelte';
 	import { accountStore } from '$lib/stores/accounts.svelte';
 	import { budgetStore } from '$lib/stores/budget.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import { formatCurrency } from '$lib/utils/format';
+	import { formatCurrency, toCents } from '$lib/utils/format';
 	import type { RecurrenceFrequency } from '$lib/types';
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 	import ErrorBanner from '$lib/components/ErrorBanner.svelte';
@@ -55,14 +56,16 @@
 
 	async function handleCreate() {
 		if (!formLabel.trim() || !formAccountId) return;
-		await recurringStore.create({
-			account_id: formAccountId,
+		await invoke('create_recurring', {
 			label: formLabel,
-			amount: formAmount,
-			series_id: formSeriesId === '' ? null : Number(formSeriesId),
+			labelPattern: formLabel.toUpperCase(),
+			accountId: formAccountId,
+			amount: toCents(formAmount),
+			seriesId: formSeriesId === '' ? null : Number(formSeriesId),
 			frequency: formFrequency,
-			day_of_month: formDayOfMonth
+			dayOfMonth: formDayOfMonth
 		});
+		await recurringStore.load();
 		toastStore.success('Récurrence créée');
 		showForm = false;
 	}
@@ -173,7 +176,7 @@
 								{/if}
 							</td>
 							<td class="px-4 py-3 text-sm text-text-secondary">{item.account_name ?? ''}</td>
-							<td class="px-4 py-3 text-sm text-text-secondary">{FREQ_LABELS[item.frequency]}</td>
+							<td class="px-4 py-3 text-sm text-text-secondary">{item.frequency ? FREQ_LABELS[item.frequency] ?? item.frequency : '—'}</td>
 							<td class="px-4 py-3 text-sm text-text-secondary">{item.series_name ?? 'Non catégorisée'}</td>
 							<td class="px-4 py-3 text-right text-sm font-medium {item.amount >= 0 ? 'text-income' : 'text-expense'}">
 								{formatCurrency(item.amount)}

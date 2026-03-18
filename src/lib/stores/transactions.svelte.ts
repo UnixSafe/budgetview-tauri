@@ -16,10 +16,11 @@ class TransactionStore {
 		this.error = null;
 		try {
 			let sql = `
-				SELECT t.*, a.name as account_name, bs.name as series_name
+				SELECT t.*, a.name as account_name, bs.name as series_name, ss.name as sub_series_name
 				FROM transactions t
 				LEFT JOIN accounts a ON t.account_id = a.id
 				LEFT JOIN budget_series bs ON t.series_id = bs.id
+				LEFT JOIN sub_series ss ON t.sub_series_id = ss.id
 				WHERE 1=1
 			`;
 			const params: unknown[] = [];

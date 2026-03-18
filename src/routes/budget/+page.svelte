@@ -15,6 +15,9 @@
 	let formTarget = $state<number>(0);
 	let formDescription = $state('');
 
+	// Sub-series management
+	let newSubSeriesName = $state('');
+
 	// Inline budget editing
 	let editingBudgetId = $state<number | null>(null);
 	let editingBudgetAmount = $state(0);
@@ -298,6 +301,54 @@
 						placeholder="Description optionnelle"
 					/>
 				</div>
+
+				<!-- Sous-catégories (only when editing) -->
+				{#if editingSeriesId}
+					<div class="border-t border-border pt-4">
+						<p class="mb-2 text-sm font-medium text-text-secondary">Sous-catégories</p>
+						<div class="space-y-1">
+							{#each budgetStore.getSubSeries(editingSeriesId) as sub (sub.id)}
+								<div class="flex items-center justify-between rounded-lg bg-bg-primary px-3 py-1.5">
+									<span class="text-sm text-text-primary">{sub.name}</span>
+									<button
+										type="button"
+										onclick={async () => { if (confirm(`Supprimer "${sub.name}" ?`)) await budgetStore.removeSubSeries(sub.id); }}
+										class="text-text-muted hover:text-danger"
+										aria-label="Supprimer la sous-catégorie {sub.name}"
+									>
+										<Trash2 size={12} />
+									</button>
+								</div>
+							{/each}
+						</div>
+						<div class="mt-2 flex gap-2">
+							<input
+								bind:value={newSubSeriesName}
+								placeholder="Nouvelle sous-catégorie"
+								class="flex-1 rounded-lg border border-border bg-bg-primary px-3 py-1.5 text-sm text-text-primary outline-none focus:border-accent"
+								onkeydown={async (e) => {
+									if (e.key === 'Enter' && newSubSeriesName.trim() && editingSeriesId) {
+										e.preventDefault();
+										await budgetStore.createSubSeries(editingSeriesId, newSubSeriesName.trim());
+										newSubSeriesName = '';
+									}
+								}}
+							/>
+							<button
+								type="button"
+								onclick={async () => {
+									if (newSubSeriesName.trim() && editingSeriesId) {
+										await budgetStore.createSubSeries(editingSeriesId, newSubSeriesName.trim());
+										newSubSeriesName = '';
+									}
+								}}
+								class="rounded-lg bg-bg-hover px-3 py-1.5 text-sm text-text-secondary hover:text-text-primary"
+							>
+								<Plus size={14} />
+							</button>
+						</div>
+					</div>
+				{/if}
 
 				<div class="flex justify-end gap-3 pt-2">
 					<button type="button" onclick={() => (showSeriesForm = false)} class="rounded-lg px-4 py-2 text-sm text-text-secondary hover:text-text-primary">

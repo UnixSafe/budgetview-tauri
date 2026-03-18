@@ -1,11 +1,19 @@
 import { invoke } from '@tauri-apps/api/core';
-import { query, execute } from './db';
-import type { RecurringTransaction, RecurringPattern, RecurrenceFrequency } from '$lib/types';
-import { toCents } from '$lib/utils/format';
+import type { RecurringTransaction, RecurringPattern, MissingRecurrence } from '$lib/types';
+
+const FREQUENCY_LABELS: Record<string, string> = {
+	weekly: 'Hebdomadaire',
+	biweekly: 'Bimensuel',
+	monthly: 'Mensuel',
+	quarterly: 'Trimestriel',
+	biannual: 'Semestriel',
+	yearly: 'Annuel'
+};
 
 class RecurringStore {
 	items = $state<RecurringTransaction[]>([]);
 	patterns = $state<RecurringPattern[]>([]);
+	missing = $state<MissingRecurrence[]>([]);
 	loading = $state(false);
 	detecting = $state(false);
 	error = $state<string | null>(null);
@@ -14,14 +22,7 @@ class RecurringStore {
 		this.loading = true;
 		this.error = null;
 		try {
-			this.items = await query<RecurringTransaction>(
-				`SELECT r.*, a.name as account_name, bs.name as series_name
-				 FROM recurring_transactions r
-				 LEFT JOIN accounts a ON r.account_id = a.id
-				 LEFT JOIN budget_series bs ON r.series_id = bs.id
-				 WHERE r.is_active = 1
-				 ORDER BY r.label`
-			);
+			this.items = await invoke<RecurringTransaction[]>('get_recurring_transactions');
 		} catch (e) {
 			this.error = e instanceof Error ? e.message : String(e);
 		} finally {
@@ -43,56 +44,19 @@ class RecurringStore {
 		}
 	}
 
-	async create(data: {
-		account_id: number;
-		label: string;
-		amount: number; // euros
-		series_id: number | null;
-		frequency: RecurrenceFrequency;
-		day_of_month: number | null;
-		label_pattern?: string;
-		is_auto_detected?: boolean;
-	}) {
-		await execute(
-			`INSERT INTO recurring_transactions (account_id, label, amount, series_id, frequency, day_of_month, label_pattern, is_auto_detected)
-			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-			[
-				data.account_id,
-				data.label,
-				toCents(data.amount),
-				data.series_id,
-				data.frequency,
-				data.day_of_month,
-				data.label_pattern ?? null,
-				data.is_auto_detected ? 1 : 0
-			]
-		);
-		await this.load();
-	}
-
 	async confirmPattern(pattern: RecurringPattern) {
-		await execute(
-			`INSERT INTO recurring_transactions (account_id, label, amount, series_id, frequency, day_of_month, label_pattern, is_auto_detected)
-			 VALUES ($1, $2, $3, $4, $5, $6, $7, 1)`,
-			[
-				pattern.account_id,
-				pattern.label,
-				pattern.avg_amount,
-				pattern.series_id,
-				pattern.frequency,
-				pattern.day_of_month,
-				pattern.label
-			]
-		);
-		// Remove from patterns list
+		await invoke('create_recurring', {
+			label: pattern.label,
+			labelPattern: pattern.label,
+			accountId: pattern.account_id,
+			amount: pattern.avg_amount,
+			seriesId: pattern.series_id,
+			frequency: pattern.frequency,
+			dayOfMonth: pattern.day_of_month
+		});
 		this.patterns = this.patterns.filter(
 			(p) => !(p.label === pattern.label && p.account_id === pattern.account_id)
 		);
-		await this.load();
-	}
-
-	async remove(id: number) {
-		await execute('UPDATE recurring_transactions SET is_active = 0 WHERE id = $1', [id]);
 		await this.load();
 	}
 
@@ -101,31 +65,40 @@ class RecurringStore {
 		data: Partial<{
 			label: string;
 			amount: number;
-			series_id: number | null;
-			frequency: RecurrenceFrequency;
-			day_of_month: number | null;
+			seriesId: number;
+			frequency: string;
+			dayOfMonth: number;
+			isActive: boolean;
+			toleranceDays: number;
 		}>
 	) {
-		const fields: string[] = [];
-		const values: unknown[] = [];
-		let i = 1;
+		await invoke('update_recurring', { id, ...data });
+		await this.load();
+	}
 
-		const allowed = new Set(['label', 'amount', 'series_id', 'frequency', 'day_of_month']);
-		for (const [key, val] of Object.entries(data)) {
-			if (val !== undefined && allowed.has(key)) {
-				fields.push(`${key} = $${i++}`);
-				values.push(key === 'amount' ? toCents(val as number) : val);
-			}
-		}
+	async remove(id: number) {
+		await invoke('delete_recurring', { id });
+		await this.load();
+	}
 
-		if (fields.length > 0) {
-			values.push(id);
-			await execute(
-				`UPDATE recurring_transactions SET ${fields.join(', ')} WHERE id = $${i}`,
-				values
-			);
-			await this.load();
+	async checkMissing() {
+		try {
+			this.missing = await invoke<MissingRecurrence[]>('check_missing_recurrences');
+		} catch (e) {
+			this.error = e instanceof Error ? e.message : String(e);
 		}
+	}
+
+	get activeCount(): number {
+		return this.items.filter((r) => r.is_active).length;
+	}
+
+	get missingCount(): number {
+		return this.missing.length;
+	}
+
+	static frequencyLabel(freq: string | null): string {
+		return (freq && FREQUENCY_LABELS[freq]) ?? freq ?? '—';
 	}
 }
 

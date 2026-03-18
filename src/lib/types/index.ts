@@ -52,6 +52,7 @@ export interface Transaction {
 	// Joined fields
 	account_name?: string;
 	series_name?: string;
+	sub_series_name?: string;
 }
 
 // === Budget mensuel ===
@@ -186,16 +187,29 @@ export interface RecurringTransaction {
 	id: number;
 	account_id: number;
 	label: string;
+	label_pattern: string | null;
 	amount: number; // in cents
 	series_id: number | null;
-	frequency: RecurrenceFrequency;
+	frequency: RecurrenceFrequency | null;
 	day_of_month: number | null;
-	start_date: string | null;
-	end_date: string | null;
 	is_active: boolean;
+	is_auto_detected: boolean;
+	last_occurrence_date: string | null;
+	next_expected_date: string | null;
+	tolerance_days: number | null;
 	// Joined
 	account_name?: string;
 	series_name?: string;
+}
+
+export interface MissingRecurrence {
+	recurring_id: number;
+	label: string;
+	amount: number;
+	expected_date: string;
+	days_overdue: number;
+	account_name: string | null;
+	series_name: string | null;
 }
 
 export interface RecurringPattern {
