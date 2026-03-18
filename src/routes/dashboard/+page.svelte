@@ -8,6 +8,7 @@
 	import type { DashboardSummary, BudgetLineItem } from '$lib/types';
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 	import ErrorBanner from '$lib/components/ErrorBanner.svelte';
+	import OnboardingGuide from '$lib/components/OnboardingGuide.svelte';
 
 	let loading = $state(true);
 	let error = $state<string | null>(null);
@@ -83,6 +84,8 @@
 		<h1 class="text-3xl font-bold tracking-tight text-text-primary">Bonjour</h1>
 		<p class="mt-1 text-base text-text-muted capitalize">{currentMonthLabel}</p>
 	</div>
+
+	<OnboardingGuide />
 
 	{#if error}
 		<ErrorBanner message={error} ondismiss={() => (error = null)} />
