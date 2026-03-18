@@ -32,5 +32,11 @@ pub fn get_migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/005_splits_improvements.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 6,
+            description: "recurring_detection",
+            sql: include_str!("../migrations/006_recurring_detection.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }

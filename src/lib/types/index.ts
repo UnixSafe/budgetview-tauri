@@ -179,6 +179,38 @@ export interface SplitInput {
 	note: string | null;
 }
 
+// === Récurrences ===
+export type RecurrenceFrequency = 'monthly' | 'weekly' | 'biweekly' | 'quarterly' | 'yearly';
+
+export interface RecurringTransaction {
+	id: number;
+	account_id: number;
+	label: string;
+	amount: number; // in cents
+	series_id: number | null;
+	frequency: RecurrenceFrequency;
+	day_of_month: number | null;
+	start_date: string | null;
+	end_date: string | null;
+	is_active: boolean;
+	// Joined
+	account_name?: string;
+	series_name?: string;
+}
+
+export interface RecurringPattern {
+	label: string;
+	account_id: number;
+	account_name: string;
+	avg_amount: number; // in cents
+	frequency: RecurrenceFrequency;
+	day_of_month: number;
+	transaction_count: number;
+	last_date: string;
+	series_id: number | null;
+	series_name: string | null;
+}
+
 // === Dashboard ===
 export interface DashboardSummary {
 	total_balance: number;
