@@ -33,9 +33,7 @@
 	];
 
 	const settingsNav = [
-		{ label: 'Règles auto', href: '/settings/rules', icon: Settings },
-		{ label: 'Sécurité', href: '/settings/security', icon: Shield },
-		{ label: 'Sauvegarde', href: '/settings/backup', icon: Database },
+		{ label: 'Réglages', href: '/settings', icon: Settings },
 	];
 
 	const allNav = [...mainNav, ...secondaryNav, ...settingsNav];
