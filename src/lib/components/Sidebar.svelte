@@ -49,82 +49,143 @@
 </script>
 
 <!-- Desktop sidebar -->
-<aside class="hidden md:flex h-full w-[220px] flex-col glass border-r border-glass-border">
-	<!-- Logo -->
-	<div class="flex h-16 items-center gap-3 px-5">
-		<div class="flex h-9 w-9 items-center justify-center rounded-xl bg-accent/20 shadow-lg shadow-accent/10">
-			<span class="text-base font-bold text-accent">B</span>
+<aside class="hidden md:flex h-full w-[232px] flex-col glass border-r border-glass-border relative overflow-hidden">
+	<!-- Subtle ambient glow at the top -->
+	<div class="pointer-events-none absolute -top-24 -left-12 h-48 w-48 rounded-full bg-accent/[0.04] blur-3xl"></div>
+
+	<!-- Logo area with gradient accent background -->
+	<div class="relative px-5 pt-5 pb-4">
+		<div class="flex items-center gap-3.5">
+			<div class="sidebar-logo-icon relative flex h-10 w-10 items-center justify-center rounded-[13px] shadow-lg">
+				<span class="relative z-10 text-[15px] font-bold text-white tracking-tight">B</span>
+			</div>
+			<div class="flex flex-col">
+				<span class="text-[16px] font-semibold tracking-tight text-text-primary leading-tight">BudgetView</span>
+				<span class="text-[10.5px] font-medium text-text-muted leading-tight mt-0.5">Gestion de budget</span>
+			</div>
 		</div>
-		<span class="text-[17px] font-semibold tracking-tight text-text-primary">BudgetView</span>
+		<!-- Separator -->
+		<div class="divider mt-4"></div>
 	</div>
 
 	<!-- Main nav -->
-	<nav class="flex-1 overflow-y-auto px-3 py-2 space-y-0.5 scrollbar-hide">
-		<p class="px-3 pt-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-text-muted">Principal</p>
+	<nav class="flex-1 overflow-y-auto px-3 pb-2 space-y-0.5 scrollbar-hide">
+		<p class="sidebar-section-label px-3 pt-1 pb-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted/70">
+			Principal
+		</p>
 		{#each mainNav as item}
 			{@const active = page.url.pathname.startsWith(item.href)}
 			<a
 				href={item.href}
-				class="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium transition-smooth btn-press
+				class="sidebar-nav-item group relative flex items-center gap-3 rounded-xl px-3 py-[9px] text-[13px] font-medium transition-smooth btn-press
 					{active
-					? 'bg-accent/15 text-accent shadow-sm'
-					: 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'}"
+					? 'sidebar-nav-active text-accent'
+					: 'text-text-secondary hover:text-text-primary'}"
 			>
-				<item.icon size={18} strokeWidth={active ? 2.2 : 1.8} />
-				{item.label}
+				<!-- Active left border indicator -->
+				{#if active}
+					<div class="absolute left-0 top-1/2 -translate-y-1/2 h-[18px] w-[3px] rounded-r-full bg-accent shadow-[0_0_8px_rgba(10,132,255,0.4)] transition-smooth"></div>
+				{/if}
+				<!-- Hover background that slides in -->
+				<div class="absolute inset-0 rounded-xl bg-bg-hover opacity-0 group-hover:opacity-100 transition-smooth {active ? '!opacity-0' : ''}"></div>
+				<div class="relative z-10 flex items-center gap-3">
+					<item.icon size={18} strokeWidth={active ? 2.2 : 1.7} class={active ? 'drop-shadow-[0_0_6px_rgba(10,132,255,0.3)]' : ''} />
+					<span>{item.label}</span>
+				</div>
 			</a>
 		{/each}
 
-		<p class="px-3 pt-5 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-text-muted">Outils</p>
+		<p class="sidebar-section-label px-3 pt-5 pb-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted/70">
+			Outils
+		</p>
 		{#each secondaryNav as item}
 			{@const active = page.url.pathname.startsWith(item.href)}
 			<a
 				href={item.href}
-				class="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium transition-smooth btn-press
+				class="sidebar-nav-item group relative flex items-center gap-3 rounded-xl px-3 py-[9px] text-[13px] font-medium transition-smooth btn-press
 					{active
-					? 'bg-accent/15 text-accent shadow-sm'
-					: 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'}"
+					? 'sidebar-nav-active text-accent'
+					: 'text-text-secondary hover:text-text-primary'}"
 			>
-				<item.icon size={18} strokeWidth={active ? 2.2 : 1.8} />
-				{item.label}
+				{#if active}
+					<div class="absolute left-0 top-1/2 -translate-y-1/2 h-[18px] w-[3px] rounded-r-full bg-accent shadow-[0_0_8px_rgba(10,132,255,0.4)] transition-smooth"></div>
+				{/if}
+				<div class="absolute inset-0 rounded-xl bg-bg-hover opacity-0 group-hover:opacity-100 transition-smooth {active ? '!opacity-0' : ''}"></div>
+				<div class="relative z-10 flex items-center gap-3">
+					<item.icon size={18} strokeWidth={active ? 2.2 : 1.7} class={active ? 'drop-shadow-[0_0_6px_rgba(10,132,255,0.3)]' : ''} />
+					<span>{item.label}</span>
+				</div>
 			</a>
 		{/each}
 
-		<p class="px-3 pt-5 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-text-muted">Réglages</p>
+		<p class="sidebar-section-label px-3 pt-5 pb-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-text-muted/70">
+			Réglages
+		</p>
 		{#each settingsNav as item}
 			{@const active = page.url.pathname.startsWith(item.href)}
 			<a
 				href={item.href}
-				class="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium transition-smooth btn-press
+				class="sidebar-nav-item group relative flex items-center gap-3 rounded-xl px-3 py-[9px] text-[13px] font-medium transition-smooth btn-press
 					{active
-					? 'bg-accent/15 text-accent shadow-sm'
-					: 'text-text-secondary hover:bg-bg-hover hover:text-text-primary'}"
+					? 'sidebar-nav-active text-accent'
+					: 'text-text-secondary hover:text-text-primary'}"
 			>
-				<item.icon size={18} strokeWidth={active ? 2.2 : 1.8} />
-				{item.label}
+				{#if active}
+					<div class="absolute left-0 top-1/2 -translate-y-1/2 h-[18px] w-[3px] rounded-r-full bg-accent shadow-[0_0_8px_rgba(10,132,255,0.4)] transition-smooth"></div>
+				{/if}
+				<div class="absolute inset-0 rounded-xl bg-bg-hover opacity-0 group-hover:opacity-100 transition-smooth {active ? '!opacity-0' : ''}"></div>
+				<div class="relative z-10 flex items-center gap-3">
+					<item.icon size={18} strokeWidth={active ? 2.2 : 1.7} class={active ? 'drop-shadow-[0_0_6px_rgba(10,132,255,0.3)]' : ''} />
+					<span>{item.label}</span>
+				</div>
 			</a>
 		{/each}
 	</nav>
 
-	<!-- Footer -->
-	<div class="px-5 py-3 text-[11px] text-text-muted border-t border-border-light">
-		BudgetView v0.1.0
+	<!-- Footer with version badge -->
+	<div class="px-5 py-3.5 border-t border-glass-border">
+		<div class="flex items-center gap-2">
+			<span class="inline-flex items-center rounded-md bg-accent/[0.08] px-2 py-0.5 text-[10px] font-semibold text-accent/80 tracking-wide ring-1 ring-inset ring-accent/[0.12]">
+				v0.1.0
+			</span>
+			<span class="text-[10.5px] text-text-muted/50 font-medium">beta</span>
+		</div>
 	</div>
 </aside>
 
 <!-- Mobile bottom navigation -->
 <nav class="fixed bottom-0 left-0 right-0 z-50 md:hidden glass border-t border-glass-border safe-area-bottom">
-	<div class="flex items-center justify-around px-2 py-1">
+	<div class="flex items-center justify-around px-1 pt-1.5 pb-1">
 		{#each mobileNav as item}
 			{@const active = page.url.pathname.startsWith(item.href)}
 			<a
 				href={item.href}
-				class="flex flex-col items-center gap-0.5 rounded-lg px-3 py-2 text-[10px] font-medium transition-smooth btn-press
+				class="group relative flex flex-col items-center gap-0.5 rounded-xl px-3.5 py-1.5 text-[10px] font-medium transition-smooth btn-press
 					{active ? 'text-accent' : 'text-text-muted'}"
 			>
-				<item.icon size={22} strokeWidth={active ? 2.2 : 1.6} />
-				{item.label}
+				<item.icon size={22} strokeWidth={active ? 2.2 : 1.6} class={active ? 'drop-shadow-[0_0_6px_rgba(10,132,255,0.3)]' : ''} />
+				<span class="mt-0.5">{item.label}</span>
+				<!-- Active indicator dot -->
+				{#if active}
+					<div class="absolute -bottom-0.5 left-1/2 -translate-x-1/2 h-[4px] w-[4px] rounded-full bg-accent shadow-[0_0_6px_rgba(10,132,255,0.5)]"></div>
+				{/if}
 			</a>
 		{/each}
 	</div>
 </nav>
+
+<style>
+	/* Logo icon gradient */
+	.sidebar-logo-icon {
+		background: linear-gradient(145deg, #0a84ff 0%, #0070e0 50%, #005bb5 100%);
+		box-shadow:
+			0 4px 12px rgba(10, 132, 255, 0.3),
+			0 1px 3px rgba(0, 0, 0, 0.2),
+			inset 0 1px 0 rgba(255, 255, 255, 0.15);
+	}
+
+	/* Active nav item background */
+	.sidebar-nav-active {
+		background: rgba(10, 132, 255, 0.08);
+	}
+</style>
