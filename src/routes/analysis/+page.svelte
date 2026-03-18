@@ -131,7 +131,7 @@
 				actual.push(currentBalance);
 				projected.push(currentBalance);
 			} else {
-				// Future: project using budget data
+				// Future: project using budget data + recurring transactions
 				const budgetNet = await query<{ net: number }>(
 					`SELECT COALESCE(SUM(
 						CASE WHEN bs.budget_area = 'income' THEN mb.planned_amount
@@ -142,7 +142,15 @@
 					WHERE mb.year = $1 AND mb.month = $2`,
 					[y, m]
 				);
-				currentBalance += budgetNet[0]?.net ?? 0;
+				// Add recurring transactions not covered by budget entries
+				const recurringNet = await query<{ net: number }>(
+					`SELECT COALESCE(SUM(r.amount), 0) as net
+					 FROM recurring_transactions r
+					 WHERE r.is_active = 1 AND r.frequency = 'monthly'
+					   AND r.series_id IS NULL`,
+					[]
+				);
+				currentBalance += (budgetNet[0]?.net ?? 0) + (recurringNet[0]?.net ?? 0);
 				actual.push(null);
 				projected.push(currentBalance);
 			}
@@ -511,7 +519,7 @@
 				<CalendarClock size={18} class="text-warning" />
 				<h2 class="text-lg font-semibold text-text-primary">Trésorerie prévisionnelle</h2>
 			</div>
-			<p class="mb-2 text-xs text-text-muted">Projection basée sur le budget planifié pour les 6 prochains mois</p>
+			<p class="mb-2 text-xs text-text-muted">Projection basée sur le budget planifié et les récurrences pour les 6 prochains mois</p>
 			<div class="h-72">
 				<canvas bind:this={forecastCanvas}></canvas>
 			</div>
