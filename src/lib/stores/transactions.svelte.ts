@@ -2,6 +2,7 @@ import { query, execute } from './db';
 import type { Transaction } from '$lib/types';
 import { toCents, anonymizeLabel, isExcludedFromAutoCategorization } from '$lib/utils/format';
 import { categorizationStore } from './categorization.svelte';
+import { undoStore } from './undo.svelte';
 
 class TransactionStore {
 	transactions = $state<Transaction[]>([]);
@@ -107,10 +108,27 @@ class TransactionStore {
 	 * Learns the pattern and returns the count of similar uncategorized transactions.
 	 */
 	async categorize(transactionId: number, seriesId: number | null, subSeriesId: number | null = null): Promise<number> {
+		// Save previous state for undo
+		const tx = this.transactions.find((t) => t.id === transactionId);
+		const prevSeriesId = tx?.series_id ?? null;
+		const prevSubSeriesId = tx?.sub_series_id ?? null;
+
 		await execute(
 			'UPDATE transactions SET series_id = $1, sub_series_id = $2, is_auto_categorized = 0 WHERE id = $3',
 			[seriesId, subSeriesId, transactionId]
 		);
+
+		// Push undo action
+		undoStore.push({
+			label: `Catégorisation de "${tx?.label ?? 'transaction'}"`,
+			undo: async () => {
+				await execute(
+					'UPDATE transactions SET series_id = $1, sub_series_id = $2 WHERE id = $3',
+					[prevSeriesId, prevSubSeriesId, transactionId]
+				);
+				await this.load();
+			}
+		});
 
 		let similarCount = 0;
 
@@ -169,7 +187,24 @@ class TransactionStore {
 	}
 
 	async remove(id: number) {
+		// Save for undo
+		const tx = this.transactions.find((t) => t.id === id);
+
 		await execute('DELETE FROM transactions WHERE id = $1', [id]);
+
+		if (tx) {
+			undoStore.push({
+				label: `Suppression de "${tx.label}"`,
+				undo: async () => {
+					await execute(
+						'INSERT INTO transactions (account_id, date, label, original_label, amount, note, series_id, sub_series_id, label_for_categorization) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
+						[tx.account_id, tx.date, tx.label, tx.original_label, tx.amount, tx.note, tx.series_id, tx.sub_series_id, tx.label_for_categorization]
+					);
+					await this.load();
+				}
+			});
+		}
+
 		await this.load();
 	}
 }

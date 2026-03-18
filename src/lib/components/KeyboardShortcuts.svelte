@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { undoStore } from '$lib/stores/undo.svelte';
 
 	const shortcuts: Record<string, string> = {
 		'd': '/dashboard',
@@ -16,6 +17,15 @@
 	};
 
 	function handleKeydown(e: KeyboardEvent) {
+		// Ctrl+Z for undo (works everywhere)
+		if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+			if (undoStore.canUndo) {
+				e.preventDefault();
+				undoStore.undo();
+				return;
+			}
+		}
+
 		// Don't trigger shortcuts when typing in inputs
 		const target = e.target as HTMLElement;
 		if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable) return;
@@ -80,6 +90,13 @@
 					<div>
 						<p class="text-[11px] font-semibold text-text-muted uppercase tracking-wider mb-2">Actions</p>
 						<div class="space-y-1.5">
+							<div class="flex items-center justify-between py-1">
+								<span class="text-[13px] text-text-secondary">Annuler (undo)</span>
+								<div class="flex gap-1">
+									<kbd class="rounded-md bg-bg-elevated px-2 py-0.5 text-[11px] font-mono font-semibold text-text-muted">⌘</kbd>
+									<kbd class="rounded-md bg-bg-elevated px-2 py-0.5 text-[11px] font-mono font-semibold text-text-muted">Z</kbd>
+								</div>
+							</div>
 							<div class="flex items-center justify-between py-1">
 								<span class="text-[13px] text-text-secondary">Recherche globale</span>
 								<div class="flex gap-1">
