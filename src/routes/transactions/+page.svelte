@@ -548,18 +548,48 @@
 			</div>
 
 			<!-- Mobile list -->
-			<div class="md:hidden divide-y divide-border-light">
+			<div class="md:hidden divide-y divide-border-light/50">
 				{#each filteredTransactions as tx (tx.id)}
 					<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-					<div class="flex items-center justify-between px-4 py-3.5" role="button" tabindex="0" onclick={() => openEdit(tx)} onkeydown={(e) => e.key === "Enter" && openEdit(tx)}>
+					<div
+						class="flex items-center gap-3 px-4 py-3.5 transition-smooth active:bg-bg-hover/50"
+						role="button" tabindex="0"
+						onclick={() => openEdit(tx)}
+						onkeydown={(e) => e.key === "Enter" && openEdit(tx)}
+					>
+						<!-- Reconciliation dot -->
+						<div class="shrink-0">
+							{#if tx.is_reconciled}
+								<div class="h-2 w-2 rounded-full bg-income"></div>
+							{:else}
+								<div class="h-2 w-2 rounded-full bg-border"></div>
+							{/if}
+						</div>
+
+						<!-- Content -->
 						<div class="min-w-0 flex-1">
-							<p class="text-[14px] font-medium text-text-primary truncate">{tx.label}</p>
+							<div class="flex items-center gap-2">
+								<p class="text-[14px] font-medium text-text-primary truncate">{tx.label}</p>
+								{#if tx.is_auto_categorized}
+									<span class="badge bg-accent/15 text-accent text-[9px]">Auto</span>
+								{/if}
+								{#if splitStore.hasSplits(tx.id)}
+									<span class="badge bg-purple/10 text-purple text-[9px]">
+										<Scissors size={8} />
+									</span>
+								{/if}
+							</div>
 							<p class="text-[11px] text-text-muted mt-0.5">
-								{formatDateShort(tx.date)} · {tx.account_name ?? ''}
-								{#if tx.series_name} · {tx.series_name}{/if}
+								{formatDateShort(tx.date)}
+								{#if tx.account_name} · {tx.account_name}{/if}
+								{#if tx.series_name}
+									<span class="text-accent/70"> · {tx.series_name}</span>
+								{/if}
 							</p>
 						</div>
-						<span class="ml-3 text-[14px] font-semibold tabular-nums {tx.amount >= 0 ? 'text-income' : 'text-expense'}">
+
+						<!-- Amount -->
+						<span class="ml-2 text-[15px] font-bold tabular-nums whitespace-nowrap {tx.amount >= 0 ? 'text-income' : 'text-expense'}">
 							{formatCurrency(tx.amount)}
 						</span>
 					</div>
