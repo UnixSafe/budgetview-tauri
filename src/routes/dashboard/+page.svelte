@@ -1,14 +1,17 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Wallet, TrendingUp, TrendingDown, ArrowLeftRight, Landmark, Tag, ChevronRight } from 'lucide-svelte';
+	import { invoke } from '@tauri-apps/api/core';
+	import { Wallet, TrendingUp, TrendingDown, ArrowLeftRight, Landmark, Tag, ChevronRight, AlertCircle, Clock } from 'lucide-svelte';
 	import { formatCurrency, ACCOUNT_TYPE_LABELS } from '$lib/utils/format';
 	import { accountStore } from '$lib/stores/accounts.svelte';
 	import { budgetStore } from '$lib/stores/budget.svelte';
 	import { query } from '$lib/stores/db';
-	import type { DashboardSummary, BudgetLineItem } from '$lib/types';
+	import type { DashboardSummary, BudgetLineItem, MissingRecurrence } from '$lib/types';
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 	import ErrorBanner from '$lib/components/ErrorBanner.svelte';
 	import OnboardingGuide from '$lib/components/OnboardingGuide.svelte';
+	import CashFlowChart from '$lib/components/CashFlowChart.svelte';
+	import BudgetHealthGauge from '$lib/components/BudgetHealthGauge.svelte';
 
 	let loading = $state(true);
 	let error = $state<string | null>(null);
@@ -22,10 +25,15 @@
 
 	let uncategorizedCount = $state(0);
 	let recentTransactions = $state<{ date: string; label: string; amount: number; account_name: string }[]>([]);
+	let cashFlowData = $state<{ label: string; income: number; expenses: number; net: number }[]>([]);
+	let missingRecurrences = $state<MissingRecurrence[]>([]);
+	let overBudgetLines = $state<BudgetLineItem[]>([]);
 
 	let currentMonthLabel = $derived(
 		new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(new Date())
 	);
+
+	let netBalance = $derived(summary.month_income + summary.month_expenses);
 
 	onMount(async () => {
 		try {
@@ -61,12 +69,57 @@
 
 			recentTransactions = recent;
 			uncategorizedCount = uncatResult[0]?.count ?? 0;
+
+			// Load cash flow chart data (last 6 months)
+			await loadCashFlowData();
+
+			// Detect over-budget categories
+			overBudgetLines = budgetStore.budgetLines.filter((l: BudgetLineItem) =>
+				l.budget_area !== 'income' &&
+				l.planned_amount !== 0 &&
+				Math.abs(l.actual_amount) > Math.abs(l.planned_amount)
+			);
+
+			// Load missing recurrences
+			try {
+				missingRecurrences = await invoke<MissingRecurrence[]>('get_missing_recurrences');
+			} catch { /* recurring module may not exist yet */ }
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Erreur inconnue';
 		} finally {
 			loading = false;
 		}
 	});
+
+	async function loadCashFlowData() {
+		const now = new Date();
+		const months: { label: string; income: number; expenses: number; net: number }[] = [];
+
+		for (let offset = -5; offset <= 0; offset++) {
+			let m = now.getMonth() + 1 + offset;
+			let y = now.getFullYear();
+			while (m <= 0) { m += 12; y--; }
+			while (m > 12) { m -= 12; y++; }
+
+			const start = `${y}-${String(m).padStart(2, '0')}-01`;
+			const endM = m === 12 ? 1 : m + 1;
+			const endY = m === 12 ? y + 1 : y;
+			const end = `${endY}-${String(endM).padStart(2, '0')}-01`;
+
+			const label = new Intl.DateTimeFormat('fr-FR', { month: 'short' }).format(new Date(y, m - 1));
+
+			const [inc, exp] = await Promise.all([
+				query<{ total: number }>('SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE date >= $1 AND date < $2 AND amount > 0', [start, end]),
+				query<{ total: number }>('SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE date >= $1 AND date < $2 AND amount < 0', [start, end]),
+			]);
+
+			const income = inc[0]?.total ?? 0;
+			const expenses = exp[0]?.total ?? 0;
+			months.push({ label, income, expenses: Math.abs(expenses), net: income + expenses });
+		}
+
+		cashFlowData = months;
+	}
 
 	function formatDateShort(dateStr: string) {
 		const d = new Date(dateStr);
@@ -130,18 +183,61 @@
 		</div>
 	</div>
 
-	<!-- Uncategorized alert -->
-	{#if uncategorizedCount > 0}
-		<a href="/transactions" class="group flex items-center gap-4 rounded-2xl border border-warning/15 bg-warning/5 p-5 transition-smooth hover:bg-warning/8 animate-slide-up btn-press">
-			<div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-warning/12">
-				<Tag size={20} class="text-warning" strokeWidth={1.8} />
+	<!-- Alerts section -->
+	<div class="space-y-3">
+		{#if uncategorizedCount > 0}
+			<a href="/transactions" class="group flex items-center gap-4 glass-card-sm p-4 border-l-[3px] border-l-warning transition-smooth hover:bg-bg-hover/30 btn-press">
+				<div class="flex h-10 w-10 items-center justify-center rounded-xl bg-warning/10">
+					<Tag size={18} class="text-warning" strokeWidth={1.8} />
+				</div>
+				<div class="flex-1 min-w-0">
+					<p class="text-[13px] font-semibold text-text-primary">{uncategorizedCount} transaction{uncategorizedCount > 1 ? 's' : ''} non catégorisée{uncategorizedCount > 1 ? 's' : ''}</p>
+					<p class="text-[11px] text-text-muted">Catégorisez pour un suivi précis</p>
+				</div>
+				<ChevronRight size={16} class="text-text-muted/50 group-hover:text-warning transition-smooth" />
+			</a>
+		{/if}
+
+		{#if overBudgetLines.length > 0}
+			<a href="/budget" class="group flex items-center gap-4 glass-card-sm p-4 border-l-[3px] border-l-danger transition-smooth hover:bg-bg-hover/30 btn-press">
+				<div class="flex h-10 w-10 items-center justify-center rounded-xl bg-danger/10">
+					<AlertCircle size={18} class="text-danger" strokeWidth={1.8} />
+				</div>
+				<div class="flex-1 min-w-0">
+					<p class="text-[13px] font-semibold text-text-primary">{overBudgetLines.length} catégorie{overBudgetLines.length > 1 ? 's' : ''} en dépassement</p>
+					<p class="text-[11px] text-text-muted truncate">{overBudgetLines.map(l => l.series_name).join(', ')}</p>
+				</div>
+				<ChevronRight size={16} class="text-text-muted/50 group-hover:text-danger transition-smooth" />
+			</a>
+		{/if}
+
+		{#if missingRecurrences.length > 0}
+			<a href="/recurring" class="group flex items-center gap-4 glass-card-sm p-4 border-l-[3px] border-l-orange transition-smooth hover:bg-bg-hover/30 btn-press">
+				<div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange/10">
+					<Clock size={18} class="text-orange" strokeWidth={1.8} />
+				</div>
+				<div class="flex-1 min-w-0">
+					<p class="text-[13px] font-semibold text-text-primary">{missingRecurrences.length} récurrence{missingRecurrences.length > 1 ? 's' : ''} manquante{missingRecurrences.length > 1 ? 's' : ''}</p>
+					<p class="text-[11px] text-text-muted truncate">{missingRecurrences.map(r => r.label).join(', ')}</p>
+				</div>
+				<ChevronRight size={16} class="text-text-muted/50 group-hover:text-orange transition-smooth" />
+			</a>
+		{/if}
+	</div>
+
+	<!-- Cash flow chart -->
+	{#if cashFlowData.some(d => d.income > 0 || d.expenses > 0)}
+		<div class="glass-card p-6">
+			<div class="mb-4 flex items-center justify-between">
+				<h2 class="text-lg font-semibold tracking-tight text-text-primary">Flux de trésorerie</h2>
+				<div class="flex items-center gap-2">
+					<span class="text-[12px] font-medium tabular-nums {netBalance >= 0 ? 'text-income' : 'text-expense'}">
+						{netBalance >= 0 ? '+' : ''}{formatCurrency(netBalance)} ce mois
+					</span>
+				</div>
 			</div>
-			<div class="flex-1">
-				<p class="text-[14px] font-semibold text-warning">{uncategorizedCount} transaction{uncategorizedCount > 1 ? 's' : ''} non catégorisée{uncategorizedCount > 1 ? 's' : ''}</p>
-				<p class="text-[12px] text-text-muted">Catégorisez vos transactions pour un suivi précis</p>
-			</div>
-			<ChevronRight size={18} class="text-text-muted group-hover:text-warning transition-smooth" />
-		</a>
+			<CashFlowChart data={cashFlowData} />
+		</div>
 	{/if}
 
 	<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -213,31 +309,45 @@
 		</div>
 	</div>
 
-	<!-- Budget summary -->
+	<!-- Budget health -->
 	{#if budgetStore.budgetLines.length > 0}
 		<div class="glass-card p-6">
 			<div class="mb-5 flex items-center justify-between">
-				<h2 class="text-lg font-semibold tracking-tight text-text-primary">Budget du mois</h2>
+				<h2 class="text-lg font-semibold tracking-tight text-text-primary">Santé du budget</h2>
 				<a href="/budget" class="text-[12px] font-medium text-accent hover:text-accent-hover transition-smooth">Détails</a>
 			</div>
+
+			<!-- Overall budget gauge -->
+			{@const totalPlanned = budgetStore.budgetLines.filter((l: BudgetLineItem) => l.budget_area !== 'income' && l.planned_amount !== 0).reduce((sum: number, l: BudgetLineItem) => sum + Math.abs(l.planned_amount), 0)}
+			{@const totalSpent = budgetStore.budgetLines.filter((l: BudgetLineItem) => l.budget_area !== 'income' && l.planned_amount !== 0).reduce((sum: number, l: BudgetLineItem) => sum + Math.abs(l.actual_amount), 0)}
+			{@const overallPct = totalPlanned === 0 ? 0 : (totalSpent / totalPlanned) * 100}
+			<div class="mb-6 glass-subtle rounded-2xl p-4">
+				<div class="flex items-center justify-between mb-3">
+					<span class="text-[13px] font-semibold text-text-primary">Budget global</span>
+					<span class="text-[13px] font-bold tabular-nums {overallPct > 100 ? 'text-expense' : overallPct > 80 ? 'text-warning' : 'text-income'}">
+						{Math.round(overallPct)}% utilisé
+					</span>
+				</div>
+				<div class="h-2 w-full rounded-full bg-bg-elevated overflow-hidden">
+					<div
+						class="h-full rounded-full progress-bar {overallPct > 100 ? 'bg-danger' : overallPct > 80 ? 'bg-warning' : 'bg-income'}"
+						style="width: {Math.min(overallPct, 100)}%"
+					></div>
+				</div>
+				<div class="mt-2 flex justify-between text-[11px] text-text-muted tabular-nums">
+					<span>Dépensé: {formatCurrency(totalSpent * -1)}</span>
+					<span>Budget: {formatCurrency(totalPlanned * -1)}</span>
+				</div>
+			</div>
+
+			<!-- Individual budget gauges (top categories) -->
 			<div class="space-y-4">
-				{#each budgetStore.budgetLines.filter((l: BudgetLineItem) => l.planned_amount !== 0).slice(0, 8) as line}
-					{@const pct = line.planned_amount === 0 ? 0 : Math.min(Math.abs(line.actual_amount) / Math.abs(line.planned_amount) * 100, 100)}
-					{@const over = line.budget_area !== 'income' && Math.abs(line.actual_amount) > Math.abs(line.planned_amount)}
-					<div>
-						<div class="flex items-center justify-between text-[13px] mb-2">
-							<span class="font-medium text-text-primary">{line.series_name}</span>
-							<span class="tabular-nums {over ? 'text-expense font-semibold' : 'text-text-secondary'}">
-								{formatCurrency(line.actual_amount)} / {formatCurrency(line.planned_amount)}
-							</span>
-						</div>
-						<div class="h-[6px] w-full rounded-full bg-bg-elevated overflow-hidden">
-							<div
-								class="h-full rounded-full progress-bar {over ? 'bg-danger' : line.budget_area === 'income' ? 'bg-income' : 'bg-accent'}"
-								style="width: {pct}%"
-							></div>
-						</div>
-					</div>
+				{#each budgetStore.budgetLines.filter((l: BudgetLineItem) => l.planned_amount !== 0 && l.budget_area !== 'income').slice(0, 6) as line}
+					<BudgetHealthGauge
+						planned={line.planned_amount}
+						actual={line.actual_amount}
+						label={line.series_name}
+					/>
 				{/each}
 			</div>
 		</div>

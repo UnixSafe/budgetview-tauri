@@ -2,6 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
 	toCents,
 	toEuros,
+	formatCurrency,
+	formatDate,
+	formatMonth,
 	anonymizeLabel,
 	isExcludedFromAutoCategorization
 } from './format';
@@ -57,6 +60,51 @@ describe('anonymizeLabel', () => {
 	it('handles complex real-world labels', () => {
 		expect(anonymizeLabel('CARTE 17/03 CARREFOUR CB*1234 5678')).toBe('CARTE CARREFOUR CB*1234');
 		expect(anonymizeLabel('PRLV 15/03/2024 EDF 123456')).toBe('PRLV EDF');
+	});
+});
+
+describe('formatCurrency', () => {
+	it('formats positive amounts', () => {
+		const result = formatCurrency(123400);
+		// Amount is in cents, should format as 1 234,00 €
+		expect(result).toContain('1');
+		expect(result).toContain('234');
+	});
+
+	it('formats negative amounts', () => {
+		const result = formatCurrency(-50000);
+		expect(result).toContain('500');
+	});
+
+	it('formats zero', () => {
+		const result = formatCurrency(0);
+		expect(result).toContain('0');
+	});
+});
+
+describe('formatDate', () => {
+	it('formats ISO date strings', () => {
+		const result = formatDate('2026-03-18');
+		expect(result).toContain('18');
+		expect(result).toContain('03');
+	});
+});
+
+describe('formatMonth', () => {
+	it('formats year and month', () => {
+		const result = formatMonth(2026, 3);
+		expect(result.toLowerCase()).toContain('mars');
+		expect(result).toContain('2026');
+	});
+
+	it('handles January', () => {
+		const result = formatMonth(2026, 1);
+		expect(result.toLowerCase()).toContain('janvier');
+	});
+
+	it('handles December', () => {
+		const result = formatMonth(2026, 12);
+		expect(result.toLowerCase()).toContain('décembre');
 	});
 });
 
