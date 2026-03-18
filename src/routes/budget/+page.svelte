@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Plus, X, ChevronLeft, ChevronRight, Pencil, Trash2, FolderOpen, ChevronDown, ChevronUp, ArrowRightLeft, TrendingUp, TrendingDown } from 'lucide-svelte';
+	import { Plus, X, ChevronLeft, ChevronRight, Pencil, Trash2, FolderOpen, ChevronDown, ChevronUp, ArrowRightLeft, TrendingUp, TrendingDown, Copy } from 'lucide-svelte';
 	import { budgetStore } from '$lib/stores/budget.svelte';
 	import { formatCurrency, formatMonth, toEuros, BUDGET_AREA_LABELS } from '$lib/utils/format';
 	import type { BudgetArea, BudgetLineItem } from '$lib/types';
@@ -163,13 +163,27 @@
 			<h1 class="text-3xl font-bold tracking-tight text-text-primary">Budget</h1>
 			<p class="mt-1 text-sm text-text-muted">Planifiez et suivez vos dépenses</p>
 		</div>
-		<button
-			onclick={openCreateSeries}
-			class="flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-[13px] font-semibold text-white transition-smooth btn-press hover:bg-accent-hover shadow-lg shadow-accent/20"
-		>
-			<Plus size={16} strokeWidth={2.5} />
-			Nouvelle catégorie
-		</button>
+		<div class="flex gap-2">
+			<button
+				onclick={async () => {
+					const count = await budgetStore.copyFromPreviousMonth();
+					if (count > 0) toastStore.success(`${count} budget(s) copié(s) du mois précédent`);
+					else toastStore.show('Aucun budget à copier');
+				}}
+				class="flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-[13px] font-medium text-text-secondary transition-smooth btn-press hover:bg-bg-hover hover:text-text-primary"
+				title="Copier les montants budgétés du mois précédent"
+			>
+				<Copy size={15} />
+				Copier
+			</button>
+			<button
+				onclick={openCreateSeries}
+				class="flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-[13px] font-semibold text-white transition-smooth btn-press hover:bg-accent-hover shadow-lg shadow-accent/20"
+			>
+				<Plus size={16} strokeWidth={2.5} />
+				Nouvelle catégorie
+			</button>
+		</div>
 	</div>
 
 	<!-- Month navigation -->
