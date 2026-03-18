@@ -1,6 +1,7 @@
 import { query, execute } from './db';
 import type { Transaction } from '$lib/types';
-import { toCents, normalizeLabel, isExcludedFromAutoCategorization } from '$lib/utils/format';
+import { toCents, anonymizeLabel, isExcludedFromAutoCategorization } from '$lib/utils/format';
+import { categorizationStore } from './categorization.svelte';
 
 class TransactionStore {
 	transactions = $state<Transaction[]>([]);
@@ -55,9 +56,10 @@ class TransactionStore {
 		note?: string;
 		series_id?: number | null;
 	}) {
+		const labelAnon = anonymizeLabel(data.label);
 		await execute(
-			'INSERT INTO transactions (account_id, date, label, amount, note, series_id) VALUES ($1, $2, $3, $4, $5, $6)',
-			[data.account_id, data.date, data.label, toCents(data.amount), data.note ?? null, data.series_id ?? null]
+			'INSERT INTO transactions (account_id, date, label, amount, note, series_id, label_for_categorization) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+			[data.account_id, data.date, data.label, toCents(data.amount), data.note ?? null, data.series_id ?? null, labelAnon || null]
 		);
 		await this.load();
 	}
@@ -76,6 +78,12 @@ class TransactionStore {
 			}
 		}
 
+		// If label changed, update label_for_categorization too
+		if (data.label !== undefined) {
+			fields.push(`label_for_categorization = $${i++}`);
+			values.push(anonymizeLabel(data.label) || null);
+		}
+
 		if (fields.length > 0) {
 			values.push(id);
 			await execute(`UPDATE transactions SET ${fields.join(', ')} WHERE id = $${i}`, values);
@@ -83,50 +91,44 @@ class TransactionStore {
 		}
 	}
 
-	async categorize(transactionId: number, seriesId: number | null, subSeriesId: number | null = null) {
-		await execute('UPDATE transactions SET series_id = $1, sub_series_id = $2, is_auto_categorized = 0 WHERE id = $3', [seriesId, subSeriesId, transactionId]);
+	/**
+	 * Categorize a transaction manually.
+	 * Learns the pattern and returns the count of similar uncategorized transactions.
+	 */
+	async categorize(transactionId: number, seriesId: number | null, subSeriesId: number | null = null): Promise<number> {
+		await execute(
+			'UPDATE transactions SET series_id = $1, sub_series_id = $2, is_auto_categorized = 0 WHERE id = $3',
+			[seriesId, subSeriesId, transactionId]
+		);
 
-		// If assigning a category, learn the pattern for auto-categorization
+		let similarCount = 0;
+
+		// If assigning a category, learn the pattern
 		if (seriesId !== null) {
 			const tx = this.transactions.find((t) => t.id === transactionId);
 			if (tx && !isExcludedFromAutoCategorization(tx.original_label ?? tx.label)) {
-				const labelExact = (tx.original_label ?? tx.label).toUpperCase().trim();
-				const labelNorm = normalizeLabel(tx.original_label ?? tx.label);
-				const sign = tx.amount >= 0 ? 1 : -1;
+				await categorizationStore.learn(tx, seriesId, subSeriesId);
 
-				// Check if a rule already exists for this exact label + account + sign
-				const existing = await query<{ id: number; series_id: number; match_count: number }>(
-					'SELECT id, series_id, match_count FROM categorization_rules WHERE label_exact = $1 AND account_id = $2 AND sign = $3',
-					[labelExact, tx.account_id, sign]
-				);
-
-				if (existing.length > 0) {
-					const rule = existing[0];
-					if (rule.series_id === seriesId) {
-						// Same series → increment match_count
-						await execute(
-							'UPDATE categorization_rules SET match_count = match_count + 1, last_used = CURRENT_TIMESTAMP, sub_series_id = $1 WHERE id = $2',
-							[subSeriesId, rule.id]
-						);
-					} else {
-						// Different series → reset to 1
-						await execute(
-							'UPDATE categorization_rules SET series_id = $1, sub_series_id = $2, match_count = 1, last_used = CURRENT_TIMESTAMP WHERE id = $3',
-							[seriesId, subSeriesId, rule.id]
-						);
-					}
-				} else {
-					// New rule
-					await execute(
-						`INSERT INTO categorization_rules (label_exact, label_normalized, account_id, sign, series_id, sub_series_id, match_count)
-						 VALUES ($1, $2, $3, $4, $5, $6, 1)`,
-						[labelExact, labelNorm, tx.account_id, sign, seriesId, subSeriesId]
-					);
-				}
+				// Count similar uncategorized transactions
+				const similar = await categorizationStore.findSimilarUncategorized(tx);
+				similarCount = similar.length;
 			}
 		}
 
 		await this.load();
+		return similarCount;
+	}
+
+	/**
+	 * Apply same category to all similar uncategorized transactions.
+	 */
+	async applyToSimilar(transactionId: number, seriesId: number, subSeriesId: number | null = null): Promise<number> {
+		const tx = this.transactions.find((t) => t.id === transactionId);
+		if (!tx) return 0;
+
+		const count = await categorizationStore.applyToSimilar(tx, seriesId, subSeriesId);
+		await this.load();
+		return count;
 	}
 
 	async remove(id: number) {

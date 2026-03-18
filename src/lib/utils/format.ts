@@ -27,24 +27,20 @@ export function formatMonth(year: number, month: number): string {
 }
 
 /**
- * Normalize a transaction label for auto-categorization matching.
- * Removes variable parts (dates, check numbers, card numbers, references),
- * lowercases, and trims. Example: 'CARREFOUR 15/03 CB1234' → 'carrefour cb'
+ * Anonymize a transaction label for auto-categorization matching.
+ * Removes words that are purely digits, or sequences of 4+ digits (CB numbers, dates).
+ * Keeps mixed alphanumeric words like LIDL2GO, 3SUISSES, PARIS13.
+ * Example: 'CARTE 17/03 CARREFOUR CB1234' → 'CARTE CARREFOUR'
  */
-export function normalizeLabel(label: string): string {
+export function anonymizeLabel(label: string): string {
 	return label
-		.toLowerCase()
-		// Remove dates (DD/MM, DD/MM/YY, DD/MM/YYYY, DD-MM-YYYY, DDMMYY, YYYYMMDD)
-		.replace(/\b\d{1,2}[/\-.]\d{1,2}([/\-.]\d{2,4})?\b/g, '')
-		.replace(/\b\d{4}\d{2}\d{2}\b/g, '')
-		.replace(/\b\d{2}\d{2}\d{2}\b/g, '')
-		// Remove long number sequences (card numbers, references, check numbers: 4+ digits)
-		.replace(/\b\d{4,}\b/g, '')
-		// Remove isolated 1-3 digit numbers (amounts, short refs) but keep words with digits like "cb"
-		.replace(/\b\d{1,3}\b/g, '')
-		// Remove extra whitespace
-		.replace(/\s+/g, ' ')
-		.trim();
+		.replace(/\d{4,}/g, '') // remove sequences of 4+ digits (CB numbers, refs)
+		.replace(/\d{1,2}\/\d{1,2}(\/\d{2,4})?/g, '') // remove date patterns DD/MM or DD/MM/YYYY
+		.split(/\s+/)
+		.filter((word) => word.length > 0 && !/^\d+$/.test(word)) // remove purely-digit words
+		.join(' ')
+		.trim()
+		.toUpperCase();
 }
 
 /** Check if a transaction label looks like a check, cash withdrawal, or cash deposit */

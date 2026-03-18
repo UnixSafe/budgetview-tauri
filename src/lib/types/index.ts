@@ -46,6 +46,7 @@ export interface Transaction {
 	sub_series_id: number | null;
 	import_batch_id: number | null;
 	fitid: string | null;
+	label_for_categorization: string | null;
 	is_auto_categorized: boolean;
 	created_at: string;
 	// Joined fields
@@ -129,17 +130,13 @@ export interface CsvColumnInfo {
 // === Catégorisation ===
 export interface CategorizationRule {
 	id: number;
-	label_exact: string;
-	label_normalized: string;
-	account_id: number;
-	sign: number;
+	label_pattern: string;
 	series_id: number;
 	sub_series_id: number | null;
 	match_count: number;
-	last_used: string;
+	last_used_at: string;
 	// Joined fields
 	series_name?: string;
-	account_name?: string;
 }
 
 // === Projects ===

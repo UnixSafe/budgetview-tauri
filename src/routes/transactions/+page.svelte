@@ -22,6 +22,9 @@
 	// Categorization popover
 	let categorizingId = $state<number | null>(null);
 
+	// "Apply to similar" prompt
+	let similarPrompt = $state<{ txId: number; seriesId: number; subSeriesId: number | null; count: number } | null>(null);
+
 	onMount(async () => {
 		await Promise.all([
 			accountStore.load(),
@@ -80,8 +83,23 @@
 	}
 
 	async function handleCategorize(txId: number, seriesId: number | null) {
-		await transactionStore.categorize(txId, seriesId);
+		const similarCount = await transactionStore.categorize(txId, seriesId);
 		categorizingId = null;
+
+		if (seriesId !== null && similarCount > 0) {
+			similarPrompt = { txId, seriesId, subSeriesId: null, count: similarCount };
+		}
+	}
+
+	async function handleApplyToSimilar() {
+		if (!similarPrompt) return;
+		const count = await transactionStore.applyToSimilar(similarPrompt.txId, similarPrompt.seriesId, similarPrompt.subSeriesId);
+		toastStore.success(`${count} transaction${count > 1 ? 's' : ''} catégorisée${count > 1 ? 's' : ''}`);
+		similarPrompt = null;
+	}
+
+	function dismissSimilarPrompt() {
+		similarPrompt = null;
 	}
 
 	function handleSearch() {
@@ -124,6 +142,29 @@
 
 	{#if transactionStore.error}
 		<ErrorBanner message={transactionStore.error} ondismiss={() => (transactionStore.error = null)} />
+	{/if}
+
+	{#if similarPrompt}
+		<div class="flex items-center justify-between rounded-xl border border-accent/30 bg-accent/5 p-4">
+			<p class="text-sm text-text-primary">
+				<strong>{similarPrompt.count}</strong> autre{similarPrompt.count > 1 ? 's' : ''} transaction{similarPrompt.count > 1 ? 's' : ''} similaire{similarPrompt.count > 1 ? 's' : ''} non catégorisée{similarPrompt.count > 1 ? 's' : ''}.
+				Appliquer la même catégorie ?
+			</p>
+			<div class="flex gap-2">
+				<button
+					onclick={handleApplyToSimilar}
+					class="rounded-lg bg-accent px-4 py-1.5 text-sm font-medium text-white hover:bg-accent-hover"
+				>
+					Appliquer
+				</button>
+				<button
+					onclick={dismissSimilarPrompt}
+					class="rounded-lg border border-border px-4 py-1.5 text-sm text-text-secondary hover:text-text-primary"
+				>
+					Non merci
+				</button>
+			</div>
+		</div>
 	{/if}
 
 	{#if transactionStore.loading}
