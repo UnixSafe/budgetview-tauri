@@ -361,8 +361,23 @@
 		{/if}
 	</div>
 
-	<!-- Date range filter (collapsible) -->
-	<div class="flex items-center gap-3">
+	<!-- Date range filter with presets -->
+	<div class="flex items-center gap-3 flex-wrap">
+		<div class="flex items-center gap-1.5 rounded-xl bg-bg-card/40 p-1">
+			{#each [
+				{ label: 'Ce mois', fn: () => { const now = new Date(); transactionStore.filterDateFrom = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`; transactionStore.filterDateTo = ''; } },
+				{ label: 'Mois dernier', fn: () => { const now = new Date(); const prev = new Date(now.getFullYear(), now.getMonth()-1, 1); transactionStore.filterDateFrom = prev.toISOString().slice(0,10); transactionStore.filterDateTo = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`; } },
+				{ label: '3 mois', fn: () => { const now = new Date(); const past = new Date(now.getFullYear(), now.getMonth()-3, 1); transactionStore.filterDateFrom = past.toISOString().slice(0,10); transactionStore.filterDateTo = ''; } },
+				{ label: 'Tout', fn: () => { transactionStore.filterDateFrom = ''; transactionStore.filterDateTo = ''; } },
+			] as preset}
+				<button
+					onclick={() => { preset.fn(); handleSearch(); }}
+					class="rounded-lg px-3 py-1.5 text-[11px] font-medium text-text-muted hover:text-text-primary hover:bg-bg-hover transition-smooth"
+				>
+					{preset.label}
+				</button>
+			{/each}
+		</div>
 		<input
 			type="date"
 			bind:value={transactionStore.filterDateFrom}
@@ -379,6 +394,18 @@
 			title="Date de fin"
 		/>
 	</div>
+
+	<!-- Transaction summary -->
+	{#if filteredTransactions.length > 0}
+		{@const totalIn = filteredTransactions.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0)}
+		{@const totalOut = filteredTransactions.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0)}
+		<div class="flex items-center gap-6 text-[12px] tabular-nums">
+			<span class="text-text-muted">{filteredTransactions.length} opérations</span>
+			<span class="text-income font-medium">+{formatCurrency(totalIn)}</span>
+			<span class="text-expense font-medium">{formatCurrency(totalOut)}</span>
+			<span class="font-semibold {totalIn + totalOut >= 0 ? 'text-income' : 'text-expense'}">= {formatCurrency(totalIn + totalOut)}</span>
+		</div>
+	{/if}
 
 	<!-- Transaction list -->
 	{#if filteredTransactions.length === 0 && !transactionStore.loading}
