@@ -159,6 +159,23 @@ export interface ProjectItem {
 	series_id: number | null;
 }
 
+// === Splits (ventilation) ===
+export interface Split {
+	id: number;
+	transaction_id: number;
+	series_id: number;
+	amount: number; // in cents
+	note: string | null;
+	created_at: string | null;
+	series_name?: string;
+}
+
+export interface SplitInput {
+	amount_cents: number;
+	series_id: number;
+	note: string | null;
+}
+
 // === Dashboard ===
 export interface DashboardSummary {
 	total_balance: number;

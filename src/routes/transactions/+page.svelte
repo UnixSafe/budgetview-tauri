@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Plus, Upload, Search, X, Pencil, Trash2, Tag } from 'lucide-svelte';
+	import { Plus, Upload, Search, X, Pencil, Trash2, Tag, Scissors } from 'lucide-svelte';
 	import { transactionStore } from '$lib/stores/transactions.svelte';
 	import { accountStore } from '$lib/stores/accounts.svelte';
 	import { budgetStore } from '$lib/stores/budget.svelte';
@@ -8,6 +8,7 @@
 	import type { Transaction } from '$lib/types';
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 	import ErrorBanner from '$lib/components/ErrorBanner.svelte';
+	import SplitModal from '$lib/components/SplitModal.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 
 	let showForm = $state(false);
@@ -21,6 +22,9 @@
 
 	// Categorization popover
 	let categorizingId = $state<number | null>(null);
+
+	// Split modal
+	let splittingTx = $state<Transaction | null>(null);
 
 	// "Apply to similar" prompt
 	let similarPrompt = $state<{ txId: number; seriesId: number; subSeriesId: number | null; count: number } | null>(null);
@@ -280,6 +284,9 @@
 							</td>
 							<td class="px-4 py-3">
 								<div class="flex gap-1">
+									<button onclick={() => (splittingTx = tx)} class="rounded p-1 text-text-muted hover:text-accent" title="Ventiler">
+										<Scissors size={14} />
+									</button>
 									<button onclick={() => openEdit(tx)} class="rounded p-1 text-text-muted hover:text-text-primary">
 										<Pencil size={14} />
 									</button>
@@ -401,3 +408,9 @@
 	</div>
 {/if}
 
+{#if splittingTx}
+	<SplitModal
+		transaction={splittingTx}
+		onclose={() => { splittingTx = null; transactionStore.load(); }}
+	/>
+{/if}

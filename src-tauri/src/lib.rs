@@ -22,6 +22,10 @@ pub fn run() {
             commands::import_rollback,
             commands::detect_csv_columns,
             commands::backfill_categorization_labels,
+            commands::create_splits,
+            commands::get_splits,
+            commands::delete_splits,
+            commands::update_split,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
