@@ -26,6 +26,7 @@ pub fn run() {
             commands::get_splits,
             commands::delete_splits,
             commands::update_split,
+            commands::get_transactions_with_splits,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

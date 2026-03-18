@@ -26,5 +26,11 @@ pub fn get_migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/004_splits_created_at.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 5,
+            description: "splits_improvements",
+            sql: include_str!("../migrations/005_splits_improvements.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }

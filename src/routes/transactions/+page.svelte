@@ -4,6 +4,7 @@
 	import { transactionStore } from '$lib/stores/transactions.svelte';
 	import { accountStore } from '$lib/stores/accounts.svelte';
 	import { budgetStore } from '$lib/stores/budget.svelte';
+	import { splitStore } from '$lib/stores/splits.svelte';
 	import { formatCurrency, formatDate, toEuros } from '$lib/utils/format';
 	import type { Transaction } from '$lib/types';
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
@@ -33,7 +34,8 @@
 		await Promise.all([
 			accountStore.load(),
 			budgetStore.loadSeries(),
-			transactionStore.load()
+			transactionStore.load(),
+			splitStore.loadBatchStatus()
 		]);
 	});
 
@@ -238,7 +240,14 @@
 						<tr class="border-b border-border transition-colors hover:bg-bg-hover">
 							<td class="px-4 py-3 text-sm text-text-secondary">{formatDate(tx.date)}</td>
 							<td class="px-4 py-3">
-								<p class="text-sm font-medium text-text-primary">{tx.label}</p>
+								<p class="text-sm font-medium text-text-primary">
+									{tx.label}
+									{#if splitStore.hasSplits(tx.id)}
+										<span class="ml-1 inline-flex items-center gap-0.5 rounded bg-purple-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-purple-400" title="Transaction ventilée">
+											<Scissors size={10} />Ventilé
+										</span>
+									{/if}
+								</p>
 								{#if tx.note}
 									<p class="text-xs text-text-muted">{tx.note}</p>
 								{/if}
@@ -411,6 +420,6 @@
 {#if splittingTx}
 	<SplitModal
 		transaction={splittingTx}
-		onclose={() => { splittingTx = null; transactionStore.load(); }}
+		onclose={() => { splittingTx = null; transactionStore.load(); splitStore.loadBatchStatus(); }}
 	/>
 {/if}
