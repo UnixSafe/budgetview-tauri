@@ -108,6 +108,35 @@ describe('formatMonth', () => {
 	});
 });
 
+describe('toCents edge cases', () => {
+	it('handles very small amounts', () => {
+		expect(toCents(0.01)).toBe(1);
+		expect(toCents(-0.01)).toBe(-1);
+	});
+
+	it('handles large amounts', () => {
+		expect(toCents(99999.99)).toBe(9999999);
+	});
+});
+
+describe('anonymizeLabel edge cases', () => {
+	it('handles empty string', () => {
+		expect(anonymizeLabel('')).toBe('');
+	});
+
+	it('handles string with only numbers', () => {
+		expect(anonymizeLabel('12345678')).toBe('');
+	});
+
+	it('handles string with only date', () => {
+		expect(anonymizeLabel('17/03/2026')).toBe('');
+	});
+
+	it('preserves reference codes with mixed chars', () => {
+		expect(anonymizeLabel('REF-ABC123')).toBe('REF-ABC123');
+	});
+});
+
 describe('isExcludedFromAutoCategorization', () => {
 	it('excludes cheques', () => {
 		expect(isExcludedFromAutoCategorization('CHEQUE 12345')).toBe(true);
