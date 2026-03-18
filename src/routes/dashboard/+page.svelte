@@ -318,6 +318,7 @@
 			</div>
 
 			<!-- Overall budget gauge -->
+			{#if true}
 			{@const totalPlanned = budgetStore.budgetLines.filter((l: BudgetLineItem) => l.budget_area !== 'income' && l.planned_amount !== 0).reduce((sum: number, l: BudgetLineItem) => sum + Math.abs(l.planned_amount), 0)}
 			{@const totalSpent = budgetStore.budgetLines.filter((l: BudgetLineItem) => l.budget_area !== 'income' && l.planned_amount !== 0).reduce((sum: number, l: BudgetLineItem) => sum + Math.abs(l.actual_amount), 0)}
 			{@const overallPct = totalPlanned === 0 ? 0 : (totalSpent / totalPlanned) * 100}
@@ -339,6 +340,7 @@
 					<span>Budget: {formatCurrency(totalPlanned * -1)}</span>
 				</div>
 			</div>
+			{/if}
 
 			<!-- Individual budget gauges (top categories) -->
 			<div class="space-y-4">

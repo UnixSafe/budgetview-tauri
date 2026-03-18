@@ -132,6 +132,32 @@ class TransactionStore {
 		return count;
 	}
 
+	/**
+	 * Batch categorize multiple transactions at once.
+	 */
+	async batchCategorize(transactionIds: number[], seriesId: number | null, subSeriesId: number | null = null): Promise<number> {
+		if (transactionIds.length === 0) return 0;
+
+		// Use placeholders for batch update
+		for (const id of transactionIds) {
+			await execute(
+				'UPDATE transactions SET series_id = $1, sub_series_id = $2, is_auto_categorized = 0 WHERE id = $3',
+				[seriesId, subSeriesId, id]
+			);
+
+			// Learn patterns for auto-categorization
+			if (seriesId !== null) {
+				const tx = this.transactions.find((t) => t.id === id);
+				if (tx && !isExcludedFromAutoCategorization(tx.original_label ?? tx.label)) {
+					await categorizationStore.learn(tx, seriesId, subSeriesId);
+				}
+			}
+		}
+
+		await this.load();
+		return transactionIds.length;
+	}
+
 	async remove(id: number) {
 		await execute('DELETE FROM transactions WHERE id = $1', [id]);
 		await this.load();

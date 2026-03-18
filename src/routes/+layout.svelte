@@ -7,6 +7,7 @@
 	import LockScreen from '$lib/components/LockScreen.svelte';
 	import OnboardingModal from '$lib/components/OnboardingModal.svelte';
 	import PageTransition from '$lib/components/PageTransition.svelte';
+	import GlobalSearch from '$lib/components/GlobalSearch.svelte';
 	import { query } from '$lib/stores/db';
 
 	let { children } = $props();
@@ -70,3 +71,4 @@
 {/if}
 
 <Toast />
+<GlobalSearch />
