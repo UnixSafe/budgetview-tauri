@@ -6,6 +6,7 @@
 	import Toast from '$lib/components/Toast.svelte';
 	import LockScreen from '$lib/components/LockScreen.svelte';
 	import OnboardingModal from '$lib/components/OnboardingModal.svelte';
+	import PageTransition from '$lib/components/PageTransition.svelte';
 	import { query } from '$lib/stores/db';
 
 	let { children } = $props();
@@ -55,8 +56,10 @@
 	<div class="flex h-screen overflow-hidden bg-bg-primary">
 		<Sidebar />
 		<main class="flex-1 overflow-y-auto pb-20 md:pb-0">
-			<div class="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-8 animate-fade-in">
-				{@render children()}
+			<div class="mx-auto max-w-6xl px-4 py-6 md:px-8 md:py-8">
+				<PageTransition>
+					{@render children()}
+				</PageTransition>
 			</div>
 		</main>
 	</div>
