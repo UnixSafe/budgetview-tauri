@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Download, FileSpreadsheet, FileText } from 'lucide-svelte';
+	import { Download, FileSpreadsheet, FileText, Check, Printer, ArrowRight } from 'lucide-svelte';
 	import { invoke } from '@tauri-apps/api/core';
 	import { save } from '@tauri-apps/plugin-dialog';
 	import { accountStore } from '$lib/stores/accounts.svelte';
@@ -39,7 +39,7 @@
 					filePath: path, year: budgetYear, month: budgetMonth
 				});
 			}
-			toastStore.success(`${count} ligne(s) exportée(s)`);
+			toastStore.success(`${count} ligne(s) exportee(s)`);
 		} catch (e) {
 			toastStore.error(String(e));
 		} finally { exporting = false; }
@@ -52,76 +52,88 @@
 	<title>Export — BudgetView</title>
 </svelte:head>
 
-<div class="space-y-8">
-	<div>
-		<h1 class="text-3xl font-bold tracking-tight text-text-primary">Export</h1>
-		<p class="mt-1 text-sm text-text-muted">Exportez vos données en CSV ou PDF</p>
+<div class="max-w-2xl mx-auto space-y-10 animate-fade-in">
+	<!-- Header -->
+	<div class="text-center pt-4">
+		<h1 class="text-headline text-text-primary">Export</h1>
+		<p class="mt-2 text-body text-text-muted">Exportez vos donnees en CSV ou imprimez en PDF</p>
 	</div>
 
-	<!-- Type selector -->
-	<div class="grid grid-cols-2 gap-4">
+	<!-- Type selector — segmented cards -->
+	<div class="grid grid-cols-2 gap-4 stagger-children">
 		<button onclick={() => (exportType = 'transactions')}
-			class="flex items-center gap-4 glass-card p-6 transition-smooth btn-press
-				{exportType === 'transactions' ? 'border-accent bg-accent/5' : 'hover:bg-bg-hover/30'}">
-			<div class="flex h-12 w-12 items-center justify-center rounded-2xl {exportType === 'transactions' ? 'bg-accent/15' : 'bg-bg-elevated'}">
-				<FileSpreadsheet size={22} class={exportType === 'transactions' ? 'text-accent' : 'text-text-muted'} />
+			class="relative glass-card p-7 text-left transition-smooth btn-press card-hover
+				{exportType === 'transactions' ? 'border-accent/50 ring-1 ring-accent/20' : ''}">
+			{#if exportType === 'transactions'}
+				<div class="absolute top-4 right-4 flex h-6 w-6 items-center justify-center rounded-full bg-accent">
+					<Check size={14} class="text-white" strokeWidth={3} />
+				</div>
+			{/if}
+			<div class="flex h-14 w-14 items-center justify-center rounded-2xl mb-5
+				{exportType === 'transactions' ? 'bg-accent/15' : 'bg-bg-elevated'}">
+				<FileSpreadsheet size={26} class={exportType === 'transactions' ? 'text-accent' : 'text-text-muted'} strokeWidth={1.5} />
 			</div>
-			<div class="text-left">
-				<p class="text-[15px] font-semibold text-text-primary">Transactions</p>
-				<p class="text-[12px] text-text-muted">Exporter les transactions en CSV</p>
-			</div>
+			<p class="text-title text-text-primary mb-1">Transactions</p>
+			<p class="text-caption text-text-muted">Exporter la liste des transactions au format CSV</p>
 		</button>
+
 		<button onclick={() => (exportType = 'budget')}
-			class="flex items-center gap-4 glass-card p-6 transition-smooth btn-press
-				{exportType === 'budget' ? 'border-accent bg-accent/5' : 'hover:bg-bg-hover/30'}">
-			<div class="flex h-12 w-12 items-center justify-center rounded-2xl {exportType === 'budget' ? 'bg-accent/15' : 'bg-bg-elevated'}">
-				<FileText size={22} class={exportType === 'budget' ? 'text-accent' : 'text-text-muted'} />
+			class="relative glass-card p-7 text-left transition-smooth btn-press card-hover
+				{exportType === 'budget' ? 'border-accent/50 ring-1 ring-accent/20' : ''}">
+			{#if exportType === 'budget'}
+				<div class="absolute top-4 right-4 flex h-6 w-6 items-center justify-center rounded-full bg-accent">
+					<Check size={14} class="text-white" strokeWidth={3} />
+				</div>
+			{/if}
+			<div class="flex h-14 w-14 items-center justify-center rounded-2xl mb-5
+				{exportType === 'budget' ? 'bg-accent/15' : 'bg-bg-elevated'}">
+				<FileText size={26} class={exportType === 'budget' ? 'text-accent' : 'text-text-muted'} strokeWidth={1.5} />
 			</div>
-			<div class="text-left">
-				<p class="text-[15px] font-semibold text-text-primary">Budget</p>
-				<p class="text-[12px] text-text-muted">Résumé budget mensuel en CSV</p>
-			</div>
+			<p class="text-title text-text-primary mb-1">Budget</p>
+			<p class="text-caption text-text-muted">Resume du budget mensuel au format CSV</p>
 		</button>
 	</div>
 
 	<!-- Filters -->
-	<div class="glass-card p-6">
+	<div class="glass-card p-7 animate-slide-up">
 		{#if exportType === 'transactions'}
-			<h3 class="mb-4 text-[13px] font-semibold text-text-secondary uppercase tracking-wider">Filtres</h3>
-			<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+			<h3 class="text-caption text-text-secondary uppercase tracking-wider mb-5">Filtres de l'export</h3>
+			<div class="space-y-5">
 				<div>
-					<label for="exp-account" class="mb-1.5 block text-[13px] font-medium text-text-muted">Compte</label>
+					<label for="exp-account" class="mb-2 block text-[13px] font-medium text-text-muted">Compte</label>
 					<select id="exp-account" bind:value={accountId}
-						class="w-full rounded-xl border border-border bg-bg-primary/60 px-4 py-3 text-[14px] text-text-primary outline-none focus-ring">
+						class="w-full rounded-2xl border border-border bg-bg-input px-5 py-3.5 text-[14px] text-text-primary outline-none focus-ring">
 						<option value="">Tous les comptes</option>
 						{#each accountStore.accounts as account}
 							<option value={account.id}>{account.name}</option>
 						{/each}
 					</select>
 				</div>
-				<div>
-					<label for="exp-from" class="mb-1.5 block text-[13px] font-medium text-text-muted">Date début</label>
-					<input id="exp-from" type="date" bind:value={dateFrom}
-						class="w-full rounded-xl border border-border bg-bg-primary/60 px-4 py-3 text-[14px] text-text-primary outline-none focus-ring" />
-				</div>
-				<div>
-					<label for="exp-to" class="mb-1.5 block text-[13px] font-medium text-text-muted">Date fin</label>
-					<input id="exp-to" type="date" bind:value={dateTo}
-						class="w-full rounded-xl border border-border bg-bg-primary/60 px-4 py-3 text-[14px] text-text-primary outline-none focus-ring" />
+				<div class="grid grid-cols-2 gap-4">
+					<div>
+						<label for="exp-from" class="mb-2 block text-[13px] font-medium text-text-muted">Date debut</label>
+						<input id="exp-from" type="date" bind:value={dateFrom}
+							class="w-full rounded-2xl border border-border bg-bg-input px-5 py-3.5 text-[14px] text-text-primary outline-none focus-ring" />
+					</div>
+					<div>
+						<label for="exp-to" class="mb-2 block text-[13px] font-medium text-text-muted">Date fin</label>
+						<input id="exp-to" type="date" bind:value={dateTo}
+							class="w-full rounded-2xl border border-border bg-bg-input px-5 py-3.5 text-[14px] text-text-primary outline-none focus-ring" />
+					</div>
 				</div>
 			</div>
 		{:else}
-			<h3 class="mb-4 text-[13px] font-semibold text-text-secondary uppercase tracking-wider">Période</h3>
+			<h3 class="text-caption text-text-secondary uppercase tracking-wider mb-5">Periode du budget</h3>
 			<div class="grid grid-cols-2 gap-4">
 				<div>
-					<label for="exp-year" class="mb-1.5 block text-[13px] font-medium text-text-muted">Année</label>
+					<label for="exp-year" class="mb-2 block text-[13px] font-medium text-text-muted">Annee</label>
 					<input id="exp-year" type="number" bind:value={budgetYear} min="2000" max="2100"
-						class="w-full rounded-xl border border-border bg-bg-primary/60 px-4 py-3 text-[14px] text-text-primary outline-none focus-ring" />
+						class="w-full rounded-2xl border border-border bg-bg-input px-5 py-3.5 text-[14px] text-text-primary outline-none focus-ring" />
 				</div>
 				<div>
-					<label for="exp-month" class="mb-1.5 block text-[13px] font-medium text-text-muted">Mois</label>
+					<label for="exp-month" class="mb-2 block text-[13px] font-medium text-text-muted">Mois</label>
 					<select id="exp-month" bind:value={budgetMonth}
-						class="w-full rounded-xl border border-border bg-bg-primary/60 px-4 py-3 text-[14px] text-text-primary outline-none focus-ring">
+						class="w-full rounded-2xl border border-border bg-bg-input px-5 py-3.5 text-[14px] text-text-primary outline-none focus-ring">
 						{#each Array.from({ length: 12 }, (_, i) => i + 1) as m}
 							<option value={m}>{formatMonth(budgetYear, m)}</option>
 						{/each}
@@ -132,15 +144,20 @@
 	</div>
 
 	<!-- Actions -->
-	<div class="flex gap-3">
+	<div class="flex flex-col gap-3 sm:flex-row animate-slide-up" style="animation-delay: 60ms;">
 		<button onclick={handleExportCSV} disabled={exporting}
-			class="flex items-center gap-2 rounded-xl bg-accent px-8 py-3.5 text-[14px] font-semibold text-white transition-smooth btn-press hover:bg-accent-hover shadow-lg shadow-accent/20 disabled:opacity-40">
-			<Download size={18} />
-			{exporting ? 'Export...' : 'Exporter en CSV'}
+			class="btn-primary flex-1 justify-center py-4 text-[15px] rounded-2xl disabled:opacity-40 disabled:pointer-events-none">
+			{#if exporting}
+				<div class="h-4.5 w-4.5 animate-spin rounded-full border-2 border-white/20 border-t-white"></div>
+				Export en cours...
+			{:else}
+				<Download size={18} strokeWidth={2} />
+				Exporter en CSV
+				<ArrowRight size={16} class="ml-1 opacity-60" />
+			{/if}
 		</button>
-		<button onclick={handlePrint}
-			class="flex items-center gap-2 rounded-xl border border-border px-6 py-3.5 text-[14px] font-medium text-text-secondary transition-smooth btn-press hover:bg-bg-hover hover:text-text-primary">
-			<FileText size={18} />
+		<button onclick={handlePrint} class="btn-secondary justify-center py-4 rounded-2xl">
+			<Printer size={18} strokeWidth={2} />
 			Imprimer / PDF
 		</button>
 	</div>

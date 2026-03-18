@@ -91,21 +91,20 @@
 	<title>Récurrences — BudgetView</title>
 </svelte:head>
 
-<div class="space-y-8">
+<div class="space-y-8 animate-fade-in">
+	<!-- Header -->
 	<div class="flex items-center justify-between">
 		<div>
-			<h1 class="text-3xl font-bold tracking-tight text-text-primary">Récurrences</h1>
-			<p class="mt-1 text-sm text-text-muted">Gérez vos opérations régulières</p>
+			<h1 class="text-headline text-text-primary">Récurrences</h1>
+			<p class="mt-1.5 text-body text-text-muted">Gérez vos opérations régulières</p>
 		</div>
-		<div class="flex gap-2">
-			<button onclick={handleDetect} disabled={recurringStore.detecting}
-				class="flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-[13px] font-medium text-text-secondary transition-smooth btn-press hover:bg-bg-hover hover:text-text-primary disabled:opacity-40">
-				<Zap size={15} />
+		<div class="flex gap-3">
+			<button onclick={handleDetect} disabled={recurringStore.detecting} class="btn-secondary disabled:opacity-40">
+				<Zap size={16} />
 				{recurringStore.detecting ? 'Analyse...' : 'Détecter'}
 			</button>
-			<button onclick={openCreate}
-				class="flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-[13px] font-semibold text-white transition-smooth btn-press hover:bg-accent-hover shadow-lg shadow-accent/20">
-				<Plus size={15} strokeWidth={2.5} />
+			<button onclick={openCreate} class="btn-primary">
+				<Plus size={16} strokeWidth={2.5} />
 				Ajouter
 			</button>
 		</div>
@@ -117,54 +116,68 @@
 
 	<!-- Missing alerts -->
 	{#if recurringStore.missing.length > 0}
-		<div class="space-y-2 animate-slide-up">
-			<h2 class="flex items-center gap-2 text-[13px] font-semibold text-warning">
-				<AlertTriangle size={15} />
-				En retard ({recurringStore.missing.length})
-			</h2>
-			{#each recurringStore.missing as alert}
-				<div class="flex items-center justify-between glass-card p-5 border-warning/15">
-					<div>
-						<p class="text-[14px] font-semibold text-text-primary">{alert.label}</p>
-						<p class="text-[12px] text-text-muted mt-0.5">
-							Attendue le {formatDate(alert.expected_date)} · {alert.days_overdue}j de retard
-							{#if alert.account_name} · {alert.account_name}{/if}
-						</p>
+		<div class="space-y-3 animate-slide-up">
+			<div class="glass-card p-6" style="border-color: rgba(255, 214, 10, 0.15);">
+				<h2 class="flex items-center gap-2.5 text-caption font-semibold text-warning uppercase tracking-wider mb-4">
+					<div class="flex h-7 w-7 items-center justify-center rounded-lg bg-warning/15">
+						<AlertTriangle size={14} class="text-warning" />
 					</div>
-					<span class="text-[14px] font-semibold tabular-nums {alert.amount >= 0 ? 'text-income' : 'text-expense'}">
-						{formatCurrency(alert.amount)}
-					</span>
+					En retard ({recurringStore.missing.length})
+				</h2>
+				<div class="space-y-2 stagger-children">
+					{#each recurringStore.missing as alert}
+						<div class="flex items-center justify-between rounded-2xl bg-bg-primary/30 px-5 py-4 transition-smooth hover:bg-bg-hover/50">
+							<div>
+								<p class="text-[14px] font-semibold text-text-primary tracking-tight">{alert.label}</p>
+								<p class="text-caption text-text-muted mt-1">
+									Attendue le {formatDate(alert.expected_date)} &middot; {alert.days_overdue}j de retard
+									{#if alert.account_name} &middot; {alert.account_name}{/if}
+								</p>
+							</div>
+							<span class="text-[15px] font-bold tabular-nums {alert.amount >= 0 ? 'text-income' : 'text-expense'}">
+								{formatCurrency(alert.amount)}
+							</span>
+						</div>
+					{/each}
 				</div>
-			{/each}
+			</div>
 		</div>
 	{/if}
 
 	<!-- Detected patterns -->
 	{#if recurringStore.patterns.length > 0}
-		<div class="space-y-2 animate-slide-up">
-			<h2 class="text-[13px] font-semibold text-text-secondary uppercase tracking-wider">Détectées</h2>
-			{#each recurringStore.patterns as pattern, i}
-				<div class="flex items-center justify-between glass-card p-5 border-accent/15">
-					<div>
-						<p class="text-[14px] font-semibold text-text-primary">{pattern.label}</p>
-						<p class="text-[12px] text-text-muted mt-0.5">
-							{pattern.account_name} · {FREQ_LABELS[pattern.frequency] ?? pattern.frequency}
-							· ~{formatCurrency(pattern.avg_amount)} · {pattern.transaction_count} occ.
-							{#if pattern.series_name} · {pattern.series_name}{/if}
-						</p>
+		<div class="space-y-3 animate-slide-up">
+			<div class="glass-card p-6" style="border-color: rgba(10, 132, 255, 0.15);">
+				<h2 class="flex items-center gap-2.5 text-caption font-semibold text-accent uppercase tracking-wider mb-4">
+					<div class="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/15">
+						<Zap size={14} class="text-accent" />
 					</div>
-					<div class="flex gap-2">
-						<button onclick={() => handleConfirmPattern(i)}
-							class="flex items-center gap-1.5 rounded-xl bg-accent px-4 py-2 text-[13px] font-semibold text-white transition-smooth btn-press hover:bg-accent-hover">
-							<Check size={14} />Confirmer
-						</button>
-						<button onclick={() => dismissPattern(i)}
-							class="rounded-xl border border-border px-3 py-2 text-text-muted hover:text-text-primary transition-smooth">
-							<X size={14} />
-						</button>
-					</div>
+					Récurrences détectées
+				</h2>
+				<div class="space-y-2 stagger-children">
+					{#each recurringStore.patterns as pattern, i}
+						<div class="flex items-center justify-between rounded-2xl bg-bg-primary/30 px-5 py-4 transition-smooth hover:bg-bg-hover/50">
+							<div>
+								<p class="text-[14px] font-semibold text-text-primary tracking-tight">{pattern.label}</p>
+								<p class="text-caption text-text-muted mt-1">
+									{pattern.account_name} &middot; {FREQ_LABELS[pattern.frequency] ?? pattern.frequency}
+									&middot; ~{formatCurrency(pattern.avg_amount)} &middot; {pattern.transaction_count} occ.
+									{#if pattern.series_name} &middot; {pattern.series_name}{/if}
+								</p>
+							</div>
+							<div class="flex gap-2">
+								<button onclick={() => handleConfirmPattern(i)} class="btn-primary !px-4 !py-2 !text-[13px] !rounded-xl">
+									<Check size={14} />Confirmer
+								</button>
+								<button onclick={() => dismissPattern(i)}
+									class="flex items-center justify-center rounded-xl border border-border w-9 h-9 text-text-muted hover:text-text-primary hover:bg-bg-hover transition-smooth">
+									<X size={14} />
+								</button>
+							</div>
+						</div>
+					{/each}
 				</div>
-			{/each}
+			</div>
 		</div>
 	{/if}
 
@@ -172,54 +185,60 @@
 	{#if recurringStore.loading}
 		<LoadingSpinner message="Chargement..." />
 	{:else if recurringStore.items.length === 0 && recurringStore.patterns.length === 0}
-		<div class="flex flex-col items-center justify-center glass-card p-16">
-			<div class="mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-bg-elevated">
-				<RefreshCw size={36} class="text-text-muted" strokeWidth={1.5} />
+		<div class="flex flex-col items-center justify-center glass-card p-20 stagger-children">
+			<div class="mb-6 flex h-24 w-24 items-center justify-center rounded-[28px] bg-bg-elevated/60">
+				<RefreshCw size={40} class="text-text-muted" strokeWidth={1.3} />
 			</div>
-			<p class="text-xl font-semibold text-text-primary">Aucune récurrence</p>
-			<p class="mt-1 text-sm text-text-muted">Cliquez sur "Détecter" pour analyser vos transactions</p>
+			<p class="text-title text-text-primary">Aucune récurrence</p>
+			<p class="mt-2 text-body text-text-muted max-w-xs text-center">Cliquez sur "Détecter" pour analyser vos transactions ou ajoutez-en manuellement</p>
+			<button onclick={openCreate} class="btn-primary mt-8">
+				<Plus size={16} strokeWidth={2.5} />
+				Ajouter une récurrence
+			</button>
 		</div>
 	{:else if recurringStore.items.length > 0}
-		<div class="glass-card overflow-hidden">
+		<div class="glass-card overflow-hidden animate-slide-up">
 			<table class="w-full">
 				<thead>
-					<tr class="border-b border-border-light text-left text-[12px] font-semibold text-text-muted uppercase tracking-wider">
-						<th class="px-5 py-3.5">Libellé</th>
-						<th class="px-5 py-3.5">Compte</th>
-						<th class="px-5 py-3.5">Fréquence</th>
-						<th class="px-5 py-3.5">Catégorie</th>
-						<th class="px-5 py-3.5">Prochaine</th>
-						<th class="px-5 py-3.5 text-right">Montant</th>
-						<th class="px-5 py-3.5 w-28"></th>
+					<tr class="border-b border-border-light">
+						<th class="px-6 py-4 text-left text-caption font-semibold text-text-muted uppercase tracking-wider">Libellé</th>
+						<th class="px-6 py-4 text-left text-caption font-semibold text-text-muted uppercase tracking-wider">Compte</th>
+						<th class="px-6 py-4 text-left text-caption font-semibold text-text-muted uppercase tracking-wider">Fréquence</th>
+						<th class="px-6 py-4 text-left text-caption font-semibold text-text-muted uppercase tracking-wider">Catégorie</th>
+						<th class="px-6 py-4 text-left text-caption font-semibold text-text-muted uppercase tracking-wider">Prochaine</th>
+						<th class="px-6 py-4 text-right text-caption font-semibold text-text-muted uppercase tracking-wider">Montant</th>
+						<th class="px-6 py-4 w-32"></th>
 					</tr>
 				</thead>
 				<tbody>
 					{#each recurringStore.items as item (item.id)}
 						<tr class="border-b border-border-light/50 hover-row" class:opacity-40={!item.is_active}>
-							<td class="px-5 py-3.5">
-								<p class="text-[13px] font-medium text-text-primary">{item.label}</p>
+							<td class="px-6 py-4">
+								<p class="text-[14px] font-medium text-text-primary tracking-tight">{item.label}</p>
 								{#if item.day_of_month}
-									<p class="text-[11px] text-text-muted mt-0.5">Le {item.day_of_month} du mois</p>
+									<p class="text-caption text-text-muted mt-0.5">Le {item.day_of_month} du mois</p>
 								{/if}
 							</td>
-							<td class="px-5 py-3.5 text-[13px] text-text-muted">{item.account_name ?? ''}</td>
-							<td class="px-5 py-3.5 text-[13px] text-text-muted">{FREQ_LABELS[item.frequency ?? ''] ?? '—'}</td>
-							<td class="px-5 py-3.5 text-[13px] text-text-muted">{item.series_name ?? '—'}</td>
-							<td class="px-5 py-3.5 text-[13px] text-text-muted tabular-nums">
+							<td class="px-6 py-4 text-[13px] text-text-secondary">{item.account_name ?? ''}</td>
+							<td class="px-6 py-4">
+								<span class="badge bg-bg-elevated text-text-secondary">{FREQ_LABELS[item.frequency ?? ''] ?? '—'}</span>
+							</td>
+							<td class="px-6 py-4 text-[13px] text-text-secondary">{item.series_name ?? '—'}</td>
+							<td class="px-6 py-4 text-[13px] text-text-secondary tabular-nums">
 								{item.next_expected_date ? formatDate(item.next_expected_date) : '—'}
 							</td>
-							<td class="px-5 py-3.5 text-right text-[14px] font-semibold tabular-nums {item.amount >= 0 ? 'text-income' : 'text-expense'}">
+							<td class="px-6 py-4 text-right text-[15px] font-bold tabular-nums {item.amount >= 0 ? 'text-income' : 'text-expense'}">
 								{formatCurrency(item.amount)}
 							</td>
-							<td class="px-5 py-3.5">
-								<div class="flex gap-0.5">
-									<button onclick={() => openEdit(item)} class="rounded-lg p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-hover transition-smooth">
+							<td class="px-6 py-4">
+								<div class="flex gap-1 justify-end">
+									<button onclick={() => openEdit(item)} class="rounded-xl p-2 text-text-muted hover:text-text-primary hover:bg-bg-hover transition-smooth">
 										<Pencil size={14} />
 									</button>
-									<button onclick={() => handleToggleActive(item)} class="rounded-lg p-1.5 text-text-muted hover:text-warning hover:bg-warning/10 transition-smooth" title={item.is_active ? 'Désactiver' : 'Réactiver'}>
+									<button onclick={() => handleToggleActive(item)} class="rounded-xl p-2 text-text-muted hover:text-warning hover:bg-warning/10 transition-smooth" title={item.is_active ? 'Désactiver' : 'Réactiver'}>
 										{#if item.is_active}<X size={14} />{:else}<Check size={14} />{/if}
 									</button>
-									<button onclick={() => handleRemove(item.id)} class="rounded-lg p-1.5 text-text-muted hover:text-danger hover:bg-danger/10 transition-smooth">
+									<button onclick={() => handleRemove(item.id)} class="rounded-xl p-2 text-text-muted hover:text-danger hover:bg-danger/10 transition-smooth">
 										<Trash2 size={14} />
 									</button>
 								</div>
@@ -237,27 +256,29 @@
 	<div class="fixed inset-0 z-50 flex items-center justify-center modal-overlay animate-fade-in" role="dialog">
 		<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 		<div class="absolute inset-0" onclick={() => (showForm = false)}></div>
-		<div class="relative w-full max-w-md glass-card p-7 shadow-2xl animate-modal-in mx-4">
-			<div class="mb-6 flex items-center justify-between">
-				<h2 class="text-xl font-bold tracking-tight text-text-primary">{editingId ? 'Modifier' : 'Nouvelle récurrence'}</h2>
-				<button onclick={() => (showForm = false)} class="rounded-xl p-2 text-text-muted hover:text-text-primary hover:bg-bg-hover transition-smooth"><X size={18} /></button>
+		<div class="relative w-full max-w-lg glass-card p-8 shadow-2xl animate-modal-in mx-4">
+			<div class="mb-7 flex items-center justify-between">
+				<h2 class="text-title text-text-primary">{editingId ? 'Modifier la récurrence' : 'Nouvelle récurrence'}</h2>
+				<button onclick={() => (showForm = false)} class="rounded-xl p-2.5 text-text-muted hover:text-text-primary hover:bg-bg-hover transition-smooth">
+					<X size={18} />
+				</button>
 			</div>
 			<form onsubmit={handleSubmit} class="space-y-5">
 				<div>
-					<label for="rec-label" class="mb-1.5 block text-[13px] font-medium text-text-secondary">Libellé *</label>
-					<input id="rec-label" bind:value={formLabel} required
-						class="w-full rounded-xl border border-border bg-bg-primary/60 px-4 py-3 text-[14px] text-text-primary outline-none focus-ring" />
+					<label for="rec-label" class="mb-2 block text-caption font-medium text-text-secondary">Libellé *</label>
+					<input id="rec-label" bind:value={formLabel} required placeholder="Ex: Loyer, Netflix..."
+						class="w-full rounded-2xl border border-border bg-bg-input px-4 py-3.5 text-[14px] text-text-primary outline-none focus-ring placeholder:text-text-muted" />
 				</div>
 				<div class="grid grid-cols-2 gap-4">
 					<div>
-						<label for="rec-amount" class="mb-1.5 block text-[13px] font-medium text-text-secondary">Montant *</label>
+						<label for="rec-amount" class="mb-2 block text-caption font-medium text-text-secondary">Montant *</label>
 						<input id="rec-amount" type="number" step="0.01" bind:value={formAmount} required
-							class="w-full rounded-xl border border-border bg-bg-primary/60 px-4 py-3 text-[14px] text-text-primary outline-none focus-ring" />
+							class="w-full rounded-2xl border border-border bg-bg-input px-4 py-3.5 text-[14px] text-text-primary outline-none focus-ring" />
 					</div>
 					<div>
-						<label for="rec-account" class="mb-1.5 block text-[13px] font-medium text-text-secondary">Compte *</label>
+						<label for="rec-account" class="mb-2 block text-caption font-medium text-text-secondary">Compte *</label>
 						<select id="rec-account" bind:value={formAccountId} required disabled={!!editingId}
-							class="w-full rounded-xl border border-border bg-bg-primary/60 px-4 py-3 text-[14px] text-text-primary outline-none focus-ring disabled:opacity-40">
+							class="w-full rounded-2xl border border-border bg-bg-input px-4 py-3.5 text-[14px] text-text-primary outline-none focus-ring disabled:opacity-40">
 							{#each accountStore.accounts as account}
 								<option value={account.id}>{account.name}</option>
 							{/each}
@@ -266,33 +287,36 @@
 				</div>
 				<div class="grid grid-cols-2 gap-4">
 					<div>
-						<label for="rec-freq" class="mb-1.5 block text-[13px] font-medium text-text-secondary">Fréquence</label>
+						<label for="rec-freq" class="mb-2 block text-caption font-medium text-text-secondary">Fréquence</label>
 						<select id="rec-freq" bind:value={formFrequency}
-							class="w-full rounded-xl border border-border bg-bg-primary/60 px-4 py-3 text-[14px] text-text-primary outline-none focus-ring">
+							class="w-full rounded-2xl border border-border bg-bg-input px-4 py-3.5 text-[14px] text-text-primary outline-none focus-ring">
 							{#each Object.entries(FREQ_LABELS) as [value, label]}
 								<option {value}>{label}</option>
 							{/each}
 						</select>
 					</div>
 					<div>
-						<label for="rec-day" class="mb-1.5 block text-[13px] font-medium text-text-secondary">Jour du mois</label>
+						<label for="rec-day" class="mb-2 block text-caption font-medium text-text-secondary">Jour du mois</label>
 						<input id="rec-day" type="number" min="1" max="31" bind:value={formDayOfMonth}
-							class="w-full rounded-xl border border-border bg-bg-primary/60 px-4 py-3 text-[14px] text-text-primary outline-none focus-ring" />
+							class="w-full rounded-2xl border border-border bg-bg-input px-4 py-3.5 text-[14px] text-text-primary outline-none focus-ring" />
 					</div>
 				</div>
 				<div>
-					<label for="rec-series" class="mb-1.5 block text-[13px] font-medium text-text-secondary">Catégorie</label>
+					<label for="rec-series" class="mb-2 block text-caption font-medium text-text-secondary">Catégorie</label>
 					<select id="rec-series" bind:value={formSeriesId}
-						class="w-full rounded-xl border border-border bg-bg-primary/60 px-4 py-3 text-[14px] text-text-primary outline-none focus-ring">
+						class="w-full rounded-2xl border border-border bg-bg-input px-4 py-3.5 text-[14px] text-text-primary outline-none focus-ring">
 						<option value="">Aucune</option>
 						{#each budgetStore.series as series}
 							<option value={series.id}>{series.name}</option>
 						{/each}
 					</select>
 				</div>
-				<div class="flex justify-end gap-3 pt-3">
-					<button type="button" onclick={() => (showForm = false)} class="rounded-xl px-5 py-2.5 text-[13px] font-medium text-text-secondary hover:text-text-primary transition-smooth">Annuler</button>
-					<button type="submit" class="rounded-xl bg-accent px-6 py-2.5 text-[13px] font-semibold text-white transition-smooth btn-press hover:bg-accent-hover shadow-lg shadow-accent/20">
+				<div class="divider"></div>
+				<div class="flex justify-end gap-3 pt-1">
+					<button type="button" onclick={() => (showForm = false)} class="btn-secondary !py-2.5">
+						Annuler
+					</button>
+					<button type="submit" class="btn-primary !py-2.5">
 						{editingId ? 'Enregistrer' : 'Créer'}
 					</button>
 				</div>
