@@ -1,5 +1,8 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { page } from '$app/state';
+	import { query } from '$lib/stores/db';
+	import { formatCurrency } from '$lib/utils/format';
 	import {
 		LayoutDashboard,
 		Landmark,
@@ -37,6 +40,17 @@
 	];
 
 	const allNav = [...mainNav, ...secondaryNav, ...settingsNav];
+
+	let totalBalance = $state<number | null>(null);
+
+	onMount(async () => {
+		try {
+			const result = await query<{ total: number }>(
+				`SELECT COALESCE(SUM(a.initial_balance), 0) + COALESCE((SELECT SUM(t.amount) FROM transactions t WHERE t.account_id IN (SELECT id FROM accounts WHERE is_active = 1)), 0) as total FROM accounts a WHERE a.is_active = 1`
+			);
+			totalBalance = result[0]?.total ?? 0;
+		} catch { /* ignore */ }
+	});
 
 	// Mobile bottom nav: show only main items
 	const mobileNav = [
@@ -157,9 +171,17 @@
 		{/each}
 	</nav>
 
-	<!-- Footer with version badge -->
-	<div class="px-5 py-3.5 border-t border-glass-border">
-		<div class="flex items-center gap-2">
+	<!-- Footer with balance and version -->
+	<div class="px-4 py-3 border-t border-glass-border space-y-2">
+		{#if totalBalance !== null}
+			<div class="rounded-xl bg-bg-hover/30 px-3 py-2">
+				<p class="text-[9px] font-semibold text-text-muted/60 uppercase tracking-wider">Solde total</p>
+				<p class="text-[14px] font-bold tabular-nums tracking-tight {totalBalance >= 0 ? 'text-income' : 'text-expense'}">
+					{formatCurrency(totalBalance)}
+				</p>
+			</div>
+		{/if}
+		<div class="flex items-center gap-2 px-1">
 			<span class="inline-flex items-center rounded-md bg-accent/[0.08] px-2 py-0.5 text-[10px] font-semibold text-accent/80 tracking-wide ring-1 ring-inset ring-accent/[0.12]">
 				v0.1.0
 			</span>
