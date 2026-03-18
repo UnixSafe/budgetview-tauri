@@ -5,10 +5,13 @@
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 	import LockScreen from '$lib/components/LockScreen.svelte';
+	import OnboardingModal from '$lib/components/OnboardingModal.svelte';
+	import { query } from '$lib/stores/db';
 
 	let { children } = $props();
 	let locked = $state(false);
 	let checkingLock = $state(true);
+	let showOnboarding = $state(false);
 
 	onMount(async () => {
 		try {
@@ -21,7 +24,25 @@
 
 		// Backfill label_for_categorization for transactions created before migration 003
 		invoke('backfill_categorization_labels');
+
+		// Check if this is first launch (no accounts = new user)
+		if (!locked) {
+			try {
+				const result = await query<{ count: number }>('SELECT COUNT(*) as count FROM accounts');
+				const onboarded = await query<{ value: string }>('SELECT value FROM app_settings WHERE key = $1', ['onboarded']);
+				if ((result[0]?.count ?? 0) === 0 && !onboarded[0]) {
+					showOnboarding = true;
+				}
+			} catch { /* ignore */ }
+		}
 	});
+
+	async function handleOnboardingClose() {
+		showOnboarding = false;
+		try {
+			await query('INSERT OR REPLACE INTO app_settings (key, value) VALUES ($1, $2)', ['onboarded', '1']);
+		} catch { /* ignore */ }
+	}
 </script>
 
 {#if checkingLock}
@@ -39,6 +60,10 @@
 			</div>
 		</main>
 	</div>
+{/if}
+
+{#if showOnboarding}
+	<OnboardingModal onclose={handleOnboardingClose} />
 {/if}
 
 <Toast />
