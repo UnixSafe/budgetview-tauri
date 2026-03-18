@@ -191,6 +191,7 @@ Pour comprendre la logique métier, consulte :
 - Tester les migrations : vérifier que chaque migration s'applique proprement
 - Tester l'import : OFX, QIF, CSV avec des fichiers de test dans `tests/fixtures/`
 - **Lancer `cargo test` après chaque modification backend**
+- **Lancer `npx vite build` après chaque modification frontend** — la CI échoue sur les erreurs Svelte (a11y, @const placement, syntax). `cargo check` ne vérifie PAS le frontend !
 
 ### Frontend TypeScript/Svelte
 - Tests unitaires avec Vitest pour les utilitaires (`src/lib/utils/`)
