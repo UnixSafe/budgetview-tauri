@@ -12,7 +12,8 @@
 		Settings,
 		RefreshCw,
 		Shield,
-		Database
+		Database,
+		StickyNote
 	} from 'lucide-svelte';
 
 	const mainNav = [
@@ -28,6 +29,7 @@
 		{ label: 'Export', href: '/export', icon: Download },
 		{ label: 'Récurrences', href: '/recurring', icon: RefreshCw },
 		{ label: 'Projets', href: '/projects', icon: FolderKanban },
+		{ label: 'Notes', href: '/notes', icon: StickyNote },
 	];
 
 	const settingsNav = [
