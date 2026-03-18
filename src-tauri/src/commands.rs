@@ -1,3 +1,4 @@
+use chrono::Datelike;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
@@ -612,6 +613,129 @@ async fn get_splits_internal(pool: &sqlx::SqlitePool, transaction_id: i64) -> Re
         series_name: r.7,
         sub_series_name: r.8,
     }).collect())
+}
+
+// === Recurring transaction detection ===
+
+/// A detected recurring pattern from transaction history
+#[derive(Debug, Serialize)]
+pub struct RecurringPattern {
+    pub label: String,
+    pub account_id: i64,
+    pub account_name: String,
+    pub avg_amount: i64,
+    pub frequency: String,
+    pub day_of_month: i64,
+    pub transaction_count: i64,
+    pub last_date: String,
+    pub series_id: Option<i64>,
+    pub series_name: Option<String>,
+}
+
+/// Analyze transaction history to detect recurring patterns.
+/// Groups by anonymized label + account, checks interval regularity.
+#[command]
+pub async fn detect_recurring_patterns(
+    min_occurrences: Option<i64>,
+    db: tauri::State<'_, DbInstances>,
+) -> Result<Vec<RecurringPattern>, String> {
+    let pool = get_db_pool(&db).await?;
+    let min_occ = min_occurrences.unwrap_or(3);
+
+    // Find groups of transactions with same anonymized label + account that occur 3+ times
+    let groups: Vec<(String, i64, String, i64, i64, Option<i64>, Option<String>)> = sqlx::query_as(
+        "SELECT t.label_for_categorization, t.account_id, a.name,
+                COUNT(*) as cnt, AVG(t.amount) as avg_amt,
+                t.series_id, bs.name
+         FROM transactions t
+         LEFT JOIN accounts a ON t.account_id = a.id
+         LEFT JOIN budget_series bs ON t.series_id = bs.id
+         WHERE t.label_for_categorization IS NOT NULL
+           AND t.label_for_categorization != ''
+         GROUP BY t.label_for_categorization, t.account_id
+         HAVING COUNT(*) >= ?
+         ORDER BY cnt DESC"
+    )
+    .bind(min_occ)
+    .fetch_all(&pool)
+    .await
+    .map_err(|e| format!("Erreur analyse récurrences: {}", e))?;
+
+    let mut patterns = Vec::new();
+
+    for (label, account_id, account_name, count, avg_amount, series_id, series_name) in &groups {
+        // Get dates for this group to analyze intervals
+        let dates: Vec<(String,)> = sqlx::query_as(
+            "SELECT date FROM transactions
+             WHERE label_for_categorization = ? AND account_id = ?
+             ORDER BY date ASC"
+        )
+        .bind(label)
+        .bind(account_id)
+        .fetch_all(&pool)
+        .await
+        .map_err(|e| format!("Erreur lecture dates: {}", e))?;
+
+        if dates.len() < 2 {
+            continue;
+        }
+
+        // Parse dates and compute intervals in days
+        let parsed_dates: Vec<chrono::NaiveDate> = dates.iter()
+            .filter_map(|(d,)| chrono::NaiveDate::parse_from_str(d, "%Y-%m-%d").ok())
+            .collect();
+
+        if parsed_dates.len() < 2 {
+            continue;
+        }
+
+        let intervals: Vec<i64> = parsed_dates.windows(2)
+            .map(|w| (w[1] - w[0]).num_days())
+            .filter(|&d| d > 0) // skip same-day duplicates
+            .collect();
+
+        if intervals.is_empty() {
+            continue;
+        }
+
+        let avg_interval = intervals.iter().sum::<i64>() as f64 / intervals.len() as f64;
+
+        // Determine frequency based on average interval
+        let frequency = if avg_interval >= 340.0 && avg_interval <= 395.0 {
+            "yearly"
+        } else if avg_interval >= 80.0 && avg_interval <= 110.0 {
+            "quarterly"
+        } else if avg_interval >= 25.0 && avg_interval <= 35.0 {
+            "monthly"
+        } else if avg_interval >= 12.0 && avg_interval <= 16.0 {
+            "biweekly"
+        } else if avg_interval >= 5.0 && avg_interval <= 9.0 {
+            "weekly"
+        } else {
+            continue; // Not a recognizable pattern
+        };
+
+        // Calculate typical day of month from dates
+        let days: Vec<u32> = parsed_dates.iter().map(|d| d.day()).collect();
+        let avg_day = days.iter().sum::<u32>() as f64 / days.len() as f64;
+
+        let last_date = parsed_dates.last().unwrap().to_string();
+
+        patterns.push(RecurringPattern {
+            label: label.clone(),
+            account_id: *account_id,
+            account_name: account_name.clone(),
+            avg_amount: *avg_amount,
+            frequency: frequency.to_string(),
+            day_of_month: avg_day.round() as i64,
+            transaction_count: *count,
+            last_date,
+            series_id: *series_id,
+            series_name: series_name.clone(),
+        });
+    }
+
+    Ok(patterns)
 }
 
 // === Helpers ===

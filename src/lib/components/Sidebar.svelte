@@ -8,7 +8,8 @@
 		BarChart3,
 		FolderKanban,
 		Upload,
-		Settings
+		Settings,
+		RefreshCw
 	} from 'lucide-svelte';
 
 	const navItems = [
@@ -17,6 +18,7 @@
 		{ label: 'Transactions', href: '/transactions', icon: ArrowLeftRight },
 		{ label: 'Import', href: '/import', icon: Upload },
 		{ label: 'Budget', href: '/budget', icon: PieChart },
+		{ label: 'Récurrences', href: '/recurring', icon: RefreshCw },
 		{ label: 'Analyse', href: '/analysis', icon: BarChart3 },
 		{ label: 'Projets', href: '/projects', icon: FolderKanban },
 		{ label: 'Règles auto', href: '/settings/rules', icon: Settings }
