@@ -6,6 +6,7 @@
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import type { CategorizationRule } from '$lib/types';
+	import { formatDate } from '$lib/utils/format';
 
 	let searchQuery = $state('');
 	let editingRuleId = $state<number | null>(null);
@@ -22,15 +23,14 @@
 		searchQuery
 			? categorizationStore.rules.filter(
 					(r) =>
-						r.label_exact.toLowerCase().includes(searchQuery.toLowerCase()) ||
-						r.label_normalized.toLowerCase().includes(searchQuery.toLowerCase()) ||
+						r.label_pattern.toLowerCase().includes(searchQuery.toLowerCase()) ||
 						(r.series_name ?? '').toLowerCase().includes(searchQuery.toLowerCase())
 				)
 			: categorizationStore.rules
 	);
 
 	async function handleDelete(rule: CategorizationRule) {
-		if (!confirm(`Supprimer la règle pour "${rule.label_exact}" ?`)) return;
+		if (!confirm(`Supprimer la règle pour "${rule.label_pattern}" ?`)) return;
 		await categorizationStore.remove(rule.id);
 		toastStore.success('Règle supprimée');
 	}
@@ -127,12 +127,11 @@
 				<table class="w-full">
 					<thead>
 						<tr class="border-b border-border bg-bg-secondary text-left text-sm text-text-secondary">
-							<th class="px-4 py-3 font-medium">Label exact</th>
-							<th class="px-4 py-3 font-medium">Label normalisé</th>
+							<th class="px-4 py-3 font-medium">Label</th>
 							<th class="px-4 py-3 font-medium">Catégorie</th>
-							<th class="px-4 py-3 font-medium">Compte</th>
 							<th class="px-4 py-3 text-center font-medium">Confiance</th>
 							<th class="px-4 py-3 text-center font-medium">Utilisations</th>
+							<th class="px-4 py-3 font-medium">Dernière utilisation</th>
 							<th class="w-16 px-4 py-3"></th>
 						</tr>
 					</thead>
@@ -140,10 +139,8 @@
 						{#each filteredRules as rule (rule.id)}
 							<tr class="border-b border-border transition-colors hover:bg-bg-hover">
 								<td class="px-4 py-3">
-									<p class="text-sm font-medium text-text-primary">{rule.label_exact}</p>
-									<p class="text-xs text-text-muted">{rule.sign === 1 ? 'Crédit' : 'Débit'}</p>
+									<p class="text-sm font-medium text-text-primary">{rule.label_pattern}</p>
 								</td>
-								<td class="px-4 py-3 text-sm text-text-secondary">{rule.label_normalized}</td>
 								<td class="px-4 py-3">
 									{#if editingRuleId === rule.id}
 										<div class="flex items-center gap-2">
@@ -178,13 +175,15 @@
 										</button>
 									{/if}
 								</td>
-								<td class="px-4 py-3 text-sm text-text-secondary">{rule.account_name ?? '—'}</td>
 								<td class="px-4 py-3 text-center">
 									<span class="inline-flex rounded-md px-2 py-0.5 text-xs font-medium {confidenceClass(rule.match_count)}">
 										{confidenceLabel(rule.match_count)}
 									</span>
 								</td>
 								<td class="px-4 py-3 text-center text-sm font-medium text-text-primary">{rule.match_count}</td>
+								<td class="px-4 py-3 text-sm text-text-secondary">
+									{rule.last_used_at ? formatDate(rule.last_used_at) : '—'}
+								</td>
 								<td class="px-4 py-3">
 									<button
 										onclick={() => handleDelete(rule)}

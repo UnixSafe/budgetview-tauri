@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Wallet, TrendingUp, TrendingDown, ArrowLeftRight, Landmark } from 'lucide-svelte';
+	import { Wallet, TrendingUp, TrendingDown, ArrowLeftRight, Landmark, Tag } from 'lucide-svelte';
 	import { formatCurrency, ACCOUNT_TYPE_LABELS, BUDGET_AREA_LABELS } from '$lib/utils/format';
 	import { accountStore } from '$lib/stores/accounts.svelte';
 	import { budgetStore } from '$lib/stores/budget.svelte';
@@ -19,6 +19,8 @@
 		transaction_count: 0
 	});
 
+	let uncategorizedCount = $state(0);
+
 	let recentTransactions = $state<{ date: string; label: string; amount: number; account_name: string }[]>([]);
 
 	onMount(async () => {
@@ -34,7 +36,7 @@
 			const endYear = month === 12 ? year + 1 : year;
 			const endDate = `${endYear}-${String(endMonth).padStart(2, '0')}-01`;
 
-			const [incomeResult, expenseResult, countResult, recent] = await Promise.all([
+			const [incomeResult, expenseResult, countResult, recent, uncatResult] = await Promise.all([
 				query<{ total: number }>('SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE date >= $1 AND date < $2 AND amount > 0', [startDate, endDate]),
 				query<{ total: number }>('SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE date >= $1 AND date < $2 AND amount < 0', [startDate, endDate]),
 				query<{ count: number }>('SELECT COUNT(*) as count FROM transactions WHERE date >= $1 AND date < $2', [startDate, endDate]),
@@ -42,7 +44,8 @@
 					`SELECT t.date, t.label, t.amount, a.name as account_name
 					 FROM transactions t LEFT JOIN accounts a ON t.account_id = a.id
 					 ORDER BY t.date DESC, t.id DESC LIMIT 10`
-				)
+				),
+				query<{ count: number }>('SELECT COUNT(*) as count FROM transactions WHERE series_id IS NULL')
 			]);
 
 			summary = {
@@ -53,6 +56,7 @@
 			};
 
 			recentTransactions = recent;
+			uncategorizedCount = uncatResult[0]?.count ?? 0;
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Erreur inconnue';
 		} finally {
@@ -126,6 +130,18 @@
 			</div>
 		</div>
 	</div>
+
+	{#if uncategorizedCount > 0}
+		<a href="/transactions" class="flex items-center gap-3 rounded-xl border border-warning/30 bg-warning/5 p-4 transition-colors hover:bg-warning/10">
+			<div class="rounded-lg bg-warning/10 p-2">
+				<Tag size={20} class="text-warning" />
+			</div>
+			<div>
+				<p class="text-sm font-semibold text-warning">{uncategorizedCount} transaction{uncategorizedCount > 1 ? 's' : ''} non catégorisée{uncategorizedCount > 1 ? 's' : ''}</p>
+				<p class="text-xs text-text-muted">Cliquez pour les catégoriser</p>
+			</div>
+		</a>
+	{/if}
 
 	<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
 		<!-- Comptes -->
