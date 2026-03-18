@@ -48,6 +48,7 @@ export interface Transaction {
 	fitid: string | null;
 	label_for_categorization: string | null;
 	is_auto_categorized: boolean;
+	is_reconciled: boolean;
 	created_at: string;
 	// Joined fields
 	account_name?: string;
