@@ -479,7 +479,7 @@ pub async fn get_splits(
     get_splits_internal(&pool, transaction_id).await
 }
 
-/// Delete all splits for a transaction (reverts to unsplit, restores original series)
+/// Delete all splits for a transaction (reverts to unsplit, sets series_id to NULL = uncategorized)
 #[command]
 pub async fn delete_splits(
     transaction_id: i64,
@@ -495,20 +495,20 @@ pub async fn delete_splits(
         .await
         .map_err(|e| format!("Erreur suppression splits: {}", e))?;
 
-    // Restore original series_id/sub_series_id from pre_split columns
+    // Set transaction to uncategorized (NULL series) and clear pre_split backup
     sqlx::query(
-        "UPDATE transactions SET series_id = pre_split_series_id, sub_series_id = pre_split_sub_series_id, pre_split_series_id = NULL, pre_split_sub_series_id = NULL WHERE id = ?"
+        "UPDATE transactions SET series_id = NULL, sub_series_id = NULL, pre_split_series_id = NULL, pre_split_sub_series_id = NULL WHERE id = ?"
     )
         .bind(transaction_id)
         .execute(&mut *db_tx)
         .await
-        .map_err(|e| format!("Erreur restauration catégorie: {}", e))?;
+        .map_err(|e| format!("Erreur mise à jour transaction: {}", e))?;
 
     db_tx.commit().await.map_err(|e| format!("Erreur commit: {}", e))?;
     Ok(())
 }
 
-/// Update a single split line (validates sum still matches transaction amount)
+/// Update a single split line (validates sum still matches transaction amount, in a SQL transaction)
 #[command]
 pub async fn update_split(
     split_id: i64,
@@ -519,13 +519,14 @@ pub async fn update_split(
     db: tauri::State<'_, DbInstances>,
 ) -> Result<(), String> {
     let pool = get_db_pool(&db).await?;
+    let mut db_tx = pool.begin().await.map_err(|e| format!("Erreur début transaction: {}", e))?;
 
     // Get the transaction_id for this split
     let (tx_id,): (i64,) = sqlx::query_as(
         "SELECT transaction_id FROM transaction_splits WHERE id = ?"
     )
         .bind(split_id)
-        .fetch_one(&pool)
+        .fetch_one(&mut *db_tx)
         .await
         .map_err(|e| format!("Split introuvable: {}", e))?;
 
@@ -534,38 +535,56 @@ pub async fn update_split(
         "SELECT amount FROM transactions WHERE id = ?"
     )
         .bind(tx_id)
-        .fetch_one(&pool)
+        .fetch_one(&mut *db_tx)
         .await
         .map_err(|e| format!("Transaction introuvable: {}", e))?;
 
-    // Calculate what the new sum would be after this update
-    let (current_sum,): (i64,) = sqlx::query_as(
-        "SELECT COALESCE(SUM(amount), 0) FROM transaction_splits WHERE transaction_id = ? AND id != ?"
-    )
-        .bind(tx_id)
-        .bind(split_id)
-        .fetch_one(&pool)
-        .await
-        .map_err(|e| format!("Erreur calcul somme: {}", e))?;
-
-    let new_sum = current_sum + amount_cents;
-    if new_sum != tx_amount {
-        return Err(format!(
-            "La somme des splits ({}) ne correspondrait plus au montant de la transaction ({})",
-            new_sum, tx_amount
-        ));
-    }
-
+    // Perform the update
     sqlx::query("UPDATE transaction_splits SET amount = ?, series_id = ?, sub_series_id = ?, note = ? WHERE id = ?")
         .bind(amount_cents)
         .bind(series_id)
         .bind(sub_series_id)
         .bind(&note)
         .bind(split_id)
-        .execute(&pool)
+        .execute(&mut *db_tx)
         .await
         .map_err(|e| format!("Erreur mise à jour split: {}", e))?;
+
+    // Verify sum after update matches transaction amount
+    let (new_sum,): (i64,) = sqlx::query_as(
+        "SELECT COALESCE(SUM(amount), 0) FROM transaction_splits WHERE transaction_id = ?"
+    )
+        .bind(tx_id)
+        .fetch_one(&mut *db_tx)
+        .await
+        .map_err(|e| format!("Erreur calcul somme: {}", e))?;
+
+    if new_sum != tx_amount {
+        // Rollback happens automatically when db_tx is dropped without commit
+        return Err(format!(
+            "La somme des splits ({}) ne correspond pas au montant de la transaction ({})",
+            new_sum, tx_amount
+        ));
+    }
+
+    db_tx.commit().await.map_err(|e| format!("Erreur commit: {}", e))?;
     Ok(())
+}
+
+/// Returns the list of transaction IDs that have at least one split
+#[command]
+pub async fn get_transactions_with_splits(
+    db: tauri::State<'_, DbInstances>,
+) -> Result<Vec<i64>, String> {
+    let pool = get_db_pool(&db).await?;
+    let rows: Vec<(i64,)> = sqlx::query_as(
+        "SELECT DISTINCT transaction_id FROM transaction_splits"
+    )
+    .fetch_all(&pool)
+    .await
+    .map_err(|e| format!("Erreur lecture splits: {}", e))?;
+
+    Ok(rows.into_iter().map(|r| r.0).collect())
 }
 
 async fn get_splits_internal(pool: &sqlx::SqlitePool, transaction_id: i64) -> Result<Vec<Split>, String> {

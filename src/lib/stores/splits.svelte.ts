@@ -65,6 +65,17 @@ class SplitStore {
 		}
 	}
 
+	/** Load all transaction IDs that have splits (batch, for list display) */
+	async loadBatchStatus() {
+		try {
+			const ids = await invoke<number[]>('get_transactions_with_splits');
+			this.splitTransactionIds = new Set(ids);
+		} catch (e) {
+			// Non-blocking: just log
+			console.error('Failed to load split status:', e);
+		}
+	}
+
 	hasSplits(transactionId: number): boolean {
 		return this.splitTransactionIds.has(transactionId);
 	}
