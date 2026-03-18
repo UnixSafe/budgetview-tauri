@@ -375,6 +375,15 @@
 				<table class="w-full">
 					<thead>
 						<tr class="border-b border-border-light text-left text-[12px] font-semibold text-text-muted uppercase tracking-wider">
+							<th class="px-3 py-3.5 w-8">
+								<input
+									type="checkbox"
+									checked={selectedIds.size === filteredTransactions.length && filteredTransactions.length > 0}
+									onchange={() => selectedIds.size === filteredTransactions.length ? clearSelection() : selectAll()}
+									class="accent-accent rounded"
+									aria-label="Tout sélectionner"
+								/>
+							</th>
 							<th class="px-3 py-3.5 w-10"></th>
 							<th class="px-5 py-3.5">Date</th>
 							<th class="px-5 py-3.5">Libellé</th>
@@ -386,7 +395,16 @@
 					</thead>
 					<tbody>
 						{#each filteredTransactions as tx (tx.id)}
-							<tr class="border-b border-border-light/50 hover-row">
+							<tr class="border-b border-border-light/50 hover-row {selectedIds.has(tx.id) ? 'bg-accent/5' : ''}">
+								<td class="px-3 py-3.5">
+									<input
+										type="checkbox"
+										checked={selectedIds.has(tx.id)}
+										onchange={() => toggleSelect(tx.id)}
+										class="accent-accent rounded"
+										aria-label="Sélectionner {tx.label}"
+									/>
+								</td>
 								<td class="px-3 py-3.5">
 									<button
 										onclick={() => toggleReconciled(tx)}
