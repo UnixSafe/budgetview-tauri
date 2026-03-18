@@ -8,6 +8,7 @@
 	import OnboardingModal from '$lib/components/OnboardingModal.svelte';
 	import PageTransition from '$lib/components/PageTransition.svelte';
 	import GlobalSearch from '$lib/components/GlobalSearch.svelte';
+	import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
 	import { query } from '$lib/stores/db';
 
 	let { children } = $props();
@@ -72,3 +73,4 @@
 
 <Toast />
 <GlobalSearch />
+<KeyboardShortcuts />

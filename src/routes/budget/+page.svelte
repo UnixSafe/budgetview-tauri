@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Plus, X, ChevronLeft, ChevronRight, Pencil, Trash2, FolderOpen, ChevronDown, ChevronUp, ArrowRightLeft } from 'lucide-svelte';
+	import { Plus, X, ChevronLeft, ChevronRight, Pencil, Trash2, FolderOpen, ChevronDown, ChevronUp, ArrowRightLeft, TrendingUp, TrendingDown } from 'lucide-svelte';
 	import { budgetStore } from '$lib/stores/budget.svelte';
 	import { formatCurrency, formatMonth, toEuros, BUDGET_AREA_LABELS } from '$lib/utils/format';
 	import type { BudgetArea, BudgetLineItem } from '$lib/types';
@@ -24,8 +24,9 @@
 	let showGroupForm = $state(false);
 	let newGroupName = $state('');
 
-	onMount(() => {
-		budgetStore.loadBudgetView();
+	onMount(async () => {
+		await budgetStore.loadBudgetView();
+		await budgetStore.loadPrevMonthComparison();
 	});
 
 	function prevMonth() {
@@ -280,6 +281,8 @@
 								{@const carry = budgetStore.getCarryOver(line.series_id)}
 								{@const series = budgetStore.series.find(s => s.id === line.series_id)}
 								{@const groupName = series?.group_id ? budgetStore.groups.find(g => g.id === series.group_id)?.name : null}
+								{@const prevActual = budgetStore.getPrevMonthActual(line.series_id)}
+								{@const diff = prevActual !== 0 ? Math.abs(line.actual_amount) - Math.abs(prevActual) : 0}
 								<div class="px-6 py-4 hover-row transition-smooth">
 									<div class="flex items-center justify-between mb-3">
 										<div class="flex items-center gap-2">
@@ -322,6 +325,15 @@
 											<span class="tabular-nums font-semibold {Math.abs(line.actual_amount) > Math.abs(line.planned_amount) && line.budget_area !== 'income' ? 'text-expense' : 'text-text-primary'}">
 												{formatCurrency(line.actual_amount)}
 											</span>
+											{#if diff !== 0 && prevActual !== 0}
+												<span class="flex items-center gap-0.5 text-[10px] font-medium {line.budget_area === 'income' ? (diff > 0 ? 'text-income' : 'text-expense') : (diff > 0 ? 'text-expense' : 'text-income')}" title="Vs mois précédent">
+													{#if diff > 0}
+														<TrendingUp size={10} />+{Math.round(Math.abs(diff / prevActual) * 100)}%
+													{:else}
+														<TrendingDown size={10} />-{Math.round(Math.abs(diff / prevActual) * 100)}%
+													{/if}
+												</span>
+											{/if}
 										</div>
 									</div>
 									<div class="h-[6px] w-full rounded-full bg-bg-elevated overflow-hidden">
