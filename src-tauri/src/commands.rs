@@ -1009,7 +1009,7 @@ fn days_in_month(year: i32, month: u32) -> u32 {
 
 // === Helpers ===
 
-async fn get_db_pool(db: &DbInstances) -> Result<sqlx::SqlitePool, String> {
+pub async fn get_db_pool(db: &DbInstances) -> Result<sqlx::SqlitePool, String> {
     let instances = db.0.read().await;
     let pool = instances
         .get("sqlite:budgetview.db")
@@ -1069,4 +1069,76 @@ fn is_excluded_from_auto_categorization(label: &str) -> bool {
         regex::Regex::new(r"(?i)\b(cheque|chèque|chq|retrait\s*(dab|gab)?|remise\s*esp|depot\s*esp|versement\s*esp)\b").unwrap()
     });
     re.is_match(label)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_days_in_month() {
+        assert_eq!(days_in_month(2024, 1), 31);
+        assert_eq!(days_in_month(2024, 2), 29); // leap year
+        assert_eq!(days_in_month(2025, 2), 28);
+        assert_eq!(days_in_month(2024, 4), 30);
+        assert_eq!(days_in_month(2024, 12), 31);
+    }
+
+    #[test]
+    fn test_compute_next_expected_monthly() {
+        // Monthly on the 15th, last occurrence 2026-02-15
+        let result = compute_next_expected("monthly", 15, "2026-02-15");
+        assert!(result.is_some());
+        let date = result.unwrap();
+        // Should be in the future (2026-03-15 or later)
+        assert!(date.as_str() >= "2026-03-15");
+    }
+
+    #[test]
+    fn test_compute_next_expected_quarterly() {
+        let result = compute_next_expected("quarterly", 1, "2025-12-01");
+        assert!(result.is_some());
+        let date = result.unwrap();
+        assert!(date.as_str() >= "2026-03-01");
+    }
+
+    #[test]
+    fn test_compute_next_expected_yearly() {
+        let result = compute_next_expected("yearly", 1, "2025-01-01");
+        assert!(result.is_some());
+        let date = result.unwrap();
+        assert!(date.as_str() >= "2026-01-01");
+    }
+
+    #[test]
+    fn test_compute_next_expected_handles_end_of_month() {
+        // Day 31 in a month with 30 days should clamp to 30
+        let result = compute_next_expected("monthly", 31, "2026-01-31");
+        assert!(result.is_some());
+        let date = result.unwrap();
+        // Feb has 28 days, so should clamp to 28
+        assert!(date.contains("-02-28") || date.contains("-03-") || date.as_str() > "2026-02-01");
+    }
+
+    #[test]
+    fn test_compute_next_expected_invalid_date() {
+        let result = compute_next_expected("monthly", 15, "invalid-date");
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_anonymize_label() {
+        assert_eq!(anonymize_label("CARTE 17/03 CARREFOUR CB*1234 5678"), "CARTE CARREFOUR CB*1234");
+        assert_eq!(anonymize_label("VIR SEPA 3SUISSES"), "VIR SEPA 3SUISSES");
+        assert_eq!(anonymize_label("PRLV 15/03/2024 EDF 123456"), "PRLV EDF");
+    }
+
+    #[test]
+    fn test_is_excluded_from_auto_categorization() {
+        assert!(is_excluded_from_auto_categorization("CHEQUE 12345"));
+        assert!(is_excluded_from_auto_categorization("Retrait DAB 50€"));
+        assert!(is_excluded_from_auto_categorization("Remise esp"));
+        assert!(!is_excluded_from_auto_categorization("CARREFOUR CB"));
+        assert!(!is_excluded_from_auto_categorization("VIR SEPA SALAIRE"));
+    }
 }

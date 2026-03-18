@@ -8,6 +8,7 @@
 		BarChart3,
 		FolderKanban,
 		Upload,
+		Download,
 		Settings,
 		RefreshCw
 	} from 'lucide-svelte';
@@ -17,6 +18,7 @@
 		{ label: 'Comptes', href: '/accounts', icon: Landmark },
 		{ label: 'Transactions', href: '/transactions', icon: ArrowLeftRight },
 		{ label: 'Import', href: '/import', icon: Upload },
+		{ label: 'Export', href: '/export', icon: Download },
 		{ label: 'Budget', href: '/budget', icon: PieChart },
 		{ label: 'Récurrences', href: '/recurring', icon: RefreshCw },
 		{ label: 'Analyse', href: '/analysis', icon: BarChart3 },
