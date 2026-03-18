@@ -20,5 +20,11 @@ pub fn get_migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/003_simplify_categorization.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 4,
+            description: "splits_created_at",
+            sql: include_str!("../migrations/004_splits_created_at.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }

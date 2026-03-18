@@ -16,6 +16,26 @@ struct CatRule {
     sub_series_id: Option<i64>,
 }
 
+/// Input for creating a single split line
+#[derive(Debug, Deserialize)]
+pub struct SplitInput {
+    pub amount_cents: i64,
+    pub series_id: i64,
+    pub note: Option<String>,
+}
+
+/// A split line returned from the database
+#[derive(Debug, Serialize)]
+pub struct Split {
+    pub id: i64,
+    pub transaction_id: i64,
+    pub series_id: i64,
+    pub amount: i64,
+    pub note: Option<String>,
+    pub created_at: Option<String>,
+    pub series_name: Option<String>,
+}
+
 /// Cache for parsed import data to avoid double-parsing between preview and confirm
 pub struct ImportCache(pub Mutex<HashMap<String, Vec<RawTransaction>>>);
 
@@ -362,6 +382,145 @@ pub async fn import_rollback(
         .map_err(|e| format!("Erreur suppression batch: {}", e))?;
 
     Ok(deleted)
+}
+
+// === Splits ===
+
+/// Create splits for a transaction. Validates that the sum of splits equals the transaction amount.
+/// Clears any existing series_id on the transaction (split replaces single-category).
+#[command]
+pub async fn create_splits(
+    transaction_id: i64,
+    splits: Vec<SplitInput>,
+    db: tauri::State<'_, DbInstances>,
+) -> Result<Vec<Split>, String> {
+    if splits.is_empty() {
+        return Err("Au moins un split requis".to_string());
+    }
+
+    let pool = get_db_pool(&db).await?;
+
+    // Get the transaction amount
+    let row: (i64,) = sqlx::query_as("SELECT amount FROM transactions WHERE id = ?")
+        .bind(transaction_id)
+        .fetch_one(&pool)
+        .await
+        .map_err(|e| format!("Transaction introuvable: {}", e))?;
+    let tx_amount = row.0;
+
+    // Validate sum
+    let sum: i64 = splits.iter().map(|s| s.amount_cents).sum();
+    if sum != tx_amount {
+        return Err(format!(
+            "La somme des splits ({}) ne correspond pas au montant de la transaction ({})",
+            sum, tx_amount
+        ));
+    }
+
+    let mut db_tx = pool.begin().await.map_err(|e| format!("Erreur début transaction: {}", e))?;
+
+    // Delete any existing splits
+    sqlx::query("DELETE FROM transaction_splits WHERE transaction_id = ?")
+        .bind(transaction_id)
+        .execute(&mut *db_tx)
+        .await
+        .map_err(|e| format!("Erreur suppression splits: {}", e))?;
+
+    // Clear the single series_id on the parent transaction (split takes over)
+    sqlx::query("UPDATE transactions SET series_id = NULL, sub_series_id = NULL WHERE id = ?")
+        .bind(transaction_id)
+        .execute(&mut *db_tx)
+        .await
+        .map_err(|e| format!("Erreur mise à jour transaction: {}", e))?;
+
+    // Insert new splits
+    for s in &splits {
+        sqlx::query(
+            "INSERT INTO transaction_splits (transaction_id, series_id, amount, note) VALUES (?, ?, ?, ?)"
+        )
+        .bind(transaction_id)
+        .bind(s.series_id)
+        .bind(s.amount_cents)
+        .bind(&s.note)
+        .execute(&mut *db_tx)
+        .await
+        .map_err(|e| format!("Erreur insertion split: {}", e))?;
+    }
+
+    db_tx.commit().await.map_err(|e| format!("Erreur commit: {}", e))?;
+
+    // Return the newly created splits
+    get_splits_internal(&pool, transaction_id).await
+}
+
+/// Get all splits for a transaction
+#[command]
+pub async fn get_splits(
+    transaction_id: i64,
+    db: tauri::State<'_, DbInstances>,
+) -> Result<Vec<Split>, String> {
+    let pool = get_db_pool(&db).await?;
+    get_splits_internal(&pool, transaction_id).await
+}
+
+/// Delete all splits for a transaction (reverts to unsplit)
+#[command]
+pub async fn delete_splits(
+    transaction_id: i64,
+    db: tauri::State<'_, DbInstances>,
+) -> Result<(), String> {
+    let pool = get_db_pool(&db).await?;
+    sqlx::query("DELETE FROM transaction_splits WHERE transaction_id = ?")
+        .bind(transaction_id)
+        .execute(&pool)
+        .await
+        .map_err(|e| format!("Erreur suppression splits: {}", e))?;
+    Ok(())
+}
+
+/// Update a single split line
+#[command]
+pub async fn update_split(
+    split_id: i64,
+    amount_cents: i64,
+    series_id: i64,
+    note: Option<String>,
+    db: tauri::State<'_, DbInstances>,
+) -> Result<(), String> {
+    let pool = get_db_pool(&db).await?;
+    sqlx::query("UPDATE transaction_splits SET amount = ?, series_id = ?, note = ? WHERE id = ?")
+        .bind(amount_cents)
+        .bind(series_id)
+        .bind(&note)
+        .bind(split_id)
+        .execute(&pool)
+        .await
+        .map_err(|e| format!("Erreur mise à jour split: {}", e))?;
+    Ok(())
+}
+
+async fn get_splits_internal(pool: &sqlx::SqlitePool, transaction_id: i64) -> Result<Vec<Split>, String> {
+    let rows: Vec<(i64, i64, i64, i64, Option<String>, Option<String>, Option<String>)> = sqlx::query_as(
+        "SELECT ts.id, ts.transaction_id, ts.series_id, ts.amount, ts.note, ts.created_at, bs.name
+         FROM transaction_splits ts
+         LEFT JOIN budget_series bs ON ts.series_id = bs.id
+         WHERE ts.transaction_id = ?
+         ORDER BY ts.id"
+    )
+    .bind(transaction_id)
+    .fetch_all(pool)
+    .await
+    .map_err(|e| format!("Erreur lecture splits: {}", e))?;
+
+    Ok(rows.into_iter().map(|r| Split {
+        id: r.0,
+        transaction_id: r.1,
+        series_id: r.2,
+        amount: r.3,
+        note: r.4,
+        created_at: r.5,
+        series_name: r.6,
+    }).collect())
 }
 
 // === Helpers ===
