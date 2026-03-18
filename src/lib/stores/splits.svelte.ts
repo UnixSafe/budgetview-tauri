@@ -6,11 +6,21 @@ class SplitStore {
 	loading = $state(false);
 	error = $state<string | null>(null);
 
+	/** Set of transaction IDs known to have splits */
+	splitTransactionIds = $state<Set<number>>(new Set());
+
 	async load(transactionId: number) {
 		this.loading = true;
 		this.error = null;
 		try {
 			this.splits = await invoke<Split[]>('get_splits', { transactionId });
+			if (this.splits.length > 0) {
+				this.splitTransactionIds = new Set([...this.splitTransactionIds, transactionId]);
+			} else {
+				const next = new Set(this.splitTransactionIds);
+				next.delete(transactionId);
+				this.splitTransactionIds = next;
+			}
 		} catch (e) {
 			this.error = e instanceof Error ? e.message : String(e);
 		} finally {
@@ -23,6 +33,7 @@ class SplitStore {
 		try {
 			const result = await invoke<Split[]>('create_splits', { transactionId, splits });
 			this.splits = result;
+			this.splitTransactionIds = new Set([...this.splitTransactionIds, transactionId]);
 			return result;
 		} catch (e) {
 			this.error = e instanceof Error ? e.message : String(e);
@@ -35,16 +46,19 @@ class SplitStore {
 		try {
 			await invoke<void>('delete_splits', { transactionId });
 			this.splits = [];
+			const next = new Set(this.splitTransactionIds);
+			next.delete(transactionId);
+			this.splitTransactionIds = next;
 		} catch (e) {
 			this.error = e instanceof Error ? e.message : String(e);
 			throw e;
 		}
 	}
 
-	async updateSplit(splitId: number, amountCents: number, seriesId: number, note: string | null) {
+	async updateSplit(splitId: number, amountCents: number, seriesId: number, subSeriesId: number | null, note: string | null) {
 		this.error = null;
 		try {
-			await invoke<void>('update_split', { splitId, amountCents, seriesId, note });
+			await invoke<void>('update_split', { splitId, amountCents, seriesId, subSeriesId, note });
 		} catch (e) {
 			this.error = e instanceof Error ? e.message : String(e);
 			throw e;
@@ -52,7 +66,7 @@ class SplitStore {
 	}
 
 	hasSplits(transactionId: number): boolean {
-		return this.splits.length > 0 && this.splits[0]?.transaction_id === transactionId;
+		return this.splitTransactionIds.has(transactionId);
 	}
 
 	clear() {

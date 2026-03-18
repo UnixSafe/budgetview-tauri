@@ -164,15 +164,18 @@ export interface Split {
 	id: number;
 	transaction_id: number;
 	series_id: number;
+	sub_series_id: number | null;
 	amount: number; // in cents
 	note: string | null;
 	created_at: string | null;
 	series_name?: string;
+	sub_series_name?: string;
 }
 
 export interface SplitInput {
 	amount_cents: number;
 	series_id: number;
+	sub_series_id: number | null;
 	note: string | null;
 }
 

@@ -284,7 +284,7 @@
 							</td>
 							<td class="px-4 py-3">
 								<div class="flex gap-1">
-									<button onclick={() => (splittingTx = tx)} class="rounded p-1 text-text-muted hover:text-accent" title="Ventiler">
+									<button onclick={() => (splittingTx = tx)} class="rounded p-1 text-text-muted hover:text-accent" title="Ventiler" aria-label="Ventiler la transaction {tx.label}">
 										<Scissors size={14} />
 									</button>
 									<button onclick={() => openEdit(tx)} class="rounded p-1 text-text-muted hover:text-text-primary">
