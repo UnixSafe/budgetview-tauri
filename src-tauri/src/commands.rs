@@ -308,13 +308,26 @@ pub async fn backfill_categorization_labels(
     Ok(rows.len())
 }
 
-/// Rollback an import batch (delete all transactions from a batch)
+/// Rollback an import batch (delete all transactions and clean up learned rules)
 #[command]
 pub async fn import_rollback(
     batch_id: i64,
     db: tauri::State<'_, DbInstances>,
 ) -> Result<usize, String> {
     let pool = get_db_pool(&db).await?;
+
+    // Count manually-categorized transactions per label pattern in this batch,
+    // so we can decrement the corresponding rules' match_count.
+    let label_counts: Vec<(String, i64)> = sqlx::query_as(
+        "SELECT label_for_categorization, COUNT(*) FROM transactions
+         WHERE import_batch_id = ? AND label_for_categorization IS NOT NULL
+           AND series_id IS NOT NULL AND is_auto_categorized = 0
+         GROUP BY label_for_categorization"
+    )
+    .bind(batch_id)
+    .fetch_all(&pool)
+    .await
+    .map_err(|e| format!("Erreur lecture labels batch: {}", e))?;
 
     let result = sqlx::query("DELETE FROM transactions WHERE import_batch_id = ?")
         .bind(batch_id)
@@ -323,6 +336,24 @@ pub async fn import_rollback(
         .map_err(|e| format!("Erreur rollback: {}", e))?;
 
     let deleted = result.rows_affected() as usize;
+
+    // Decrement match_count for rules learned from manually-categorized transactions in this batch
+    for (label, count) in &label_counts {
+        sqlx::query(
+            "UPDATE categorization_rules SET match_count = match_count - ? WHERE label_pattern = ?"
+        )
+        .bind(count)
+        .bind(label)
+        .execute(&pool)
+        .await
+        .map_err(|e| format!("Erreur mise à jour règle: {}", e))?;
+    }
+
+    // Clean up rules that have dropped to zero or below
+    sqlx::query("DELETE FROM categorization_rules WHERE match_count <= 0")
+        .execute(&pool)
+        .await
+        .map_err(|e| format!("Erreur nettoyage règles: {}", e))?;
 
     sqlx::query("DELETE FROM import_batches WHERE id = ?")
         .bind(batch_id)
@@ -369,23 +400,20 @@ async fn get_existing_transaction_data(
 }
 
 /// Anonymize a label for auto-categorization.
-/// Removes sequences of 4+ digits (CB numbers, refs), date patterns, and purely-digit words.
-/// Keeps mixed alphanumeric words like LIDL2GO, 3SUISSES, PARIS13.
+/// Removes date patterns and short purely-digit words (1-3 digits, likely noise).
+/// Keeps mixed alphanumeric words (CB1234, LIDL2GO, PARIS13) and longer numbers (store codes).
 /// Must match the TypeScript anonymizeLabel() in utils/format.ts.
-/// Example: 'CARTE 17/03 CARREFOUR CB1234' → 'CARTE CARREFOUR'
+/// Example: 'CARTE 17/03 CARREFOUR CB1234' → 'CARTE CARREFOUR CB1234'
 fn anonymize_label(label: &str) -> String {
-    static RE_DIGITS4: OnceLock<regex::Regex> = OnceLock::new();
     static RE_DATE: OnceLock<regex::Regex> = OnceLock::new();
-    static RE_PURE_DIGITS: OnceLock<regex::Regex> = OnceLock::new();
+    static RE_SHORT_DIGITS: OnceLock<regex::Regex> = OnceLock::new();
 
-    let re_digits4 = RE_DIGITS4.get_or_init(|| regex::Regex::new(r"\d{4,}").unwrap());
     let re_date = RE_DATE.get_or_init(|| regex::Regex::new(r"\d{1,2}/\d{1,2}(/\d{2,4})?").unwrap());
-    let re_pure_digits = RE_PURE_DIGITS.get_or_init(|| regex::Regex::new(r"^\d+$").unwrap());
+    let re_short_digits = RE_SHORT_DIGITS.get_or_init(|| regex::Regex::new(r"^\d{1,3}$").unwrap());
 
-    let s = re_digits4.replace_all(label, "");
-    let s = re_date.replace_all(&s, "");
+    let s = re_date.replace_all(label, "");
     s.split_whitespace()
-        .filter(|word| !word.is_empty() && !re_pure_digits.is_match(word))
+        .filter(|word| !word.is_empty() && !re_short_digits.is_match(word))
         .collect::<Vec<_>>()
         .join(" ")
         .to_uppercase()
