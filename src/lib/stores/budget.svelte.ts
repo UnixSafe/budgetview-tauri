@@ -258,6 +258,41 @@ class BudgetStore {
 	getPrevMonthActual(seriesId: number): number {
 		return this.prevMonthActuals.get(seriesId) ?? 0;
 	}
+
+	/**
+	 * Copy budget from previous month to current month.
+	 * Only copies series that don't already have a budget set.
+	 */
+	async copyFromPreviousMonth(): Promise<number> {
+		let prevMonth = this.month - 1;
+		let prevYear = this.year;
+		if (prevMonth === 0) { prevMonth = 12; prevYear--; }
+
+		const prevBudgets = await query<{ series_id: number; planned_amount: number }>(
+			'SELECT series_id, planned_amount FROM monthly_budget WHERE year = $1 AND month = $2',
+			[prevYear, prevMonth]
+		);
+
+		const currentBudgetMap = new Map(this.monthlyBudgets.map(b => [b.series_id, b.planned_amount]));
+		let copiedCount = 0;
+
+		for (const prev of prevBudgets) {
+			if (!currentBudgetMap.has(prev.series_id)) {
+				await execute(
+					`INSERT INTO monthly_budget (series_id, year, month, planned_amount)
+					 VALUES ($1, $2, $3, $4)
+					 ON CONFLICT(series_id, year, month) DO UPDATE SET planned_amount = $4`,
+					[prev.series_id, this.year, this.month, prev.planned_amount]
+				);
+				copiedCount++;
+			}
+		}
+
+		if (copiedCount > 0) {
+			await this.loadBudgetView();
+		}
+		return copiedCount;
+	}
 }
 
 export const budgetStore = new BudgetStore();
