@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Plus, X, ChevronLeft, ChevronRight, Pencil, Trash2 } from 'lucide-svelte';
+	import { Plus, X, ChevronLeft, ChevronRight, Pencil, Trash2, FolderOpen, ChevronDown, ChevronUp, ArrowRightLeft } from 'lucide-svelte';
 	import { budgetStore } from '$lib/stores/budget.svelte';
 	import { formatCurrency, formatMonth, toEuros, BUDGET_AREA_LABELS } from '$lib/utils/format';
 	import type { BudgetArea, BudgetLineItem } from '$lib/types';
@@ -14,13 +14,15 @@
 	let formArea = $state<BudgetArea>('variable');
 	let formTarget = $state<number>(0);
 	let formDescription = $state('');
+	let formGroupId = $state<number | string>('');
 
-	// Sub-series management
 	let newSubSeriesName = $state('');
-
-	// Inline budget editing
 	let editingBudgetId = $state<number | null>(null);
 	let editingBudgetAmount = $state(0);
+
+	// Group management
+	let showGroupForm = $state(false);
+	let newGroupName = $state('');
 
 	onMount(() => {
 		budgetStore.loadBudgetView();
@@ -63,11 +65,13 @@
 		formArea = s.budget_area;
 		formTarget = s.target_amount ? toEuros(s.target_amount) : 0;
 		formDescription = s.description ?? '';
+		formGroupId = s.group_id ?? '';
 		showSeriesForm = true;
 	}
 
 	async function handleSeriesSubmit() {
 		if (!formName.trim()) return;
+		const groupId = formGroupId === '' ? null : Number(formGroupId);
 		if (editingSeriesId) {
 			await budgetStore.updateSeries(editingSeriesId, {
 				name: formName,
@@ -75,6 +79,7 @@
 				target_amount: formTarget || null,
 				description: formDescription || null
 			});
+			await budgetStore.assignSeriesToGroup(editingSeriesId, groupId);
 		} else {
 			await budgetStore.createSeries({
 				name: formName,
@@ -85,6 +90,25 @@
 		}
 		toastStore.success(editingSeriesId ? 'Catégorie modifiée' : 'Catégorie créée');
 		showSeriesForm = false;
+	}
+
+	async function handleCreateGroup() {
+		if (!newGroupName.trim()) return;
+		await budgetStore.createGroup(newGroupName.trim());
+		toastStore.success('Groupe créé');
+		newGroupName = '';
+		showGroupForm = false;
+	}
+
+	async function handleDeleteGroup(id: number) {
+		if (!confirm('Supprimer ce groupe ? Les catégories ne seront pas supprimées.')) return;
+		await budgetStore.removeGroup(id);
+		toastStore.success('Groupe supprimé');
+	}
+
+	async function handleCarryOver(seriesId: number) {
+		await budgetStore.calculateCarryOver(seriesId);
+		toastStore.success('Report calculé');
 	}
 
 	function startEditBudget(line: BudgetLineItem) {
@@ -99,11 +123,9 @@
 
 	function progressPercent(line: BudgetLineItem): number {
 		if (line.planned_amount === 0) return 0;
-		// For income, positive actual = good. For expenses, negative actual vs negative planned.
 		if (line.budget_area === 'income') {
 			return Math.min((line.actual_amount / line.planned_amount) * 100, 100);
 		}
-		// Expenses: planned is negative, actual is negative
 		if (line.planned_amount === 0) return 0;
 		return Math.min((Math.abs(line.actual_amount) / Math.abs(line.planned_amount)) * 100, 150);
 	}
@@ -111,7 +133,7 @@
 	function progressColor(line: BudgetLineItem): string {
 		const pct = progressPercent(line);
 		if (line.budget_area === 'income') {
-			return pct >= 100 ? 'bg-income' : 'bg-warning';
+			return pct >= 100 ? 'bg-income' : 'bg-income/60';
 		}
 		if (pct > 100) return 'bg-danger';
 		if (pct > 80) return 'bg-warning';
@@ -119,34 +141,46 @@
 	}
 
 	const budgetAreas: BudgetArea[] = ['income', 'recurring', 'variable', 'extras', 'savings', 'transfers'];
+
+	const AREA_ICONS: Record<string, string> = {
+		income: '💰',
+		recurring: '🔄',
+		variable: '🛒',
+		extras: '✨',
+		savings: '🏦',
+		transfers: '↔️'
+	};
 </script>
 
 <svelte:head>
 	<title>Budget — BudgetView</title>
 </svelte:head>
 
-<div class="space-y-6">
+<div class="space-y-8">
 	<div class="flex items-center justify-between">
-		<h1 class="text-2xl font-bold text-text-primary">Budget</h1>
+		<div>
+			<h1 class="text-3xl font-bold tracking-tight text-text-primary">Budget</h1>
+			<p class="mt-1 text-sm text-text-muted">Planifiez et suivez vos dépenses</p>
+		</div>
 		<button
 			onclick={openCreateSeries}
-			class="flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
+			class="flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-[13px] font-semibold text-white transition-smooth btn-press hover:bg-accent-hover shadow-lg shadow-accent/20"
 		>
-			<Plus size={16} />
+			<Plus size={16} strokeWidth={2.5} />
 			Nouvelle catégorie
 		</button>
 	</div>
 
-	<!-- Navigation mois -->
-	<div class="flex items-center justify-center gap-4">
-		<button onclick={prevMonth} class="rounded-lg p-2 text-text-muted hover:bg-bg-hover hover:text-text-primary">
-			<ChevronLeft size={20} />
+	<!-- Month navigation -->
+	<div class="flex items-center justify-center gap-6">
+		<button onclick={prevMonth} class="rounded-xl p-2.5 text-text-muted hover:bg-bg-hover hover:text-text-primary transition-smooth btn-press">
+			<ChevronLeft size={22} />
 		</button>
-		<span class="text-lg font-semibold text-text-primary capitalize">
+		<span class="text-xl font-bold text-text-primary capitalize min-w-[200px] text-center">
 			{formatMonth(budgetStore.year, budgetStore.month)}
 		</span>
-		<button onclick={nextMonth} class="rounded-lg p-2 text-text-muted hover:bg-bg-hover hover:text-text-primary">
-			<ChevronRight size={20} />
+		<button onclick={nextMonth} class="rounded-xl p-2.5 text-text-muted hover:bg-bg-hover hover:text-text-primary transition-smooth btn-press">
+			<ChevronRight size={22} />
 		</button>
 	</div>
 
@@ -157,124 +191,182 @@
 	{#if budgetStore.loading}
 		<LoadingSpinner message="Chargement du budget..." />
 	{:else if budgetStore.budgetLines.length === 0}
-		<div class="flex flex-col items-center justify-center rounded-xl border border-border bg-bg-card p-12">
-			<p class="text-lg font-medium text-text-secondary">Aucune catégorie de budget</p>
-			<p class="text-sm text-text-muted">Créez des catégories pour planifier votre budget mensuel</p>
+		<div class="flex flex-col items-center justify-center glass-card p-16">
+			<div class="mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-accent/10 text-3xl">
+				💰
+			</div>
+			<p class="text-xl font-semibold text-text-primary">Aucune catégorie</p>
+			<p class="mt-1 text-sm text-text-muted">Créez des catégories pour planifier votre budget mensuel</p>
+			<button
+				onclick={openCreateSeries}
+				class="mt-6 flex items-center gap-2 rounded-xl bg-accent px-6 py-3 text-sm font-semibold text-white transition-smooth btn-press hover:bg-accent-hover"
+			>
+				<Plus size={16} />
+				Commencer
+			</button>
 		</div>
 	{:else}
-		<!-- Résumé -->
-		<div class="grid grid-cols-3 gap-4">
-			<div class="rounded-xl border border-border bg-bg-card p-4 text-center">
-				<p class="text-sm text-text-secondary">Planifié</p>
-				<p class="text-xl font-bold text-text-primary">{formatCurrency(budgetStore.totalPlanned)}</p>
+		<!-- Summary -->
+		<div class="grid grid-cols-3 gap-3 md:gap-4 stagger-children">
+			<div class="glass-card p-5 text-center">
+				<p class="text-[11px] font-semibold text-text-muted uppercase tracking-wider">Planifié</p>
+				<p class="mt-2 text-2xl font-bold tracking-tight text-text-primary">{formatCurrency(budgetStore.totalPlanned)}</p>
 			</div>
-			<div class="rounded-xl border border-border bg-bg-card p-4 text-center">
-				<p class="text-sm text-text-secondary">Réalisé</p>
-				<p class="text-xl font-bold text-text-primary">{formatCurrency(budgetStore.totalActual)}</p>
+			<div class="glass-card p-5 text-center">
+				<p class="text-[11px] font-semibold text-text-muted uppercase tracking-wider">Réalisé</p>
+				<p class="mt-2 text-2xl font-bold tracking-tight text-text-primary">{formatCurrency(budgetStore.totalActual)}</p>
 			</div>
-			<div class="rounded-xl border border-border bg-bg-card p-4 text-center">
-				<p class="text-sm text-text-secondary">Reste</p>
-				<p class="text-xl font-bold {budgetStore.totalPlanned - budgetStore.totalActual >= 0 ? 'text-income' : 'text-expense'}">
+			<div class="glass-card p-5 text-center">
+				<p class="text-[11px] font-semibold text-text-muted uppercase tracking-wider">Reste</p>
+				<p class="mt-2 text-2xl font-bold tracking-tight {budgetStore.totalPlanned - budgetStore.totalActual >= 0 ? 'text-income' : 'text-expense'}">
 					{formatCurrency(budgetStore.totalPlanned - budgetStore.totalActual)}
 				</p>
 			</div>
 		</div>
 
-		<!-- Budget par zone -->
-		{#each budgetAreas as area}
-			{@const lines = budgetStore.groupedByArea[area]}
-			{#if lines.length > 0}
-				<div class="rounded-xl border border-border bg-bg-card">
-					<div class="border-b border-border px-4 py-3">
-						<h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wide">
-							{BUDGET_AREA_LABELS[area]}
-						</h3>
+		<!-- Groups management -->
+		{#if budgetStore.groups.length > 0}
+			<div class="flex items-center gap-2 flex-wrap">
+				{#each budgetStore.groups as group (group.id)}
+					<div class="flex items-center gap-1.5 rounded-xl bg-bg-card/60 border border-border-light px-3 py-1.5">
+						<FolderOpen size={13} class="text-accent" />
+						<span class="text-[12px] font-medium text-text-primary">{group.name}</span>
+						<button onclick={() => handleDeleteGroup(group.id)} class="ml-1 text-text-muted hover:text-danger transition-smooth">
+							<X size={12} />
+						</button>
 					</div>
-					<div class="divide-y divide-border">
-						{#each lines as line (line.series_id)}
-							<div class="px-4 py-3">
-								<div class="flex items-center justify-between mb-2">
-									<div class="flex items-center gap-2">
-										<span class="text-sm font-medium text-text-primary">{line.series_name}</span>
-										<button onclick={() => openEditSeries(line)} class="text-text-muted hover:text-text-primary">
-											<Pencil size={12} />
-										</button>
-									</div>
-									<div class="flex items-center gap-4 text-sm">
-										{#if editingBudgetId === line.series_id}
-											<input
-												type="number"
-												step="0.01"
-												bind:value={editingBudgetAmount}
-												onkeydown={(e) => e.key === 'Enter' && saveBudget(line.series_id)}
-												onblur={() => saveBudget(line.series_id)}
-												class="w-24 rounded border border-accent bg-bg-primary px-2 py-1 text-right text-sm text-text-primary outline-none"
-											/>
-										{:else}
-											<button
-												onclick={() => startEditBudget(line)}
-												class="text-text-secondary hover:text-text-primary"
-												title="Cliquer pour modifier le budget"
-											>
-												{formatCurrency(line.planned_amount)}
+				{/each}
+				{#if !showGroupForm}
+					<button onclick={() => (showGroupForm = true)} class="rounded-xl border border-dashed border-border px-3 py-1.5 text-[12px] text-text-muted hover:text-text-primary hover:border-accent transition-smooth">
+						<Plus size={12} class="inline" /> Groupe
+					</button>
+				{/if}
+			</div>
+		{:else}
+			<button onclick={() => (showGroupForm = true)} class="text-[12px] text-text-muted hover:text-accent transition-smooth">
+				<FolderOpen size={12} class="inline" /> Créer un groupe de catégories
+			</button>
+		{/if}
+
+		{#if showGroupForm}
+			<div class="flex items-center gap-2">
+				<input bind:value={newGroupName} placeholder="Nom du groupe"
+					class="rounded-xl border border-border bg-bg-primary/60 px-4 py-2 text-[13px] text-text-primary outline-none focus-ring placeholder:text-text-muted"
+					onkeydown={(e) => e.key === 'Enter' && handleCreateGroup()}
+				/>
+				<button onclick={handleCreateGroup} class="rounded-xl bg-accent px-4 py-2 text-[12px] font-semibold text-white transition-smooth btn-press hover:bg-accent-hover">
+					Créer
+				</button>
+				<button onclick={() => { showGroupForm = false; newGroupName = ''; }} class="rounded-xl px-3 py-2 text-[12px] text-text-muted hover:text-text-primary transition-smooth">
+					Annuler
+				</button>
+			</div>
+		{/if}
+
+		<!-- Budget by area -->
+		<div class="space-y-6 stagger-children">
+			{#each budgetAreas as area}
+				{@const lines = budgetStore.groupedByArea[area]}
+				{#if lines.length > 0}
+					<div class="glass-card overflow-hidden">
+						<div class="flex items-center gap-3 border-b border-border-light px-6 py-4">
+							<span class="text-lg">{AREA_ICONS[area] ?? '📁'}</span>
+							<h3 class="text-[13px] font-bold text-text-secondary uppercase tracking-wider">
+								{BUDGET_AREA_LABELS[area]}
+							</h3>
+						</div>
+						<div class="divide-y divide-border-light/50">
+							{#each lines as line (line.series_id)}
+								{@const carry = budgetStore.getCarryOver(line.series_id)}
+								{@const series = budgetStore.series.find(s => s.id === line.series_id)}
+								{@const groupName = series?.group_id ? budgetStore.groups.find(g => g.id === series.group_id)?.name : null}
+								<div class="px-6 py-4 hover-row transition-smooth">
+									<div class="flex items-center justify-between mb-3">
+										<div class="flex items-center gap-2">
+											<span class="text-[14px] font-semibold text-text-primary">{line.series_name}</span>
+											{#if groupName}
+												<span class="badge bg-accent/10 text-accent">{groupName}</span>
+											{/if}
+											{#if carry !== 0}
+												<span class="badge {carry > 0 ? 'bg-income/10 text-income' : 'bg-expense/10 text-expense'}">
+													Report: {formatCurrency(carry)}
+												</span>
+											{/if}
+											<button onclick={() => openEditSeries(line)} class="rounded-lg p-1 text-text-muted hover:text-text-primary hover:bg-bg-hover transition-smooth opacity-0 group-hover:opacity-100" style="opacity: 1;">
+												<Pencil size={12} />
 											</button>
-										{/if}
-										<span class="text-text-muted">/</span>
-										<span class="{Math.abs(line.actual_amount) > Math.abs(line.planned_amount) && line.budget_area !== 'income' ? 'text-expense' : 'text-text-primary'}">
-											{formatCurrency(line.actual_amount)}
-										</span>
+											<button onclick={() => handleCarryOver(line.series_id)} class="rounded-lg p-1 text-text-muted hover:text-accent hover:bg-accent/10 transition-smooth" title="Calculer le report du mois précédent">
+												<ArrowRightLeft size={12} />
+											</button>
+										</div>
+										<div class="flex items-center gap-4 text-[13px]">
+											{#if editingBudgetId === line.series_id}
+												<input
+													type="number"
+													step="0.01"
+													bind:value={editingBudgetAmount}
+													onkeydown={(e) => e.key === 'Enter' && saveBudget(line.series_id)}
+													onblur={() => saveBudget(line.series_id)}
+													class="w-28 rounded-lg border border-accent bg-bg-primary/60 px-3 py-1.5 text-right text-[13px] text-text-primary outline-none focus-ring"
+												/>
+											{:else}
+												<button
+													onclick={() => startEditBudget(line)}
+													class="tabular-nums text-text-secondary hover:text-accent transition-smooth font-medium"
+													title="Cliquer pour modifier"
+												>
+													{formatCurrency(line.planned_amount)}
+												</button>
+											{/if}
+											<span class="text-text-muted">/</span>
+											<span class="tabular-nums font-semibold {Math.abs(line.actual_amount) > Math.abs(line.planned_amount) && line.budget_area !== 'income' ? 'text-expense' : 'text-text-primary'}">
+												{formatCurrency(line.actual_amount)}
+											</span>
+										</div>
+									</div>
+									<div class="h-[6px] w-full rounded-full bg-bg-elevated overflow-hidden">
+										<div
+											class="h-full rounded-full progress-bar {progressColor(line)}"
+											style="width: {Math.min(progressPercent(line), 100)}%"
+										></div>
 									</div>
 								</div>
-								<!-- Barre de progression -->
-								<div class="h-2 w-full rounded-full bg-bg-hover">
-									<div
-										class="h-2 rounded-full transition-all {progressColor(line)}"
-										style="width: {Math.min(progressPercent(line), 100)}%"
-									></div>
-								</div>
-							</div>
-						{/each}
+							{/each}
+						</div>
 					</div>
-				</div>
-			{/if}
-		{/each}
+				{/if}
+			{/each}
+		</div>
 	{/if}
 </div>
 
-<!-- Modal ajout/édition série -->
+<!-- Modal series -->
 {#if showSeriesForm}
-	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" role="dialog">
+	<div class="fixed inset-0 z-50 flex items-center justify-center modal-overlay animate-fade-in" role="dialog">
 		<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 		<div class="absolute inset-0" onclick={() => (showSeriesForm = false)}></div>
-		<div class="relative w-full max-w-md rounded-xl border border-border bg-bg-secondary p-6 shadow-xl">
-			<div class="mb-4 flex items-center justify-between">
-				<h2 class="text-lg font-semibold text-text-primary">
+		<div class="relative w-full max-w-md glass-card p-7 shadow-2xl animate-modal-in mx-4">
+			<div class="mb-6 flex items-center justify-between">
+				<h2 class="text-xl font-bold tracking-tight text-text-primary">
 					{editingSeriesId ? 'Modifier la catégorie' : 'Nouvelle catégorie'}
 				</h2>
-				<button onclick={() => (showSeriesForm = false)} class="text-text-muted hover:text-text-primary">
-					<X size={20} />
+				<button onclick={() => (showSeriesForm = false)} class="rounded-xl p-2 text-text-muted hover:text-text-primary hover:bg-bg-hover transition-smooth">
+					<X size={18} />
 				</button>
 			</div>
 
-			<form onsubmit={handleSeriesSubmit} class="space-y-4">
+			<form onsubmit={handleSeriesSubmit} class="space-y-5">
 				<div>
-					<label for="series-name" class="mb-1 block text-sm font-medium text-text-secondary">Nom *</label>
-					<input
-						id="series-name"
-						bind:value={formName}
-						required
-						class="w-full rounded-lg border border-border bg-bg-primary px-3 py-2 text-text-primary outline-none focus:border-accent"
-						placeholder="Courses alimentaires"
-					/>
+					<label for="series-name" class="mb-1.5 block text-[13px] font-medium text-text-secondary">Nom *</label>
+					<input id="series-name" bind:value={formName} required
+						class="w-full rounded-xl border border-border bg-bg-primary/60 px-4 py-3 text-[14px] text-text-primary outline-none focus-ring placeholder:text-text-muted"
+						placeholder="Courses alimentaires" />
 				</div>
 
 				<div>
-					<label for="series-area" class="mb-1 block text-sm font-medium text-text-secondary">Zone budget *</label>
-					<select
-						id="series-area"
-						bind:value={formArea}
-						class="w-full rounded-lg border border-border bg-bg-primary px-3 py-2 text-text-primary outline-none focus:border-accent"
-					>
+					<label for="series-area" class="mb-1.5 block text-[13px] font-medium text-text-secondary">Zone budget *</label>
+					<select id="series-area" bind:value={formArea}
+						class="w-full rounded-xl border border-border bg-bg-primary/60 px-4 py-3 text-[14px] text-text-primary outline-none focus-ring">
 						{#each Object.entries(BUDGET_AREA_LABELS) as [value, label]}
 							<option {value}>{label}</option>
 						{/each}
@@ -282,50 +374,53 @@
 				</div>
 
 				<div>
-					<label for="series-target" class="mb-1 block text-sm font-medium text-text-secondary">Montant cible mensuel</label>
-					<input
-						id="series-target"
-						type="number"
-						step="0.01"
-						bind:value={formTarget}
-						class="w-full rounded-lg border border-border bg-bg-primary px-3 py-2 text-text-primary outline-none focus:border-accent"
-					/>
+					<label for="series-target" class="mb-1.5 block text-[13px] font-medium text-text-secondary">Montant cible mensuel</label>
+					<input id="series-target" type="number" step="0.01" bind:value={formTarget}
+						class="w-full rounded-xl border border-border bg-bg-primary/60 px-4 py-3 text-[14px] text-text-primary outline-none focus-ring" />
 				</div>
 
-				<div>
-					<label for="series-desc" class="mb-1 block text-sm font-medium text-text-secondary">Description</label>
-					<input
-						id="series-desc"
-						bind:value={formDescription}
-						class="w-full rounded-lg border border-border bg-bg-primary px-3 py-2 text-text-primary outline-none focus:border-accent"
-						placeholder="Description optionnelle"
-					/>
+				<div class="grid grid-cols-2 gap-4">
+					<div>
+						<label for="series-desc" class="mb-1.5 block text-[13px] font-medium text-text-secondary">Description</label>
+						<input id="series-desc" bind:value={formDescription}
+							class="w-full rounded-xl border border-border bg-bg-primary/60 px-4 py-3 text-[14px] text-text-primary outline-none focus-ring placeholder:text-text-muted"
+							placeholder="Description optionnelle" />
+					</div>
+					<div>
+						<label for="series-group" class="mb-1.5 block text-[13px] font-medium text-text-secondary">Groupe</label>
+						<select id="series-group" bind:value={formGroupId}
+							class="w-full rounded-xl border border-border bg-bg-primary/60 px-4 py-3 text-[14px] text-text-primary outline-none focus-ring">
+							<option value="">Aucun groupe</option>
+							{#each budgetStore.groups as group}
+								<option value={group.id}>{group.name}</option>
+							{/each}
+						</select>
+					</div>
 				</div>
 
-				<!-- Sous-catégories (only when editing) -->
 				{#if editingSeriesId}
-					<div class="border-t border-border pt-4">
-						<p class="mb-2 text-sm font-medium text-text-secondary">Sous-catégories</p>
-						<div class="space-y-1">
+					<div class="border-t border-border-light pt-5">
+						<p class="mb-3 text-[13px] font-semibold text-text-secondary">Sous-catégories</p>
+						<div class="space-y-1.5">
 							{#each budgetStore.getSubSeries(editingSeriesId) as sub (sub.id)}
-								<div class="flex items-center justify-between rounded-lg bg-bg-primary px-3 py-1.5">
-									<span class="text-sm text-text-primary">{sub.name}</span>
+								<div class="flex items-center justify-between rounded-xl bg-bg-primary/40 px-4 py-2.5">
+									<span class="text-[13px] text-text-primary">{sub.name}</span>
 									<button
 										type="button"
 										onclick={async () => { if (confirm(`Supprimer "${sub.name}" ?`)) await budgetStore.removeSubSeries(sub.id); }}
-										class="text-text-muted hover:text-danger"
+										class="text-text-muted hover:text-danger transition-smooth"
 										aria-label="Supprimer la sous-catégorie {sub.name}"
 									>
-										<Trash2 size={12} />
+										<Trash2 size={13} />
 									</button>
 								</div>
 							{/each}
 						</div>
-						<div class="mt-2 flex gap-2">
+						<div class="mt-3 flex gap-2">
 							<input
 								bind:value={newSubSeriesName}
 								placeholder="Nouvelle sous-catégorie"
-								class="flex-1 rounded-lg border border-border bg-bg-primary px-3 py-1.5 text-sm text-text-primary outline-none focus:border-accent"
+								class="flex-1 rounded-xl border border-border bg-bg-primary/60 px-4 py-2.5 text-[13px] text-text-primary outline-none focus-ring placeholder:text-text-muted"
 								onkeydown={async (e) => {
 									if (e.key === 'Enter' && newSubSeriesName.trim() && editingSeriesId) {
 										e.preventDefault();
@@ -342,28 +437,28 @@
 										newSubSeriesName = '';
 									}
 								}}
-								class="rounded-lg bg-bg-hover px-3 py-1.5 text-sm text-text-secondary hover:text-text-primary"
+								class="rounded-xl bg-bg-hover px-4 py-2.5 text-text-secondary hover:text-text-primary transition-smooth"
 							>
-								<Plus size={14} />
+								<Plus size={15} />
 							</button>
 						</div>
 					</div>
 				{/if}
 
-				<div class="flex justify-end gap-3 pt-2">
-					<button type="button" onclick={() => (showSeriesForm = false)} class="rounded-lg px-4 py-2 text-sm text-text-secondary hover:text-text-primary">
+				<div class="flex justify-end gap-3 pt-3">
+					<button type="button" onclick={() => (showSeriesForm = false)} class="rounded-xl px-5 py-2.5 text-[13px] font-medium text-text-secondary hover:text-text-primary transition-smooth">
 						Annuler
 					</button>
 					{#if editingSeriesId}
 						<button
 							type="button"
 							onclick={async () => { if (confirm('Supprimer cette catégorie ?')) { await budgetStore.removeSeries(editingSeriesId!); showSeriesForm = false; } }}
-							class="rounded-lg px-4 py-2 text-sm text-danger hover:bg-danger/10"
+							class="rounded-xl px-5 py-2.5 text-[13px] font-medium text-danger hover:bg-danger/10 transition-smooth"
 						>
 							Supprimer
 						</button>
 					{/if}
-					<button type="submit" class="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover">
+					<button type="submit" class="rounded-xl bg-accent px-6 py-2.5 text-[13px] font-semibold text-white transition-smooth btn-press hover:bg-accent-hover shadow-lg shadow-accent/20">
 						{editingSeriesId ? 'Enregistrer' : 'Créer'}
 					</button>
 				</div>
