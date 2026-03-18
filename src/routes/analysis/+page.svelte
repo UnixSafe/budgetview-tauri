@@ -8,25 +8,21 @@
 
 	Chart.register(...registerables);
 
-	// Chart defaults for dark theme
-	Chart.defaults.color = '#94a3b8';
-	Chart.defaults.borderColor = '#334155';
-	Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+	Chart.defaults.color = '#a1a1a6';
+	Chart.defaults.borderColor = 'rgba(84, 84, 88, 0.2)';
+	Chart.defaults.font.family = "-apple-system, 'SF Pro Display', 'Inter', system-ui, sans-serif";
 
 	let year = $state(new Date().getFullYear());
 	let loading = $state(true);
 
-	// Data
 	let monthlyData = $state<{ month: number; income: number; expenses: number }[]>([]);
 	let categoryData = $state<{ name: string; area: string; total: number }[]>([]);
 	let topExpenses = $state<{ label: string; total: number; count: number }[]>([]);
 
-	// Forecast data
 	let forecastLabels = $state<string[]>([]);
 	let forecastActual = $state<(number | null)[]>([]);
 	let forecastProjected = $state<(number | null)[]>([]);
 
-	// Chart refs
 	let barCanvas: HTMLCanvasElement;
 	let doughnutCanvas: HTMLCanvasElement;
 	let lineCanvas: HTMLCanvasElement;
@@ -39,52 +35,31 @@
 	async function loadData() {
 		loading = true;
 		try {
-			// Monthly income/expenses for the year
 			const monthlyRaw = await query<{ month: number; income: number; expenses: number }>(
-				`SELECT
-					CAST(strftime('%m', date) AS INTEGER) as month,
+				`SELECT CAST(strftime('%m', date) AS INTEGER) as month,
 					COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) as income,
 					COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 0) as expenses
-				FROM transactions
-				WHERE strftime('%Y', date) = $1
-				GROUP BY strftime('%m', date)
-				ORDER BY month`,
-				[String(year)]
+				FROM transactions WHERE strftime('%Y', date) = $1
+				GROUP BY strftime('%m', date) ORDER BY month`, [String(year)]
 			);
 			monthlyData = monthlyRaw;
 
-			// Spending by category (only expenses)
 			categoryData = await query<{ name: string; area: string; total: number }>(
-				`SELECT bs.name, bs.budget_area as area,
-					ABS(SUM(t.amount)) as total
-				FROM transactions t
-				JOIN budget_series bs ON t.series_id = bs.id
+				`SELECT bs.name, bs.budget_area as area, ABS(SUM(t.amount)) as total
+				FROM transactions t JOIN budget_series bs ON t.series_id = bs.id
 				WHERE t.amount < 0 AND strftime('%Y', t.date) = $1
-				GROUP BY bs.id
-				ORDER BY total DESC`,
-				[String(year)]
+				GROUP BY bs.id ORDER BY total DESC`, [String(year)]
 			);
 
-			// Top expense labels
 			topExpenses = await query<{ label: string; total: number; count: number }>(
-				`SELECT label,
-					ABS(SUM(amount)) as total,
-					COUNT(*) as count
-				FROM transactions
-				WHERE amount < 0 AND strftime('%Y', date) = $1
-				GROUP BY UPPER(label)
-				ORDER BY total DESC
-				LIMIT 10`,
-				[String(year)]
+				`SELECT label, ABS(SUM(amount)) as total, COUNT(*) as count
+				FROM transactions WHERE amount < 0 AND strftime('%Y', date) = $1
+				GROUP BY UPPER(label) ORDER BY total DESC LIMIT 10`, [String(year)]
 			);
 
-			// Cash flow forecast: current balance + projected from budget
 			await loadForecast();
-
 			renderCharts();
-		} finally {
-			loading = false;
-		}
+		} finally { loading = false; }
 	}
 
 	async function loadForecast() {
@@ -92,14 +67,12 @@
 		const currentMonth = now.getMonth() + 1;
 		const currentYear = now.getFullYear();
 
-		// Get current total balance (initial + transactions)
 		const balResult = await query<{ total: number }>(
 			`SELECT COALESCE(SUM(a.initial_balance), 0) + COALESCE((SELECT SUM(t.amount) FROM transactions t JOIN accounts a2 ON t.account_id = a2.id WHERE a2.is_active = 1), 0) as total
 			 FROM accounts a WHERE a.is_active = 1`
 		);
 		let currentBalance = balResult[0]?.total ?? 0;
 
-		// Get monthly actuals for the past 3 months
 		const labels: string[] = [];
 		const actual: (number | null)[] = [];
 		const projected: (number | null)[] = [];
@@ -110,45 +83,21 @@
 			while (m <= 0) { m += 12; y--; }
 			while (m > 12) { m -= 12; y++; }
 
-			const monthLabel = new Intl.DateTimeFormat('fr-FR', { month: 'short', year: '2-digit' }).format(new Date(y, m - 1));
-			labels.push(monthLabel);
+			labels.push(new Intl.DateTimeFormat('fr-FR', { month: 'short', year: '2-digit' }).format(new Date(y, m - 1)));
 
 			if (offset < 0) {
-				// Past month: get actual net flow
-				const startDate = `${y}-${String(m).padStart(2, '0')}-01`;
-				const endM = m === 12 ? 1 : m + 1;
-				const endY = m === 12 ? y + 1 : y;
-				const endDate = `${endY}-${String(endM).padStart(2, '0')}-01`;
-
-				const netResult = await query<{ net: number }>(
-					`SELECT COALESCE(SUM(amount), 0) as net FROM transactions WHERE date >= $1 AND date < $2`,
-					[startDate, endDate]
-				);
-				actual.push(null); // We don't track running historical balance here
+				actual.push(null);
 				projected.push(null);
 			} else if (offset === 0) {
-				// Current month: actual balance
 				actual.push(currentBalance);
 				projected.push(currentBalance);
 			} else {
-				// Future: project using budget data + recurring transactions
 				const budgetNet = await query<{ net: number }>(
-					`SELECT COALESCE(SUM(
-						CASE WHEN bs.budget_area = 'income' THEN mb.planned_amount
-						ELSE -ABS(mb.planned_amount) END
-					), 0) as net
-					FROM monthly_budget mb
-					JOIN budget_series bs ON mb.series_id = bs.id
-					WHERE mb.year = $1 AND mb.month = $2`,
-					[y, m]
+					`SELECT COALESCE(SUM(CASE WHEN bs.budget_area = 'income' THEN mb.planned_amount ELSE -ABS(mb.planned_amount) END), 0) as net
+					FROM monthly_budget mb JOIN budget_series bs ON mb.series_id = bs.id WHERE mb.year = $1 AND mb.month = $2`, [y, m]
 				);
-				// Add recurring transactions not covered by budget entries
 				const recurringNet = await query<{ net: number }>(
-					`SELECT COALESCE(SUM(r.amount), 0) as net
-					 FROM recurring_transactions r
-					 WHERE r.is_active = 1 AND r.frequency = 'monthly'
-					   AND r.series_id IS NULL`,
-					[]
+					`SELECT COALESCE(SUM(r.amount), 0) as net FROM recurring_transactions r WHERE r.is_active = 1 AND r.frequency = 'monthly' AND r.series_id IS NULL`, []
 				);
 				currentBalance += (budgetNet[0]?.net ?? 0) + (recurringNet[0]?.net ?? 0);
 				actual.push(null);
@@ -156,23 +105,19 @@
 			}
 		}
 
-		// Fill in past actual balances by working backwards from current
-		let bal = actual[3]!; // index 3 = current month (offset 0)
+		let bal = actual[3]!;
 		for (let i = 2; i >= 0; i--) {
 			const offset = i - 3;
 			let m = currentMonth + offset;
 			let y = currentYear;
 			while (m <= 0) { m += 12; y--; }
 			while (m > 12) { m -= 12; y++; }
-
 			const startDate = `${y}-${String(m).padStart(2, '0')}-01`;
 			const endM = m === 12 ? 1 : m + 1;
 			const endY = m === 12 ? y + 1 : y;
 			const endDate = `${endY}-${String(endM).padStart(2, '0')}-01`;
-
 			const netResult = await query<{ net: number }>(
-				`SELECT COALESCE(SUM(amount), 0) as net FROM transactions WHERE date >= $1 AND date < $2`,
-				[startDate, endDate]
+				`SELECT COALESCE(SUM(amount), 0) as net FROM transactions WHERE date >= $1 AND date < $2`, [startDate, endDate]
 			);
 			bal -= netResult[0]?.net ?? 0;
 			actual[i] = bal;
@@ -184,21 +129,13 @@
 	}
 
 	const AREA_COLORS: Record<string, string> = {
-		income: '#22c55e',
-		recurring: '#3b82f6',
-		variable: '#f59e0b',
-		extras: '#8b5cf6',
-		savings: '#06b6d4',
-		transfers: '#64748b'
+		income: '#30d158', recurring: '#0a84ff', variable: '#ffd60a',
+		extras: '#bf5af2', savings: '#64d2ff', transfers: '#6e6e73'
 	};
 
-	const MONTH_LABELS = [
-		'Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin',
-		'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'
-	];
+	const MONTH_LABELS = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
 
 	function renderCharts() {
-		// Destroy existing charts
 		barChart?.destroy();
 		doughnutChart?.destroy();
 		lineChart?.destroy();
@@ -206,7 +143,6 @@
 
 		if (!barCanvas || !doughnutCanvas || !lineCanvas) return;
 
-		// Prepare full 12-month arrays
 		const incomeByMonth = new Array(12).fill(0);
 		const expensesByMonth = new Array(12).fill(0);
 		for (const d of monthlyData) {
@@ -214,182 +150,70 @@
 			expensesByMonth[d.month - 1] = d.expenses;
 		}
 
-		// Bar chart: Income vs Expenses by month
 		barChart = new Chart(barCanvas, {
 			type: 'bar',
 			data: {
 				labels: MONTH_LABELS,
 				datasets: [
-					{
-						label: 'Revenus',
-						data: incomeByMonth,
-						backgroundColor: '#22c55e88',
-						borderColor: '#22c55e',
-						borderWidth: 1,
-						borderRadius: 4
-					},
-					{
-						label: 'Dépenses',
-						data: expensesByMonth,
-						backgroundColor: '#ef444488',
-						borderColor: '#ef4444',
-						borderWidth: 1,
-						borderRadius: 4
-					}
+					{ label: 'Revenus', data: incomeByMonth, backgroundColor: '#30d15830', borderColor: '#30d158', borderWidth: 1.5, borderRadius: 6 },
+					{ label: 'Dépenses', data: expensesByMonth, backgroundColor: '#ff453a30', borderColor: '#ff453a', borderWidth: 1.5, borderRadius: 6 }
 				]
 			},
 			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				plugins: {
-					legend: { position: 'top' },
-					tooltip: {
-						callbacks: {
-							label: (ctx) => `${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y ?? 0)}`
-						}
-					}
+				responsive: true, maintainAspectRatio: false,
+				plugins: { legend: { position: 'top', labels: { usePointStyle: true, pointStyleWidth: 8, padding: 16 } },
+					tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y ?? 0)}` } }
 				},
-				scales: {
-					y: {
-						beginAtZero: true,
-						ticks: {
-							callback: (v) => formatCurrency(Number(v))
-						}
-					}
-				}
+				scales: { y: { beginAtZero: true, ticks: { callback: (v) => formatCurrency(Number(v)) }, grid: { color: 'rgba(84, 84, 88, 0.15)' } }, x: { grid: { display: false } } }
 			}
 		});
 
-		// Doughnut chart: Spending by category
 		if (categoryData.length > 0) {
-			const colors = categoryData.map((c) => AREA_COLORS[c.area] ?? '#64748b');
+			const colors = categoryData.map((c) => AREA_COLORS[c.area] ?? '#6e6e73');
 			doughnutChart = new Chart(doughnutCanvas, {
 				type: 'doughnut',
 				data: {
 					labels: categoryData.map((c) => c.name),
-					datasets: [{
-						data: categoryData.map((c) => c.total),
-						backgroundColor: colors.map((c) => c + '88'),
-						borderColor: colors,
-						borderWidth: 2
-					}]
+					datasets: [{ data: categoryData.map((c) => c.total), backgroundColor: colors.map((c) => c + '50'), borderColor: colors, borderWidth: 2 }]
 				},
 				options: {
-					responsive: true,
-					maintainAspectRatio: false,
+					responsive: true, maintainAspectRatio: false, cutout: '65%',
 					plugins: {
-						legend: {
-							position: 'right',
-							labels: { boxWidth: 12, padding: 8 }
-						},
-						tooltip: {
-							callbacks: {
-								label: (ctx) => {
-									const total = (ctx.dataset.data as number[]).reduce((a, b) => a + b, 0);
-									const pct = ((ctx.parsed / total) * 100).toFixed(1);
-									return `${ctx.label}: ${formatCurrency(ctx.parsed)} (${pct}%)`;
-								}
-							}
-						}
+						legend: { position: 'right', labels: { boxWidth: 10, padding: 12, usePointStyle: true } },
+						tooltip: { callbacks: { label: (ctx) => { const total = (ctx.dataset.data as number[]).reduce((a, b) => a + b, 0); return `${ctx.label}: ${formatCurrency(ctx.parsed)} (${((ctx.parsed / total) * 100).toFixed(1)}%)`; } } }
 					}
 				}
 			});
 		}
 
-		// Line chart: Cumulative balance evolution
 		const cumulativeBalance = new Array(12).fill(0);
 		let running = 0;
-		for (let i = 0; i < 12; i++) {
-			running += incomeByMonth[i] - expensesByMonth[i];
-			cumulativeBalance[i] = running;
-		}
+		for (let i = 0; i < 12; i++) { running += incomeByMonth[i] - expensesByMonth[i]; cumulativeBalance[i] = running; }
 
 		lineChart = new Chart(lineCanvas, {
 			type: 'line',
-			data: {
-				labels: MONTH_LABELS,
-				datasets: [{
-					label: 'Solde cumulé',
-					data: cumulativeBalance,
-					borderColor: '#3b82f6',
-					backgroundColor: '#3b82f633',
-					fill: true,
-					tension: 0.3,
-					pointBackgroundColor: '#3b82f6',
-					pointRadius: 4
-				}]
-			},
+			data: { labels: MONTH_LABELS, datasets: [{ label: 'Solde cumulé', data: cumulativeBalance, borderColor: '#0a84ff', backgroundColor: '#0a84ff15', fill: true, tension: 0.4, pointBackgroundColor: '#0a84ff', pointRadius: 4, pointHoverRadius: 6 }] },
 			options: {
-				responsive: true,
-				maintainAspectRatio: false,
-				plugins: {
-					legend: { position: 'top' },
-					tooltip: {
-						callbacks: {
-							label: (ctx) => `${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y ?? 0)}`
-						}
-					}
-				},
-				scales: {
-					y: {
-						ticks: {
-							callback: (v) => formatCurrency(Number(v))
-						}
-					}
-				}
+				responsive: true, maintainAspectRatio: false,
+				plugins: { legend: { position: 'top', labels: { usePointStyle: true } }, tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y ?? 0)}` } } },
+				scales: { y: { ticks: { callback: (v) => formatCurrency(Number(v)) }, grid: { color: 'rgba(84, 84, 88, 0.15)' } }, x: { grid: { display: false } } }
 			}
 		});
 
-		// Forecast chart: cash flow projection
 		if (forecastCanvas && forecastLabels.length > 0) {
 			forecastChart = new Chart(forecastCanvas, {
 				type: 'line',
 				data: {
 					labels: forecastLabels,
 					datasets: [
-						{
-							label: 'Réalisé',
-							data: forecastActual,
-							borderColor: '#3b82f6',
-							backgroundColor: '#3b82f633',
-							fill: false,
-							tension: 0.3,
-							pointBackgroundColor: '#3b82f6',
-							pointRadius: 4,
-							spanGaps: false
-						},
-						{
-							label: 'Prévisionnel',
-							data: forecastProjected,
-							borderColor: '#f59e0b',
-							backgroundColor: '#f59e0b33',
-							borderDash: [5, 5],
-							fill: false,
-							tension: 0.3,
-							pointBackgroundColor: '#f59e0b',
-							pointRadius: 4,
-							spanGaps: false
-						}
+						{ label: 'Réalisé', data: forecastActual, borderColor: '#0a84ff', backgroundColor: '#0a84ff15', fill: false, tension: 0.4, pointBackgroundColor: '#0a84ff', pointRadius: 4, spanGaps: false },
+						{ label: 'Prévisionnel', data: forecastProjected, borderColor: '#ff9f0a', backgroundColor: '#ff9f0a15', borderDash: [6, 4], fill: false, tension: 0.4, pointBackgroundColor: '#ff9f0a', pointRadius: 4, spanGaps: false }
 					]
 				},
 				options: {
-					responsive: true,
-					maintainAspectRatio: false,
-					plugins: {
-						legend: { position: 'top' },
-						tooltip: {
-							callbacks: {
-								label: (ctx) => `${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y ?? 0)}`
-							}
-						}
-					},
-					scales: {
-						y: {
-							ticks: {
-								callback: (v) => formatCurrency(Number(v))
-							}
-						}
-					}
+					responsive: true, maintainAspectRatio: false,
+					plugins: { legend: { position: 'top', labels: { usePointStyle: true } }, tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y ?? 0)}` } } },
+					scales: { y: { ticks: { callback: (v) => formatCurrency(Number(v)) }, grid: { color: 'rgba(84, 84, 88, 0.15)' } }, x: { grid: { display: false } } }
 				}
 			});
 		}
@@ -398,22 +222,12 @@
 	function prevYear() { year--; loadData(); }
 	function nextYear() { year++; loadData(); }
 
-	onMount(() => {
-		loadData();
-		return () => {
-			barChart?.destroy();
-			doughnutChart?.destroy();
-			lineChart?.destroy();
-			forecastChart?.destroy();
-		};
-	});
+	onMount(() => { loadData(); return () => { barChart?.destroy(); doughnutChart?.destroy(); lineChart?.destroy(); forecastChart?.destroy(); }; });
 
-	// Computed: total income/expenses for the year
 	let totalIncome = $derived(monthlyData.reduce((s, d) => s + d.income, 0));
 	let totalExpenses = $derived(monthlyData.reduce((s, d) => s + d.expenses, 0));
 	let balance = $derived(totalIncome - totalExpenses);
 
-	// Grouped categories by budget area
 	let categoryByArea = $derived.by(() => {
 		const groups: Record<string, { name: string; total: number }[]> = {};
 		for (const c of categoryData) {
@@ -428,155 +242,136 @@
 	<title>Analyse — BudgetView</title>
 </svelte:head>
 
-<div class="space-y-6">
-	<!-- Header with year navigation -->
+<div class="space-y-8">
 	<div class="flex items-center justify-between">
-		<h1 class="text-2xl font-bold text-text-primary">Analyse</h1>
+		<div>
+			<h1 class="text-3xl font-bold tracking-tight text-text-primary">Analyse</h1>
+			<p class="mt-1 text-sm text-text-muted">Visualisez vos finances</p>
+		</div>
 		<div class="flex items-center gap-3">
-			<button onclick={prevYear}
-				class="rounded-lg p-2 text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors">
-				<ChevronLeft size={20} />
+			<button onclick={prevYear} class="rounded-xl p-2.5 text-text-muted hover:bg-bg-hover hover:text-text-primary transition-smooth btn-press">
+				<ChevronLeft size={22} />
 			</button>
-			<span class="text-lg font-semibold text-text-primary min-w-[4rem] text-center">{year}</span>
-			<button onclick={nextYear}
-				class="rounded-lg p-2 text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors">
-				<ChevronRight size={20} />
+			<span class="text-xl font-bold text-text-primary min-w-[4rem] text-center">{year}</span>
+			<button onclick={nextYear} class="rounded-xl p-2.5 text-text-muted hover:bg-bg-hover hover:text-text-primary transition-smooth btn-press">
+				<ChevronRight size={22} />
 			</button>
 		</div>
 	</div>
 
 	{#if loading}
-		<div class="flex items-center justify-center py-12">
-			<div class="h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent"></div>
+		<div class="flex items-center justify-center py-16">
+			<div class="h-10 w-10 animate-spin rounded-full border-[3px] border-accent/20 border-t-accent"></div>
 		</div>
 	{:else if monthlyData.length === 0 && categoryData.length === 0}
-		<div class="flex flex-col items-center justify-center rounded-xl border border-border bg-bg-card p-12">
-			<BarChart3 size={48} class="mb-4 text-text-muted" />
-			<p class="text-lg font-medium text-text-secondary">Pas encore de données pour {year}</p>
-			<p class="text-sm text-text-muted">Les graphiques apparaîtront une fois des transactions importées</p>
+		<div class="flex flex-col items-center justify-center glass-card p-16">
+			<div class="mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-bg-elevated">
+				<BarChart3 size={36} class="text-text-muted" strokeWidth={1.5} />
+			</div>
+			<p class="text-xl font-semibold text-text-primary">Pas de données pour {year}</p>
+			<p class="mt-1 text-sm text-text-muted">Les graphiques apparaîtront après l'import de transactions</p>
 		</div>
 	{:else}
-		<!-- Summary cards -->
-		<div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-			<div class="rounded-xl border border-border bg-bg-card p-4">
-				<p class="text-sm text-text-muted">Revenus {year}</p>
-				<p class="text-2xl font-bold text-income">{formatCurrency(totalIncome)}</p>
+		<!-- Summary -->
+		<div class="grid grid-cols-3 gap-3 md:gap-4 stagger-children">
+			<div class="glass-card p-5">
+				<p class="text-[11px] font-semibold text-text-muted uppercase tracking-wider">Revenus {year}</p>
+				<p class="mt-2 text-2xl font-bold tracking-tight text-income">{formatCurrency(totalIncome)}</p>
 			</div>
-			<div class="rounded-xl border border-border bg-bg-card p-4">
-				<p class="text-sm text-text-muted">Dépenses {year}</p>
-				<p class="text-2xl font-bold text-expense">{formatCurrency(totalExpenses)}</p>
+			<div class="glass-card p-5">
+				<p class="text-[11px] font-semibold text-text-muted uppercase tracking-wider">Dépenses {year}</p>
+				<p class="mt-2 text-2xl font-bold tracking-tight text-expense">{formatCurrency(totalExpenses)}</p>
 			</div>
-			<div class="rounded-xl border border-border bg-bg-card p-4">
-				<p class="text-sm text-text-muted">Balance</p>
-				<p class="text-2xl font-bold" class:text-income={balance >= 0} class:text-expense={balance < 0}>
+			<div class="glass-card p-5">
+				<p class="text-[11px] font-semibold text-text-muted uppercase tracking-wider">Balance</p>
+				<p class="mt-2 text-2xl font-bold tracking-tight" class:text-income={balance >= 0} class:text-expense={balance < 0}>
 					{formatCurrency(balance)}
 				</p>
 			</div>
 		</div>
 
-		<!-- Bar chart: Monthly income vs expenses -->
-		<div class="rounded-xl border border-border bg-bg-card p-4">
-			<div class="mb-3 flex items-center gap-2">
+		<!-- Charts -->
+		<div class="glass-card p-6">
+			<div class="mb-4 flex items-center gap-2">
 				<BarChart3 size={18} class="text-accent" />
-				<h2 class="text-lg font-semibold text-text-primary">Revenus vs Dépenses par mois</h2>
+				<h2 class="text-lg font-semibold text-text-primary">Revenus vs Dépenses</h2>
 			</div>
-			<div class="h-72">
-				<canvas bind:this={barCanvas}></canvas>
-			</div>
+			<div class="h-72"><canvas bind:this={barCanvas}></canvas></div>
 		</div>
 
 		<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-			<!-- Doughnut chart: Spending by category -->
-			<div class="rounded-xl border border-border bg-bg-card p-4">
-				<div class="mb-3 flex items-center gap-2">
+			<div class="glass-card p-6">
+				<div class="mb-4 flex items-center gap-2">
 					<PieChart size={18} class="text-warning" />
-					<h2 class="text-lg font-semibold text-text-primary">Dépenses par catégorie</h2>
+					<h2 class="text-lg font-semibold text-text-primary">Par catégorie</h2>
 				</div>
 				{#if categoryData.length > 0}
-					<div class="h-72">
-						<canvas bind:this={doughnutCanvas}></canvas>
-					</div>
+					<div class="h-72"><canvas bind:this={doughnutCanvas}></canvas></div>
 				{:else}
-					<p class="py-8 text-center text-sm text-text-muted">Aucune transaction catégorisée</p>
+					<p class="py-8 text-center text-[13px] text-text-muted">Aucune transaction catégorisée</p>
 				{/if}
 			</div>
 
-			<!-- Line chart: Cumulative balance -->
-			<div class="rounded-xl border border-border bg-bg-card p-4">
-				<div class="mb-3 flex items-center gap-2">
+			<div class="glass-card p-6">
+				<div class="mb-4 flex items-center gap-2">
 					<TrendingUp size={18} class="text-income" />
-					<h2 class="text-lg font-semibold text-text-primary">Évolution du solde cumulé</h2>
+					<h2 class="text-lg font-semibold text-text-primary">Solde cumulé</h2>
 				</div>
-				<div class="h-72">
-					<canvas bind:this={lineCanvas}></canvas>
-				</div>
+				<div class="h-72"><canvas bind:this={lineCanvas}></canvas></div>
 			</div>
 		</div>
 
-		<!-- Forecast chart: Cash flow projection -->
-		<div class="rounded-xl border border-border bg-bg-card p-4">
-			<div class="mb-3 flex items-center gap-2">
-				<CalendarClock size={18} class="text-warning" />
+		<div class="glass-card p-6">
+			<div class="mb-4 flex items-center gap-2">
+				<CalendarClock size={18} class="text-orange" />
 				<h2 class="text-lg font-semibold text-text-primary">Trésorerie prévisionnelle</h2>
 			</div>
-			<p class="mb-2 text-xs text-text-muted">Projection basée sur le budget planifié et les récurrences pour les 6 prochains mois</p>
-			<div class="h-72">
-				<canvas bind:this={forecastCanvas}></canvas>
-			</div>
+			<p class="mb-3 text-[12px] text-text-muted">Projection sur 6 mois basée sur le budget et les récurrences</p>
+			<div class="h-72"><canvas bind:this={forecastCanvas}></canvas></div>
 		</div>
 
-		<!-- Top expenses table -->
-		<div class="rounded-xl border border-border bg-bg-card p-4">
-			<h2 class="mb-3 text-lg font-semibold text-text-primary">Top 10 des dépenses</h2>
+		<!-- Top expenses -->
+		<div class="glass-card p-6">
+			<h2 class="mb-4 text-lg font-semibold text-text-primary">Top 10 des dépenses</h2>
 			{#if topExpenses.length > 0}
-				<div class="overflow-x-auto">
-					<table class="w-full text-sm">
-						<thead>
-							<tr class="border-b border-border text-left text-text-muted">
-								<th class="pb-2 font-medium">#</th>
-								<th class="pb-2 font-medium">Libellé</th>
-								<th class="pb-2 text-right font-medium">Montant total</th>
-								<th class="pb-2 text-right font-medium">Occurrences</th>
-							</tr>
-						</thead>
-						<tbody>
-							{#each topExpenses as expense, i}
-								<tr class="border-b border-border/50">
-									<td class="py-2 text-text-muted">{i + 1}</td>
-									<td class="py-2 text-text-primary">{expense.label}</td>
-									<td class="py-2 text-right font-medium text-expense">{formatCurrency(expense.total)}</td>
-									<td class="py-2 text-right text-text-secondary">{expense.count}×</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
+				<div class="space-y-2">
+					{#each topExpenses as expense, i}
+						<div class="flex items-center gap-4 rounded-xl px-4 py-3 hover-row transition-smooth">
+							<span class="flex h-7 w-7 items-center justify-center rounded-full bg-bg-elevated text-[12px] font-bold text-text-muted">{i + 1}</span>
+							<div class="flex-1 min-w-0">
+								<p class="text-[14px] font-medium text-text-primary truncate">{expense.label}</p>
+								<p class="text-[11px] text-text-muted">{expense.count} occurrence{expense.count > 1 ? 's' : ''}</p>
+							</div>
+							<span class="text-[14px] font-semibold tabular-nums text-expense">{formatCurrency(expense.total)}</span>
+						</div>
+					{/each}
 				</div>
 			{:else}
-				<p class="py-4 text-center text-sm text-text-muted">Aucune dépense enregistrée</p>
+				<p class="py-4 text-center text-[13px] text-text-muted">Aucune dépense</p>
 			{/if}
 		</div>
 
-		<!-- Category breakdown by area -->
+		<!-- Category breakdown -->
 		{#if categoryData.length > 0}
-			<div class="rounded-xl border border-border bg-bg-card p-4">
-				<h2 class="mb-3 text-lg font-semibold text-text-primary">Détail par type de dépense</h2>
+			<div class="glass-card p-6">
+				<h2 class="mb-4 text-lg font-semibold text-text-primary">Détail par type</h2>
 				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 					{#each Object.entries(categoryByArea) as [area, items]}
-						<div class="rounded-lg border border-border/50 p-3">
-							<h3 class="mb-2 text-sm font-semibold" style="color: {AREA_COLORS[area] ?? '#94a3b8'}">
+						<div class="rounded-2xl border border-border-light p-4">
+							<h3 class="mb-3 text-[13px] font-bold" style="color: {AREA_COLORS[area] ?? '#a1a1a6'}">
 								{BUDGET_AREA_LABELS[area] ?? area}
 							</h3>
-							<div class="space-y-1">
+							<div class="space-y-2">
 								{#each items as item}
-									<div class="flex items-center justify-between text-sm">
+									<div class="flex items-center justify-between text-[13px]">
 										<span class="text-text-secondary truncate mr-2">{item.name}</span>
-										<span class="font-medium text-text-primary whitespace-nowrap">{formatCurrency(item.total)}</span>
+										<span class="font-medium text-text-primary tabular-nums whitespace-nowrap">{formatCurrency(item.total)}</span>
 									</div>
 								{/each}
 							</div>
-							<div class="mt-2 border-t border-border/50 pt-1 flex justify-between text-sm font-semibold">
+							<div class="mt-3 border-t border-border-light pt-2 flex justify-between text-[13px] font-bold">
 								<span class="text-text-muted">Total</span>
-								<span class="text-text-primary">{formatCurrency(items.reduce((s, i) => s + i.total, 0))}</span>
+								<span class="text-text-primary tabular-nums">{formatCurrency(items.reduce((s, i) => s + i.total, 0))}</span>
 							</div>
 						</div>
 					{/each}

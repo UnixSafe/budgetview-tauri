@@ -4,24 +4,30 @@
 </script>
 
 {#if toastStore.toasts.length > 0}
-	<div class="fixed bottom-4 right-4 z-[100] flex flex-col gap-2">
+	<div class="fixed bottom-20 md:bottom-6 right-4 z-[100] flex flex-col gap-2">
 		{#each toastStore.toasts as toast (toast.id)}
 			<div
-				class="flex items-center gap-3 rounded-lg border px-4 py-3 shadow-lg backdrop-blur-sm animate-in slide-in-from-right
-					{toast.type === 'success' ? 'border-income/30 bg-income/10 text-income' : ''}
-					{toast.type === 'error' ? 'border-danger/30 bg-danger/10 text-danger' : ''}
-					{toast.type === 'info' ? 'border-accent/30 bg-accent/10 text-accent' : ''}"
+				class="flex items-center gap-3 rounded-2xl px-5 py-3.5 shadow-2xl animate-slide-in-right glass
+					{toast.type === 'success' ? 'shadow-income/10' : ''}
+					{toast.type === 'error' ? 'shadow-danger/10' : ''}
+					{toast.type === 'info' ? 'shadow-accent/10' : ''}"
 			>
 				{#if toast.type === 'success'}
-					<CheckCircle2 size={16} />
+					<div class="flex h-7 w-7 items-center justify-center rounded-full bg-income/15">
+						<CheckCircle2 size={15} class="text-income" />
+					</div>
 				{:else if toast.type === 'error'}
-					<AlertTriangle size={16} />
+					<div class="flex h-7 w-7 items-center justify-center rounded-full bg-danger/15">
+						<AlertTriangle size={15} class="text-danger" />
+					</div>
 				{:else}
-					<Info size={16} />
+					<div class="flex h-7 w-7 items-center justify-center rounded-full bg-accent/15">
+						<Info size={15} class="text-accent" />
+					</div>
 				{/if}
-				<span class="text-sm font-medium">{toast.message}</span>
-				<button onclick={() => toastStore.dismiss(toast.id)} class="ml-2 opacity-60 hover:opacity-100">
-					<X size={14} />
+				<span class="text-[13px] font-medium text-text-primary">{toast.message}</span>
+				<button onclick={() => toastStore.dismiss(toast.id)} class="ml-2 rounded-full p-1 text-text-muted hover:text-text-primary hover:bg-bg-hover transition-smooth">
+					<X size={13} />
 				</button>
 			</div>
 		{/each}

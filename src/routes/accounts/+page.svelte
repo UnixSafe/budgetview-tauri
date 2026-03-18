@@ -17,7 +17,6 @@
 	let formType = $state<string>('checking');
 	let formBalance = $state(0);
 
-	// Consolidated breakdown by account type
 	let byType = $derived.by(() => {
 		const groups: Record<string, { count: number; total: number }> = {};
 		for (const a of accountStore.accounts) {
@@ -28,7 +27,6 @@
 		return groups;
 	});
 
-	// Monthly flow per account (last 3 months)
 	let monthlyFlows = $state<{ account_id: number; account_name: string; months: { label: string; net: number }[] }[]>([]);
 
 	onMount(async () => {
@@ -115,20 +113,30 @@
 		await accountStore.remove(id);
 		toastStore.success('Compte supprimé');
 	}
+
+	const ACCOUNT_ICONS: Record<string, string> = {
+		checking: '🏦',
+		savings: '💰',
+		credit_card: '💳',
+		cash: '💵'
+	};
 </script>
 
 <svelte:head>
 	<title>Comptes — BudgetView</title>
 </svelte:head>
 
-<div class="space-y-6">
+<div class="space-y-8">
 	<div class="flex items-center justify-between">
-		<h1 class="text-2xl font-bold text-text-primary">Comptes</h1>
+		<div>
+			<h1 class="text-3xl font-bold tracking-tight text-text-primary">Comptes</h1>
+			<p class="mt-1 text-sm text-text-muted">Gérez vos comptes bancaires</p>
+		</div>
 		<button
 			onclick={openCreate}
-			class="flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
+			class="flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-[13px] font-semibold text-white transition-smooth btn-press hover:bg-accent-hover shadow-lg shadow-accent/20"
 		>
-			<Plus size={16} />
+			<Plus size={16} strokeWidth={2.5} />
 			Nouveau compte
 		</button>
 	</div>
@@ -140,50 +148,60 @@
 	{#if accountStore.loading}
 		<LoadingSpinner message="Chargement des comptes..." />
 	{:else if accountStore.accounts.length === 0}
-		<div class="flex flex-col items-center justify-center rounded-xl border border-border bg-bg-card p-12">
-			<Landmark size={48} class="mb-4 text-text-muted" />
-			<p class="text-lg font-medium text-text-secondary">Aucun compte</p>
-			<p class="text-sm text-text-muted">Ajoutez votre premier compte bancaire pour commencer</p>
+		<!-- Empty state -->
+		<div class="flex flex-col items-center justify-center rounded-3xl glass-card p-16">
+			<div class="mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-accent/10">
+				<Landmark size={36} class="text-accent" strokeWidth={1.5} />
+			</div>
+			<p class="text-xl font-semibold text-text-primary">Aucun compte</p>
+			<p class="mt-1 text-sm text-text-muted">Ajoutez votre premier compte bancaire pour commencer</p>
+			<button
+				onclick={openCreate}
+				class="mt-6 flex items-center gap-2 rounded-xl bg-accent px-6 py-3 text-sm font-semibold text-white transition-smooth btn-press hover:bg-accent-hover"
+			>
+				<Plus size={16} />
+				Ajouter un compte
+			</button>
 		</div>
 	{:else}
-		<!-- Vue consolidée -->
-		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-			<div class="rounded-xl border border-border bg-bg-card p-4">
-				<p class="text-xs text-text-muted">Solde total</p>
-				<p class="text-xl font-bold text-text-primary">{formatCurrency(accountStore.totalBalance)}</p>
+		<!-- Summary cards -->
+		<div class="grid grid-cols-2 gap-3 md:grid-cols-4 lg:gap-4 stagger-children">
+			<div class="glass-card p-5">
+				<p class="text-[11px] font-semibold text-text-muted uppercase tracking-wider">Solde total</p>
+				<p class="mt-2 text-2xl font-bold tracking-tight text-text-primary">{formatCurrency(accountStore.totalBalance)}</p>
 			</div>
 			{#each Object.entries(byType) as [type, data]}
-				<div class="rounded-xl border border-border bg-bg-card p-4">
-					<p class="text-xs text-text-muted">{ACCOUNT_TYPE_LABELS[type]} ({data.count})</p>
-					<p class="text-lg font-bold {data.total >= 0 ? 'text-income' : 'text-expense'}">{formatCurrency(data.total)}</p>
+				<div class="glass-card p-5">
+					<p class="text-[11px] font-semibold text-text-muted uppercase tracking-wider">{ACCOUNT_TYPE_LABELS[type]} ({data.count})</p>
+					<p class="mt-2 text-xl font-bold tracking-tight {data.total >= 0 ? 'text-income' : 'text-expense'}">{formatCurrency(data.total)}</p>
 				</div>
 			{/each}
 		</div>
 
-		<!-- Flux mensuels par compte -->
+		<!-- Monthly flows -->
 		{#if monthlyFlows.length > 0}
-			<div class="rounded-xl border border-border bg-bg-card p-4">
-				<h2 class="mb-3 text-sm font-semibold text-text-secondary">Flux mensuels par compte (3 derniers mois)</h2>
+			<div class="glass-card p-6">
+				<h2 class="mb-4 text-[13px] font-semibold text-text-secondary uppercase tracking-wide">Flux mensuels (3 derniers mois)</h2>
 				<div class="overflow-x-auto">
-					<table class="w-full text-sm">
+					<table class="w-full text-[13px]">
 						<thead>
-							<tr class="border-b border-border text-left text-text-muted">
-								<th class="pb-2 font-medium">Compte</th>
+							<tr class="border-b border-border-light text-text-muted">
+								<th class="pb-3 text-left font-medium">Compte</th>
 								{#each monthlyFlows[0]?.months ?? [] as m}
-									<th class="pb-2 text-right font-medium capitalize">{m.label}</th>
+									<th class="pb-3 text-right font-medium capitalize">{m.label}</th>
 								{/each}
-								<th class="pb-2 text-right font-medium">Solde</th>
+								<th class="pb-3 text-right font-medium">Solde</th>
 							</tr>
 						</thead>
 						<tbody>
 							{#each monthlyFlows as flow}
 								{@const acc = accountStore.accounts.find(a => a.id === flow.account_id)}
-								<tr class="border-b border-border/50">
-									<td class="py-2 text-text-primary">{flow.account_name}</td>
+								<tr class="border-b border-border-light/50 hover-row">
+									<td class="py-3 font-medium text-text-primary">{flow.account_name}</td>
 									{#each flow.months as m}
-										<td class="py-2 text-right font-medium {m.net >= 0 ? 'text-income' : 'text-expense'}">{formatCurrency(m.net)}</td>
+										<td class="py-3 text-right font-medium tabular-nums {m.net >= 0 ? 'text-income' : 'text-expense'}">{formatCurrency(m.net)}</td>
 									{/each}
-									<td class="py-2 text-right font-semibold {(acc?.computed_balance ?? 0) >= 0 ? 'text-income' : 'text-expense'}">
+									<td class="py-3 text-right font-semibold tabular-nums {(acc?.computed_balance ?? 0) >= 0 ? 'text-income' : 'text-expense'}">
 										{formatCurrency(acc?.computed_balance ?? 0)}
 									</td>
 								</tr>
@@ -194,37 +212,39 @@
 			</div>
 		{/if}
 
-		<!-- Liste des comptes -->
-		<div class="space-y-3">
+		<!-- Account list -->
+		<div class="space-y-3 stagger-children">
 			{#each accountStore.accounts as account (account.id)}
-				<div class="flex items-center justify-between rounded-xl border border-border bg-bg-card p-4 transition-colors hover:bg-bg-hover">
+				<div class="group flex items-center justify-between glass-card p-5 transition-smooth hover:bg-bg-hover/30">
 					<div class="flex items-center gap-4">
-						<div class="flex h-10 w-10 items-center justify-center rounded-lg bg-accent/10">
-							<Landmark size={20} class="text-accent" />
+						<div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/10 text-xl">
+							{ACCOUNT_ICONS[account.account_type] ?? '🏦'}
 						</div>
 						<div>
-							<p class="font-medium text-text-primary">{account.name}</p>
-							<p class="text-sm text-text-secondary">
+							<p class="text-[15px] font-semibold text-text-primary">{account.name}</p>
+							<p class="text-[12px] text-text-muted">
 								{ACCOUNT_TYPE_LABELS[account.account_type]}
 								{#if account.bank_name}
-									&middot; {account.bank_name}
+									· {account.bank_name}
 								{/if}
 								{#if account.account_number}
-									&middot; {account.account_number}
+									· {account.account_number}
 								{/if}
 							</p>
 						</div>
 					</div>
-					<div class="flex items-center gap-3">
-						<span class="text-lg font-semibold {account.computed_balance >= 0 ? 'text-income' : 'text-expense'}">
+					<div class="flex items-center gap-4">
+						<span class="text-lg font-bold tabular-nums {account.computed_balance >= 0 ? 'text-income' : 'text-expense'}">
 							{formatCurrency(account.computed_balance)}
 						</span>
-						<button onclick={() => openEdit(account)} class="rounded-lg p-2 text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary">
-							<Pencil size={16} />
-						</button>
-						<button onclick={() => handleDelete(account.id)} class="rounded-lg p-2 text-text-muted transition-colors hover:bg-bg-hover hover:text-danger">
-							<Trash2 size={16} />
-						</button>
+						<div class="flex gap-1 opacity-0 transition-smooth group-hover:opacity-100">
+							<button onclick={() => openEdit(account)} class="rounded-xl p-2 text-text-muted transition-smooth hover:bg-bg-hover hover:text-text-primary" aria-label="Modifier">
+								<Pencil size={15} />
+							</button>
+							<button onclick={() => handleDelete(account.id)} class="rounded-xl p-2 text-text-muted transition-smooth hover:bg-danger/10 hover:text-danger" aria-label="Supprimer">
+								<Trash2 size={15} />
+							</button>
+						</div>
 					</div>
 				</div>
 			{/each}
@@ -232,39 +252,39 @@
 	{/if}
 </div>
 
-<!-- Modal formulaire -->
+<!-- Modal -->
 {#if showForm}
-	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" role="dialog">
+	<div class="fixed inset-0 z-50 flex items-center justify-center modal-overlay animate-fade-in" role="dialog">
 		<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 		<div class="absolute inset-0" onclick={() => (showForm = false)}></div>
-		<div class="relative w-full max-w-md rounded-xl border border-border bg-bg-secondary p-6 shadow-xl">
-			<div class="mb-4 flex items-center justify-between">
-				<h2 class="text-lg font-semibold text-text-primary">
+		<div class="relative w-full max-w-md glass-card p-7 shadow-2xl animate-modal-in mx-4">
+			<div class="mb-6 flex items-center justify-between">
+				<h2 class="text-xl font-bold tracking-tight text-text-primary">
 					{editingId ? 'Modifier le compte' : 'Nouveau compte'}
 				</h2>
-				<button onclick={() => (showForm = false)} class="text-text-muted hover:text-text-primary">
-					<X size={20} />
+				<button onclick={() => (showForm = false)} class="rounded-xl p-2 text-text-muted hover:text-text-primary hover:bg-bg-hover transition-smooth">
+					<X size={18} />
 				</button>
 			</div>
 
-			<form onsubmit={handleSubmit} class="space-y-4">
+			<form onsubmit={handleSubmit} class="space-y-5">
 				<div>
-					<label for="name" class="mb-1 block text-sm font-medium text-text-secondary">Nom *</label>
+					<label for="name" class="mb-1.5 block text-[13px] font-medium text-text-secondary">Nom *</label>
 					<input
 						id="name"
 						bind:value={formName}
 						required
-						class="w-full rounded-lg border border-border bg-bg-primary px-3 py-2 text-text-primary outline-none focus:border-accent"
+						class="w-full rounded-xl border border-border bg-bg-primary/60 px-4 py-3 text-[14px] text-text-primary outline-none placeholder:text-text-muted focus-ring"
 						placeholder="Compte courant principal"
 					/>
 				</div>
 
 				<div>
-					<label for="type" class="mb-1 block text-sm font-medium text-text-secondary">Type</label>
+					<label for="type" class="mb-1.5 block text-[13px] font-medium text-text-secondary">Type</label>
 					<select
 						id="type"
 						bind:value={formType}
-						class="w-full rounded-lg border border-border bg-bg-primary px-3 py-2 text-text-primary outline-none focus:border-accent"
+						class="w-full rounded-xl border border-border bg-bg-primary/60 px-4 py-3 text-[14px] text-text-primary outline-none focus-ring"
 					>
 						{#each Object.entries(ACCOUNT_TYPE_LABELS) as [value, label]}
 							<option {value}>{label}</option>
@@ -274,41 +294,41 @@
 
 				<div class="grid grid-cols-2 gap-4">
 					<div>
-						<label for="bank" class="mb-1 block text-sm font-medium text-text-secondary">Banque</label>
+						<label for="bank" class="mb-1.5 block text-[13px] font-medium text-text-secondary">Banque</label>
 						<input
 							id="bank"
 							bind:value={formBank}
-							class="w-full rounded-lg border border-border bg-bg-primary px-3 py-2 text-text-primary outline-none focus:border-accent"
+							class="w-full rounded-xl border border-border bg-bg-primary/60 px-4 py-3 text-[14px] text-text-primary outline-none placeholder:text-text-muted focus-ring"
 							placeholder="Crédit Agricole"
 						/>
 					</div>
 					<div>
-						<label for="number" class="mb-1 block text-sm font-medium text-text-secondary">N° compte</label>
+						<label for="number" class="mb-1.5 block text-[13px] font-medium text-text-secondary">N° compte</label>
 						<input
 							id="number"
 							bind:value={formNumber}
-							class="w-full rounded-lg border border-border bg-bg-primary px-3 py-2 text-text-primary outline-none focus:border-accent"
+							class="w-full rounded-xl border border-border bg-bg-primary/60 px-4 py-3 text-[14px] text-text-primary outline-none placeholder:text-text-muted focus-ring"
 							placeholder="XXXX1234"
 						/>
 					</div>
 				</div>
 
 				<div>
-					<label for="balance" class="mb-1 block text-sm font-medium text-text-secondary">Solde initial</label>
+					<label for="balance" class="mb-1.5 block text-[13px] font-medium text-text-secondary">Solde initial</label>
 					<input
 						id="balance"
 						type="number"
 						step="0.01"
 						bind:value={formBalance}
-						class="w-full rounded-lg border border-border bg-bg-primary px-3 py-2 text-text-primary outline-none focus:border-accent"
+						class="w-full rounded-xl border border-border bg-bg-primary/60 px-4 py-3 text-[14px] text-text-primary outline-none focus-ring"
 					/>
 				</div>
 
-				<div class="flex justify-end gap-3 pt-2">
-					<button type="button" onclick={() => (showForm = false)} class="rounded-lg px-4 py-2 text-sm text-text-secondary hover:text-text-primary">
+				<div class="flex justify-end gap-3 pt-3">
+					<button type="button" onclick={() => (showForm = false)} class="rounded-xl px-5 py-2.5 text-[13px] font-medium text-text-secondary hover:text-text-primary transition-smooth">
 						Annuler
 					</button>
-					<button type="submit" class="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover">
+					<button type="submit" class="rounded-xl bg-accent px-6 py-2.5 text-[13px] font-semibold text-white transition-smooth btn-press hover:bg-accent-hover shadow-lg shadow-accent/20">
 						{editingId ? 'Enregistrer' : 'Créer'}
 					</button>
 				</div>
