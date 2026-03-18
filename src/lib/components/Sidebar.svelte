@@ -16,7 +16,9 @@
 		RefreshCw,
 		Shield,
 		Database,
-		StickyNote
+		StickyNote,
+		MoreHorizontal,
+		X
 	} from 'lucide-svelte';
 
 	const mainNav = [
@@ -52,14 +54,25 @@
 		} catch { /* ignore */ }
 	});
 
-	// Mobile bottom nav: show only main items
+	// Mobile bottom nav: show only main items + more
 	const mobileNav = [
 		{ label: 'Accueil', href: '/dashboard', icon: LayoutDashboard },
 		{ label: 'Comptes', href: '/accounts', icon: Landmark },
 		{ label: 'Opérations', href: '/transactions', icon: ArrowLeftRight },
 		{ label: 'Budget', href: '/budget', icon: PieChart },
-		{ label: 'Plus', href: '/analysis', icon: BarChart3 },
 	];
+
+	const moreNav = [
+		{ label: 'Analyse', href: '/analysis', icon: BarChart3 },
+		{ label: 'Import', href: '/import', icon: Upload },
+		{ label: 'Export', href: '/export', icon: Download },
+		{ label: 'Récurrences', href: '/recurring', icon: RefreshCw },
+		{ label: 'Projets', href: '/projects', icon: FolderKanban },
+		{ label: 'Notes', href: '/notes', icon: StickyNote },
+		{ label: 'Réglages', href: '/settings', icon: Settings },
+	];
+
+	let showMoreSheet = $state(false);
 </script>
 
 <!-- Desktop sidebar -->
@@ -202,14 +215,54 @@
 			>
 				<item.icon size={22} strokeWidth={active ? 2.2 : 1.6} class={active ? 'drop-shadow-[0_0_6px_rgba(10,132,255,0.3)]' : ''} />
 				<span class="mt-0.5">{item.label}</span>
-				<!-- Active indicator dot -->
 				{#if active}
 					<div class="absolute -bottom-0.5 left-1/2 -translate-x-1/2 h-[4px] w-[4px] rounded-full bg-accent shadow-[0_0_6px_rgba(10,132,255,0.5)]"></div>
 				{/if}
 			</a>
 		{/each}
+
+		<!-- More button -->
+		<button
+			onclick={() => (showMoreSheet = !showMoreSheet)}
+			class="group relative flex flex-col items-center gap-0.5 rounded-xl px-3.5 py-1.5 text-[10px] font-medium transition-smooth btn-press
+				{showMoreSheet ? 'text-accent' : 'text-text-muted'}"
+		>
+			{#if showMoreSheet}
+				<X size={22} strokeWidth={1.6} />
+			{:else}
+				<MoreHorizontal size={22} strokeWidth={1.6} />
+			{/if}
+			<span class="mt-0.5">Plus</span>
+		</button>
 	</div>
 </nav>
+
+<!-- Mobile more sheet -->
+{#if showMoreSheet}
+	<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+	<div class="fixed inset-0 z-40 md:hidden" onclick={() => (showMoreSheet = false)}>
+		<div class="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fade-in"></div>
+		<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+		<div class="absolute bottom-[72px] left-0 right-0 safe-area-bottom" onclick={(e) => e.stopPropagation()}>
+			<div class="mx-3 mb-2 glass rounded-2xl overflow-hidden shadow-2xl animate-slide-up p-2">
+				<div class="grid grid-cols-4 gap-1">
+					{#each moreNav as item}
+						{@const active = page.url.pathname.startsWith(item.href)}
+						<a
+							href={item.href}
+							onclick={() => (showMoreSheet = false)}
+							class="flex flex-col items-center gap-1.5 rounded-xl px-2 py-3 transition-smooth btn-press
+								{active ? 'bg-accent/10 text-accent' : 'text-text-secondary hover:bg-bg-hover'}"
+						>
+							<item.icon size={22} strokeWidth={active ? 2 : 1.6} />
+							<span class="text-[10px] font-medium">{item.label}</span>
+						</a>
+					{/each}
+				</div>
+			</div>
+		</div>
+	</div>
+{/if}
 
 <style>
 	/* Logo icon gradient */
