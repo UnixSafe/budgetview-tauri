@@ -25,3 +25,4 @@ steps:
         - src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/deb/*.deb
         - src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/appimage/*.AppImage
       title: "BudgetView ${CI_COMMIT_TAG}"
+
