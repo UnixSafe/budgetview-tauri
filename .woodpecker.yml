@@ -1,0 +1,27 @@
+when:
+  event: [push, tag]
+  branch: [master, main]
+
+steps:
+  - name: build
+    image: ivangabriele/tauri:debian-bookworm-22
+    commands:
+      - npm install
+      - npm run build
+      - cargo install cargo-tauri --locked 2>/dev/null || true
+      - npx tauri build --target x86_64-unknown-linux-gnu
+      - echo "=== Build artifacts ==="
+      - ls -la src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/deb/ || true
+      - ls -la src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/appimage/ || true
+
+  - name: release
+    image: woodpeckerci/plugin-github-release
+    when:
+      event: tag
+    settings:
+      api_key:
+        from_secret: github_token
+      files:
+        - src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/deb/*.deb
+        - src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/appimage/*.AppImage
+      title: "BudgetView ${CI_COMMIT_TAG}"
