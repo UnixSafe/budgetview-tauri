@@ -37,6 +37,7 @@
 			budgetStore.month--;
 		}
 		budgetStore.loadBudgetView();
+		budgetStore.loadPrevMonthComparison();
 	}
 
 	function nextMonth() {
@@ -47,6 +48,7 @@
 			budgetStore.month++;
 		}
 		budgetStore.loadBudgetView();
+		budgetStore.loadPrevMonthComparison();
 	}
 
 	function openCreateSeries() {
@@ -127,7 +129,6 @@
 		if (line.budget_area === 'income') {
 			return Math.min((line.actual_amount / line.planned_amount) * 100, 100);
 		}
-		if (line.planned_amount === 0) return 0;
 		return Math.min((Math.abs(line.actual_amount) / Math.abs(line.planned_amount)) * 100, 150);
 	}
 

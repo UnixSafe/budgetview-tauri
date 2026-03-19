@@ -82,7 +82,7 @@
 
 			// Load missing recurrences
 			try {
-				missingRecurrences = await invoke<MissingRecurrence[]>('get_missing_recurrences');
+				missingRecurrences = await invoke<MissingRecurrence[]>('check_missing_recurrences');
 			} catch { /* recurring module may not exist yet */ }
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Erreur inconnue';

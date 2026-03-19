@@ -191,7 +191,7 @@
 					responsive: true, maintainAspectRatio: false, cutout: '65%',
 					plugins: {
 						legend: { position: 'right', labels: { boxWidth: 10, padding: 12, usePointStyle: true } },
-						tooltip: { callbacks: { label: (ctx) => { const total = (ctx.dataset.data as number[]).reduce((a, b) => a + b, 0); return `${ctx.label}: ${formatCurrency(ctx.parsed)} (${((ctx.parsed / total) * 100).toFixed(1)}%)`; } } }
+						tooltip: { callbacks: { label: (ctx) => { const total = (ctx.dataset.data as number[]).reduce((a, b) => a + b, 0); return `${ctx.label}: ${formatCurrency(ctx.parsed)} (${total === 0 ? '0.0' : ((ctx.parsed / total) * 100).toFixed(1)}%)`; } } }
 					}
 				}
 			});
