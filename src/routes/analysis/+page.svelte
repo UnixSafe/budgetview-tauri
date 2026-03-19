@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { BarChart3, TrendingUp, PieChart, ChevronLeft, ChevronRight, CalendarClock, ArrowUpRight, ArrowDownRight, Scale, Layers, Receipt } from 'lucide-svelte';
 	import { query } from '$lib/stores/db';
 	import { formatCurrency, formatMonth, BUDGET_AREA_LABELS } from '$lib/utils/format';
@@ -68,8 +68,9 @@
 			prevYearExpenses = prevYearData[0]?.expenses ?? 0;
 
 			await loadForecast();
-			renderCharts();
 		} finally { loading = false; }
+		await tick();
+		renderCharts();
 	}
 
 	async function loadForecast() {
