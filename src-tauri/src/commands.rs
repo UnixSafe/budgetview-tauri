@@ -623,7 +623,7 @@ pub struct RecurringPattern {
     pub label: String,
     pub account_id: i64,
     pub account_name: String,
-    pub avg_amount: i64,
+    pub avg_amount: f64,
     pub frequency: String,
     pub day_of_month: i64,
     pub transaction_count: i64,
@@ -643,7 +643,7 @@ pub async fn detect_recurring_patterns(
     let min_occ = min_occurrences.unwrap_or(3);
 
     // Find groups of transactions with same anonymized label + account that occur 3+ times
-    let groups: Vec<(String, i64, String, i64, i64, Option<i64>, Option<String>)> = sqlx::query_as(
+    let groups: Vec<(String, i64, String, i64, f64, Option<i64>, Option<String>)> = sqlx::query_as(
         "SELECT t.label_for_categorization, t.account_id, a.name,
                 COUNT(*) as cnt, AVG(t.amount) as avg_amt,
                 t.series_id, bs.name
