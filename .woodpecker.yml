@@ -5,9 +5,8 @@ when:
 steps:
   - name: build
     image: ivangabriele/tauri:debian-bookworm-22
-    environment:
-      - CI=true
     commands:
+      - export CI=true
       - npm install
       - npm run build
       - npx tauri build --target x86_64-unknown-linux-gnu
