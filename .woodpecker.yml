@@ -6,10 +6,9 @@ steps:
   - name: build
     image: ivangabriele/tauri:debian-bookworm-22
     commands:
-      - export CI=true
       - npm install
       - npm run build
-      - npx tauri build --target x86_64-unknown-linux-gnu
+      - unset CI && npx tauri build --target x86_64-unknown-linux-gnu
       - echo "=== Build artifacts ==="
       - ls -la src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/deb/ || true
       - ls -la src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/appimage/ || true
