@@ -17,7 +17,7 @@
 	let searchQuery = $state('');
 	let results = $state<SearchResult[]>([]);
 	let selectedIndex = $state(0);
-	let searchInput: HTMLInputElement;
+	let searchInput = $state<HTMLInputElement>(undefined!);
 	let debounceTimer: ReturnType<typeof setTimeout>;
 
 	export function toggle() {
@@ -161,7 +161,7 @@
 							>
 								<div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl
 									{result.type === 'account' ? 'bg-accent/10' : result.type === 'series' ? 'bg-warning/10' : 'bg-bg-elevated'}">
-									<Icon size={16} class="{result.type === 'account' ? 'text-accent' : result.type === 'series' ? 'text-warning' : 'text-text-muted'}" />
+									<Icon size={16} class={result.type === 'account' ? 'text-accent' : result.type === 'series' ? 'text-warning' : 'text-text-muted'} />
 								</div>
 								<div class="flex-1 min-w-0">
 									<p class="text-[13px] font-medium text-text-primary truncate">{result.title}</p>

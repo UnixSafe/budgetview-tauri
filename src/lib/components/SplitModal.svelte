@@ -15,16 +15,21 @@
 
 	let { transaction, onclose }: Props = $props();
 
-	let lines = $state<{ amount: number; seriesId: number; subSeriesId: number | null; note: string }[]>([
-		{ amount: toEuros(Math.abs(transaction.amount)), seriesId: 0, subSeriesId: null, note: '' }
-	]);
+	let lines = $state<{ amount: number; seriesId: number; subSeriesId: number | null; note: string }[]>([]);
+
+	// Initialize lines on first render
+	$effect(() => {
+		if (lines.length === 0) {
+			lines = [{ amount: toEuros(Math.abs(transaction.amount)), seriesId: 0, subSeriesId: null, note: '' }];
+		}
+	});
 
 	let saving = $state(false);
 	let loadingExisting = $state(true);
 
-	let isExpense = transaction.amount < 0;
-	let totalCents = Math.abs(transaction.amount);
-	let totalEuros = toEuros(totalCents);
+	let isExpense = $derived(transaction.amount < 0);
+	let totalCents = $derived(Math.abs(transaction.amount));
+	let totalEuros = $derived(toEuros(totalCents));
 
 	let allocatedCents = $derived(
 		lines.reduce((sum, l) => sum + toCents(Math.abs(l.amount) || 0), 0)
