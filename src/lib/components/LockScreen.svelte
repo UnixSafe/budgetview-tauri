@@ -98,10 +98,10 @@
 					{#if checking}
 						<span class="flex items-center justify-center gap-2">
 							<span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white"></span>
-							Verification...
+							Vérification...
 						</span>
 					{:else}
-						Deverrouiller
+						Déverrouiller
 					{/if}
 				</button>
 			</form>
@@ -109,7 +109,7 @@
 
 		<!-- Subtle branding -->
 		<p class="mt-6 text-center text-[11px] font-medium tracking-widest text-text-muted/30 uppercase">
-			Donnees protegees localement
+			Données protégées localement
 		</p>
 	</div>
 </div>
