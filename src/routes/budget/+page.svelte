@@ -153,6 +153,15 @@
 		savings: Landmark,
 		transfers: ArrowLeftRight
 	} as Record<string, typeof Coins>;
+
+	const AREA_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+		income: { bg: 'bg-income/10', text: 'text-income', border: 'border-l-income' },
+		recurring: { bg: 'bg-accent/10', text: 'text-accent', border: 'border-l-accent' },
+		variable: { bg: 'bg-warning/10', text: 'text-warning', border: 'border-l-warning' },
+		extras: { bg: 'bg-purple/10', text: 'text-purple', border: 'border-l-purple' },
+		savings: { bg: 'bg-cyan/10', text: 'text-cyan', border: 'border-l-cyan' },
+		transfers: { bg: 'bg-text-muted/10', text: 'text-text-muted', border: 'border-l-text-muted' },
+	};
 </script>
 
 <svelte:head>
@@ -300,17 +309,27 @@
 			{#each budgetAreas as area}
 				{@const lines = budgetStore.groupedByArea[area]}
 				{#if lines.length > 0}
+					{@const areaStyle = AREA_COLORS[area] ?? { bg: 'bg-accent/10', text: 'text-accent', border: '' }}
+					{@const areaTotal = lines.reduce((s, l) => s + Math.abs(l.actual_amount), 0)}
+					{@const areaPlanned = lines.reduce((s, l) => s + Math.abs(l.planned_amount), 0)}
 					<div class="glass-card overflow-hidden">
 						<div class="flex items-center gap-3 border-b border-border-light px-6 py-4">
 							{#if AREA_ICONS[area]}
 								{@const Icon = AREA_ICONS[area]}
-								<div class="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10">
-									<Icon size={15} class="text-accent" strokeWidth={1.8} />
+								<div class="flex h-7 w-7 items-center justify-center rounded-lg {areaStyle.bg}">
+									<Icon size={15} class={areaStyle.text} strokeWidth={1.8} />
 								</div>
 							{/if}
 							<h3 class="text-[13px] font-bold text-text-secondary uppercase tracking-wider">
 								{BUDGET_AREA_LABELS[area]}
 							</h3>
+							<div class="ml-auto flex items-center gap-3 text-[12px] tabular-nums text-text-muted">
+								<span>{confidentialStore.format(areaTotal * (area === 'income' ? 1 : -1))}</span>
+								{#if areaPlanned > 0}
+									<span class="text-text-muted/40">/</span>
+									<span>{confidentialStore.format(areaPlanned * (area === 'income' ? 1 : -1))}</span>
+								{/if}
+							</div>
 						</div>
 						<div class="divide-y divide-border-light/50">
 							{#each lines as line (line.series_id)}
