@@ -31,6 +31,7 @@
 	let missingRecurrences = $state<MissingRecurrence[]>([]);
 	let overBudgetLines = $state<BudgetLineItem[]>([]);
 	let dailySpending = $state<{ day: string; amount: number }[]>([]);
+	let topCategories = $state<{ name: string; total: number; color: string }[]>([]);
 
 	let currentMonthLabel = $derived(
 		new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(new Date())
@@ -82,6 +83,26 @@
 				l.planned_amount !== 0 &&
 				Math.abs(l.actual_amount) > Math.abs(l.planned_amount)
 			);
+
+			// Load top spending categories this month
+			try {
+				const AREA_COLORS: Record<string, string> = {
+					income: '#30d158', recurring: '#0a84ff', variable: '#ffd60a',
+					extras: '#bf5af2', savings: '#64d2ff', transfers: '#6e6e73'
+				};
+				const cats = await query<{ name: string; area: string; total: number }>(
+					`SELECT bs.name, bs.budget_area as area, ABS(SUM(t.amount)) as total
+					 FROM transactions t JOIN budget_series bs ON t.series_id = bs.id
+					 WHERE t.amount < 0 AND t.date >= $1 AND t.date < $2
+					 GROUP BY bs.id ORDER BY total DESC LIMIT 5`,
+					[startDate, endDate]
+				);
+				topCategories = cats.map(c => ({
+					name: c.name,
+					total: c.total,
+					color: AREA_COLORS[c.area] ?? '#6e6e73'
+				}));
+			} catch { /* ignore */ }
 
 			// Load daily spending for last 14 days
 			try {
@@ -408,6 +429,34 @@
 			{/if}
 		</div>
 	</div>
+
+	<!-- Top spending categories -->
+	{#if topCategories.length > 0}
+		{@const totalSpending = topCategories.reduce((s, c) => s + c.total, 0)}
+		<div class="glass-card p-6">
+			<div class="mb-5 flex items-center justify-between">
+				<h2 class="text-lg font-semibold tracking-tight text-text-primary">Top dépenses</h2>
+				<a href="/analysis" class="text-[12px] font-medium text-accent hover:text-accent-hover transition-smooth">Analyse</a>
+			</div>
+			<div class="space-y-3">
+				{#each topCategories as cat}
+					{@const pct = totalSpending === 0 ? 0 : (cat.total / totalSpending) * 100}
+					<div class="space-y-1.5">
+						<div class="flex items-center justify-between">
+							<span class="text-[13px] font-medium text-text-primary">{cat.name}</span>
+							<span class="text-[13px] font-semibold tabular-nums text-text-secondary">{confidentialStore.format(cat.total * -1)}</span>
+						</div>
+						<div class="h-[5px] w-full rounded-full bg-bg-elevated overflow-hidden">
+							<div
+								class="h-full rounded-full progress-bar"
+								style="width: {pct}%; background-color: {cat.color};"
+							></div>
+						</div>
+					</div>
+				{/each}
+			</div>
+		</div>
+	{/if}
 
 	<!-- Budget health -->
 	{#if budgetStore.budgetLines.length > 0}
