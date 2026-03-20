@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Plus, Upload, Search, X, Pencil, Trash2, Tag, Scissors, Calendar, CheckCircle2, Circle } from 'lucide-svelte';
+	import { Plus, Upload, Search, X, Pencil, Trash2, Tag, Scissors, Calendar, CheckCircle2, Circle, ChevronDown, ChevronUp } from 'lucide-svelte';
 	import { transactionStore } from '$lib/stores/transactions.svelte';
 	import { accountStore } from '$lib/stores/accounts.svelte';
 	import { budgetStore } from '$lib/stores/budget.svelte';
@@ -22,6 +22,31 @@
 	let formAmount = $state(0);
 	let formNote = $state('');
 	let formSeriesId = $state<number | string>('');
+
+	// Quick entry panel
+	let showQuickEntry = $state(false);
+	let quickLabel = $state('');
+	let quickAmount = $state(0);
+	let quickAccountId = $state<number>(0);
+	let quickDate = $state(new Date().toISOString().slice(0, 10));
+	let quickSeriesId = $state<number | string>('');
+
+	async function handleQuickSubmit() {
+		if (!quickLabel.trim() || !quickAccountId) return;
+		await transactionStore.create({
+			account_id: quickAccountId,
+			date: quickDate,
+			label: quickLabel,
+			amount: quickAmount,
+			series_id: quickSeriesId === '' ? undefined : Number(quickSeriesId)
+		});
+		toastStore.success('Transaction créée');
+		quickLabel = '';
+		quickAmount = 0;
+		quickDate = new Date().toISOString().slice(0, 10);
+		quickSeriesId = '';
+		// Keep quick entry open for rapid entry
+	}
 
 	let categorizingId = $state<number | null>(null);
 	let splittingTx = $state<Transaction | null>(null);
@@ -88,6 +113,7 @@
 			transactionStore.load(),
 			splitStore.loadBatchStatus()
 		]);
+		quickAccountId = accountStore.accounts[0]?.id ?? 0;
 	});
 
 	function openCreate() {
@@ -218,6 +244,15 @@
 				Importer
 			</a>
 			<button
+				onclick={() => { showQuickEntry = !showQuickEntry; if (showQuickEntry) quickAccountId = accountStore.accounts[0]?.id ?? 0; }}
+				class="flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-[13px] font-medium transition-smooth btn-press
+					{showQuickEntry ? 'bg-accent/10 text-accent border border-accent/30' : 'border border-border text-text-secondary hover:bg-bg-hover hover:text-text-primary'}"
+				title="Saisie rapide"
+			>
+				{#if showQuickEntry}<ChevronUp size={14} />{:else}<ChevronDown size={14} />{/if}
+				Rapide
+			</button>
+			<button
 				onclick={openCreate}
 				class="flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-[13px] font-semibold text-white transition-smooth btn-press hover:bg-accent-hover shadow-lg shadow-accent/20"
 			>
@@ -226,6 +261,52 @@
 			</button>
 		</div>
 	</div>
+
+	<!-- Quick entry panel -->
+	{#if showQuickEntry}
+		<div class="glass-card p-5 animate-slide-down">
+			<form onsubmit={handleQuickSubmit} class="flex items-end gap-3 flex-wrap">
+				<div class="flex-1 min-w-[150px]">
+					<label for="quick-label" class="mb-1 block text-[11px] font-medium text-text-muted">Libellé</label>
+					<input id="quick-label" bind:value={quickLabel} required placeholder="Courses, loyer..."
+						class="w-full rounded-xl border border-border bg-bg-input px-3 py-2.5 text-[13px] text-text-primary outline-none focus-ring placeholder:text-text-muted" />
+				</div>
+				<div class="w-28">
+					<label for="quick-amount" class="mb-1 block text-[11px] font-medium text-text-muted">Montant</label>
+					<input id="quick-amount" type="number" step="0.01" bind:value={quickAmount} required
+						class="w-full rounded-xl border border-border bg-bg-input px-3 py-2.5 text-[13px] text-text-primary outline-none focus-ring" />
+				</div>
+				<div class="w-36">
+					<label for="quick-date" class="mb-1 block text-[11px] font-medium text-text-muted">Date</label>
+					<input id="quick-date" type="date" bind:value={quickDate}
+						class="w-full rounded-xl border border-border bg-bg-input px-3 py-2.5 text-[13px] text-text-primary outline-none focus-ring" />
+				</div>
+				<div class="w-32">
+					<label for="quick-account" class="mb-1 block text-[11px] font-medium text-text-muted">Compte</label>
+					<select id="quick-account" bind:value={quickAccountId}
+						class="w-full rounded-xl border border-border bg-bg-input px-3 py-2.5 text-[13px] text-text-primary outline-none focus-ring">
+						{#each accountStore.accounts as account}
+							<option value={account.id}>{account.name}</option>
+						{/each}
+					</select>
+				</div>
+				<div class="w-32">
+					<label for="quick-series" class="mb-1 block text-[11px] font-medium text-text-muted">Catégorie</label>
+					<select id="quick-series" bind:value={quickSeriesId}
+						class="w-full rounded-xl border border-border bg-bg-input px-3 py-2.5 text-[13px] text-text-primary outline-none focus-ring">
+						<option value="">—</option>
+						{#each budgetStore.series as series}
+							<option value={series.id}>{series.name}</option>
+						{/each}
+					</select>
+				</div>
+				<button type="submit"
+					class="rounded-xl bg-accent px-5 py-2.5 text-[13px] font-semibold text-white transition-smooth btn-press hover:bg-accent-hover shadow-lg shadow-accent/20">
+					Ajouter
+				</button>
+			</form>
+		</div>
+	{/if}
 
 	{#if transactionStore.error}
 		<ErrorBanner message={transactionStore.error} ondismiss={() => (transactionStore.error = null)} />
