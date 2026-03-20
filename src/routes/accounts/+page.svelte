@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Plus, Landmark, Pencil, Trash2, X, ArrowLeftRight, CreditCard, Wallet, Banknote } from 'lucide-svelte';
+	import { Plus, Landmark, Pencil, Trash2, X, ArrowLeftRight, CreditCard, Wallet, Banknote, Scale } from 'lucide-svelte';
 	import MiniSparkline from '$lib/components/MiniSparkline.svelte';
 	import { accountStore } from '$lib/stores/accounts.svelte';
 	import { formatCurrency, toEuros, toCents, ACCOUNT_TYPE_LABELS } from '$lib/utils/format';
@@ -20,6 +20,37 @@
 	let formBalance = $state(0);
 	let formThresholdEnabled = $state(false);
 	let formThreshold = $state(0);
+
+	// Balance correction
+	let showBalanceCorrection = $state(false);
+	let correctionAccountId = $state<number>(0);
+	let correctionTarget = $state(0);
+	let correctionAccountName = $state('');
+	let correctionCurrentBalance = $state(0);
+
+	function openBalanceCorrection(account: Account & { computed_balance: number }) {
+		correctionAccountId = account.id;
+		correctionAccountName = account.name;
+		correctionCurrentBalance = account.computed_balance;
+		correctionTarget = toEuros(account.computed_balance);
+		showBalanceCorrection = true;
+	}
+
+	async function handleBalanceCorrection() {
+		const targetCents = toCents(correctionTarget);
+		const diff = targetCents - correctionCurrentBalance;
+		if (diff === 0) { showBalanceCorrection = false; return; }
+		// Create an adjustment transaction
+		const label = diff > 0 ? 'Ajustement de solde (+)' : 'Ajustement de solde (-)';
+		await query(
+			'INSERT INTO transactions (account_id, date, label, amount, note) VALUES ($1, $2, $3, $4, $5)',
+			[correctionAccountId, new Date().toISOString().slice(0, 10), label, diff, 'Correction manuelle du solde']
+		);
+		await accountStore.load();
+		await loadSparklines();
+		toastStore.success('Solde ajusté');
+		showBalanceCorrection = false;
+	}
 
 	let byType = $derived.by(() => {
 		const groups: Record<string, { count: number; total: number }> = {};
@@ -311,6 +342,9 @@
 								<a href="/transactions" class="rounded-xl p-2 text-text-muted transition-smooth hover:bg-bg-hover hover:text-text-primary" aria-label="Transactions" title="Voir les transactions">
 									<ArrowLeftRight size={15} />
 								</a>
+								<button onclick={() => openBalanceCorrection(account)} class="rounded-xl p-2 text-text-muted transition-smooth hover:bg-accent/10 hover:text-accent" aria-label="Ajuster le solde" title="Ajuster le solde">
+									<Scale size={15} />
+								</button>
 								<button onclick={() => openEdit(account)} class="rounded-xl p-2 text-text-muted transition-smooth hover:bg-bg-hover hover:text-text-primary" aria-label="Modifier">
 									<Pencil size={15} />
 								</button>
@@ -435,6 +469,56 @@
 					</button>
 				</div>
 			</form>
+		</div>
+	</div>
+{/if}
+
+<!-- Balance correction modal -->
+{#if showBalanceCorrection}
+	<div class="fixed inset-0 z-50 flex items-center justify-center modal-overlay animate-fade-in" role="dialog">
+		<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+		<div class="absolute inset-0" onclick={() => (showBalanceCorrection = false)}></div>
+		<div class="relative w-full max-w-sm glass-card p-7 shadow-2xl animate-modal-in mx-4">
+			<div class="mb-6 flex items-center justify-between">
+				<h2 class="text-xl font-bold tracking-tight text-text-primary">Ajuster le solde</h2>
+				<button onclick={() => (showBalanceCorrection = false)} class="rounded-xl p-2 text-text-muted hover:text-text-primary hover:bg-bg-hover transition-smooth">
+					<X size={18} />
+				</button>
+			</div>
+
+			<div class="space-y-5">
+				<div class="rounded-xl bg-bg-primary/30 px-4 py-3">
+					<p class="text-[12px] text-text-muted">Compte : <span class="font-medium text-text-primary">{correctionAccountName}</span></p>
+					<p class="text-[12px] text-text-muted mt-1">Solde actuel : <span class="font-semibold tabular-nums {correctionCurrentBalance >= 0 ? 'text-income' : 'text-expense'}">{confidentialStore.format(correctionCurrentBalance)}</span></p>
+				</div>
+
+				<div>
+					<label for="correction-target" class="mb-1.5 block text-[13px] font-medium text-text-secondary">Solde réel (en euros)</label>
+					<input id="correction-target" type="number" step="0.01" bind:value={correctionTarget}
+						class="w-full rounded-xl border border-border bg-bg-primary/60 px-4 py-3 text-[15px] font-semibold text-text-primary outline-none focus-ring tabular-nums" />
+					<p class="mt-2 text-[12px] text-text-muted">
+						{#if toCents(correctionTarget) === correctionCurrentBalance}
+							Aucun ajustement nécessaire
+						{:else}
+							{@const diff = toCents(correctionTarget) - correctionCurrentBalance}
+							Ajustement : <span class="font-semibold {diff > 0 ? 'text-income' : 'text-expense'}">{diff > 0 ? '+' : ''}{confidentialStore.format(diff)}</span>
+						{/if}
+					</p>
+				</div>
+
+				<div class="flex justify-end gap-3 pt-2">
+					<button onclick={() => (showBalanceCorrection = false)} class="rounded-xl px-5 py-2.5 text-[13px] font-medium text-text-secondary hover:text-text-primary transition-smooth">
+						Annuler
+					</button>
+					<button
+						onclick={handleBalanceCorrection}
+						disabled={toCents(correctionTarget) === correctionCurrentBalance}
+						class="rounded-xl bg-accent px-6 py-2.5 text-[13px] font-semibold text-white transition-smooth btn-press hover:bg-accent-hover shadow-lg shadow-accent/20 disabled:opacity-40"
+					>
+						Ajuster
+					</button>
+				</div>
+			</div>
 		</div>
 	</div>
 {/if}
