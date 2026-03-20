@@ -61,6 +61,12 @@
 		if (step > 0) step--;
 	}
 
+	function handleKeydown(e: KeyboardEvent) {
+		if (e.key === 'Escape') onclose();
+		if (e.key === 'ArrowRight') next();
+		if (e.key === 'ArrowLeft') prev();
+	}
+
 	function goToAction() {
 		const action = steps[step].action;
 		if (action) {
@@ -70,7 +76,10 @@
 	}
 </script>
 
+<svelte:window onkeydown={handleKeydown} />
+
 <div class="fixed inset-0 z-50 flex items-center justify-center modal-overlay animate-fade-in" role="dialog">
+	<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 	<div class="absolute inset-0" onclick={onclose}></div>
 	<div class="relative w-full max-w-lg glass-card p-10 shadow-2xl animate-modal-in mx-4 text-center">
 		{#if steps[step]}
