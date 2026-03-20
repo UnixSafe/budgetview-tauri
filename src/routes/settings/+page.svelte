@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Settings, Shield, Database, Tag, Info, BarChart3, Keyboard, HardDrive } from 'lucide-svelte';
+	import { Settings, Shield, Database, Tag, Info, BarChart3, Keyboard, HardDrive, SlidersHorizontal } from 'lucide-svelte';
 	import { query } from '$lib/stores/db';
 
 	let stats = $state<{
@@ -70,6 +70,14 @@
 			</div>
 			<h2 class="text-[15px] font-semibold text-text-primary group-hover:text-warning transition-smooth">Sauvegarde</h2>
 			<p class="mt-1 text-[13px] text-text-muted">Sauvegardez et restaurez vos données financières</p>
+		</a>
+
+		<a href="/settings/preferences" class="group glass-card p-6 transition-smooth hover:bg-bg-hover/30 btn-press card-hover">
+			<div class="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan/12">
+				<SlidersHorizontal size={22} class="text-cyan" strokeWidth={1.8} />
+			</div>
+			<h2 class="text-[15px] font-semibold text-text-primary group-hover:text-cyan transition-smooth">Préférences</h2>
+			<p class="mt-1 text-[13px] text-text-muted">Format de date, horizon prévisionnel, premier jour du mois</p>
 		</a>
 
 		<div class="glass-card p-6">
