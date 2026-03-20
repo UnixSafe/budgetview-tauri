@@ -3,7 +3,6 @@
 	import { Search, ArrowLeftRight, Landmark, PieChart, X } from 'lucide-svelte';
 	import { query } from '$lib/stores/db';
 	import { confidentialStore } from '$lib/stores/confidential.svelte';
-	import { formatCurrency } from '$lib/utils/format';
 
 	interface SearchResult {
 		type: 'transaction' | 'account' | 'series';
@@ -91,7 +90,7 @@
 				type: 'transaction' as const,
 				id: t.id,
 				title: t.label,
-				subtitle: `${t.date} · ${confidentialStore.enabled ? confidentialStore.mask : formatCurrency(t.amount)}`,
+				subtitle: `${t.date} · ${confidentialStore.format(t.amount)}`,
 				href: '/transactions',
 			})),
 		];
