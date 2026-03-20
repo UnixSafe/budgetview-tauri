@@ -525,6 +525,39 @@ tr.hover-row:hover {
 	color: var(--color-text-muted);
 }
 
+/* ─── Enhanced table rows ─────────────────────────────── */
+
+tr.hover-row td:first-child {
+	border-radius: 12px 0 0 12px;
+}
+tr.hover-row td:last-child {
+	border-radius: 0 12px 12px 0;
+}
+
+/* ─── Smooth selection highlight ─────────────────────── */
+
+::selection {
+	background: rgba(10, 132, 255, 0.25);
+	color: inherit;
+}
+
+/* ─── Glass card inner glow on hover ─────────────────── */
+
+.glass-card {
+	position: relative;
+	transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ─── Reduced motion ──────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+	*, *::before, *::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+	}
+}
+
 /* ─── Print styles ─────────────────────────────────────── */
 
 @media print {
