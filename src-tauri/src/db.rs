@@ -74,5 +74,11 @@ pub fn get_migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/012_keyword_dictionary.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 13,
+            description: "ai_settings",
+            sql: include_str!("../migrations/013_ai_settings.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
