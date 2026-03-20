@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { page } from '$app/state';
 	import { Plus, Upload, Search, X, Pencil, Trash2, Tag, Scissors, Calendar, CheckCircle2, Circle, ChevronDown, ChevronUp } from 'lucide-svelte';
 	import { transactionStore } from '$lib/stores/transactions.svelte';
 	import { accountStore } from '$lib/stores/accounts.svelte';
@@ -110,6 +111,14 @@
 	}
 
 	onMount(async () => {
+		// Apply URL query params as filters
+		const params = page.url.searchParams;
+		if (params.get('series')) transactionStore.filterSeriesId = params.get('series')!;
+		if (params.get('from')) transactionStore.filterDateFrom = params.get('from')!;
+		if (params.get('to')) transactionStore.filterDateTo = params.get('to')!;
+		if (params.get('account')) transactionStore.filterAccountId = params.get('account')!;
+		if (params.get('q')) transactionStore.search = params.get('q')!;
+
 		await Promise.all([
 			accountStore.load(),
 			budgetStore.loadSeries(),

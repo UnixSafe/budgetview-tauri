@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Plus, X, ChevronLeft, ChevronRight, Pencil, Trash2, FolderOpen, ChevronDown, ChevronUp, ArrowRightLeft, TrendingUp, TrendingDown, Copy, Coins, RefreshCw, ShoppingCart, Sparkles, Landmark, ArrowLeftRight } from 'lucide-svelte';
+	import { goto } from '$app/navigation';
+	import { Plus, X, ChevronLeft, ChevronRight, Pencil, Trash2, FolderOpen, ChevronDown, ChevronUp, ArrowRightLeft, TrendingUp, TrendingDown, Copy, Coins, RefreshCw, ShoppingCart, Sparkles, Landmark, ArrowLeftRight, ExternalLink } from 'lucide-svelte';
 	import { budgetStore } from '$lib/stores/budget.svelte';
 	import { formatCurrency, formatMonth, toEuros, BUDGET_AREA_LABELS } from '$lib/utils/format';
 	import { confidentialStore } from '$lib/stores/confidential.svelte';
@@ -141,6 +142,16 @@
 		if (pct > 100) return 'bg-danger';
 		if (pct > 80) return 'bg-warning';
 		return 'bg-accent';
+	}
+
+	let showEmpty = $state(false);
+
+	function goToSeriesTransactions(seriesId: number) {
+		const startDate = `${budgetStore.year}-${String(budgetStore.month).padStart(2, '0')}-01`;
+		const endMonth = budgetStore.month === 12 ? 1 : budgetStore.month + 1;
+		const endYear = budgetStore.month === 12 ? budgetStore.year + 1 : budgetStore.year;
+		const endDate = `${endYear}-${String(endMonth).padStart(2, '0')}-01`;
+		goto(`/transactions?series=${seriesId}&from=${startDate}&to=${endDate}`);
 	}
 
 	const budgetAreas: BudgetArea[] = ['income', 'recurring', 'variable', 'extras', 'savings', 'transfers'];
@@ -304,11 +315,20 @@
 			</div>
 		{/if}
 
+		<!-- Toggle empty categories -->
+		<div class="flex justify-end">
+			<button onclick={() => (showEmpty = !showEmpty)} class="text-[12px] text-text-muted hover:text-accent transition-smooth">
+				{showEmpty ? 'Masquer les catégories vides' : 'Afficher tout'}
+			</button>
+		</div>
+
 		<!-- Budget by area -->
 		<div class="space-y-6 stagger-children">
 			{#each budgetAreas as area}
 				{@const lines = budgetStore.groupedByArea[area]}
-				{#if lines.length > 0}
+				{@const visibleLines = showEmpty ? lines : lines.filter(l => l.planned_amount !== 0 || l.actual_amount !== 0)}
+				{@const hiddenCount = lines.length - visibleLines.length}
+				{#if visibleLines.length > 0 || (showEmpty && lines.length > 0)}
 					{@const areaStyle = AREA_COLORS[area] ?? { bg: 'bg-accent/10', text: 'text-accent', border: '' }}
 					{@const areaTotal = lines.reduce((s, l) => s + Math.abs(l.actual_amount), 0)}
 					{@const areaPlanned = lines.reduce((s, l) => s + Math.abs(l.planned_amount), 0)}
@@ -332,7 +352,7 @@
 							</div>
 						</div>
 						<div class="divide-y divide-border-light/50">
-							{#each lines as line (line.series_id)}
+							{#each visibleLines as line (line.series_id)}
 								{@const carry = budgetStore.getCarryOver(line.series_id)}
 								{@const series = budgetStore.series.find(s => s.id === line.series_id)}
 								{@const groupName = series?.group_id ? budgetStore.groups.find(g => g.id === series.group_id)?.name : null}
@@ -341,7 +361,13 @@
 								<div class="px-6 py-4 hover-row transition-smooth">
 									<div class="flex items-center justify-between mb-3">
 										<div class="flex items-center gap-2">
-											<span class="text-[14px] font-semibold text-text-primary">{line.series_name}</span>
+											<button
+												onclick={() => goToSeriesTransactions(line.series_id)}
+												class="text-[14px] font-semibold text-text-primary hover:text-accent transition-smooth text-left"
+												title="Voir les transactions"
+											>
+												{line.series_name}
+											</button>
 											{#if groupName}
 												<span class="badge bg-accent/10 text-accent">{groupName}</span>
 											{/if}
@@ -408,6 +434,14 @@
 								</div>
 							{/each}
 						</div>
+						{#if hiddenCount > 0 && !showEmpty}
+							<button
+								onclick={() => (showEmpty = true)}
+								class="w-full px-6 py-2.5 text-[11px] text-text-muted/50 hover:text-accent transition-smooth text-center"
+							>
+								+ {hiddenCount} catégorie{hiddenCount > 1 ? 's' : ''} sans activité
+							</button>
+						{/if}
 					</div>
 				{/if}
 			{/each}
