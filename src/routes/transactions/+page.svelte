@@ -401,15 +401,28 @@
 		/>
 	</div>
 
-	<!-- Transaction summary -->
+	<!-- Transaction summary + categorization gauge -->
 	{#if filteredTransactions.length > 0}
 		{@const totalIn = filteredTransactions.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0)}
 		{@const totalOut = filteredTransactions.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0)}
-		<div class="flex items-center gap-6 text-[12px] tabular-nums">
+		{@const categorizedCount = filteredTransactions.filter(t => t.series_id !== null).length}
+		{@const categorizationPct = filteredTransactions.length === 0 ? 100 : Math.round((categorizedCount / filteredTransactions.length) * 100)}
+		<div class="flex items-center gap-6 text-[12px] tabular-nums flex-wrap">
 			<span class="text-text-muted">{filteredTransactions.length} opérations</span>
 			<span class="text-income font-medium">+{confidentialStore.format(totalIn)}</span>
 			<span class="text-expense font-medium">{confidentialStore.format(totalOut)}</span>
 			<span class="font-semibold {totalIn + totalOut >= 0 ? 'text-income' : 'text-expense'}">= {confidentialStore.format(totalIn + totalOut)}</span>
+			<!-- Categorization gauge -->
+			<div class="flex items-center gap-2 ml-auto">
+				<span class="text-text-muted text-[11px]">Catégorisées</span>
+				<div class="h-[5px] w-20 rounded-full bg-bg-elevated overflow-hidden">
+					<div
+						class="h-full rounded-full transition-all duration-500 {categorizationPct === 100 ? 'bg-income' : categorizationPct >= 80 ? 'bg-accent' : 'bg-warning'}"
+						style="width: {categorizationPct}%"
+					></div>
+				</div>
+				<span class="font-semibold text-[11px] {categorizationPct === 100 ? 'text-income' : categorizationPct >= 80 ? 'text-accent' : 'text-warning'}">{categorizationPct}%</span>
+			</div>
 		</div>
 	{/if}
 
