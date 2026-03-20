@@ -321,6 +321,56 @@ tr.hover-row:hover {
 
 .badge {
 	@apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold tracking-wide;
+	letter-spacing: 0.01em;
+}
+
+/* ─── Amount color helpers ────────────────────────────── */
+
+.amount-positive { color: var(--color-income); }
+.amount-negative { color: var(--color-expense); }
+.amount-zero { color: var(--color-text-muted); }
+
+/* ─── Apple-style toggle switch ──────────────────────── */
+
+.toggle-switch {
+	appearance: none;
+	width: 44px;
+	height: 26px;
+	border-radius: 13px;
+	background: rgba(120, 120, 128, 0.32);
+	position: relative;
+	cursor: pointer;
+	transition: background 0.3s ease;
+	outline: none;
+}
+.toggle-switch:checked {
+	background: var(--color-accent);
+}
+.toggle-switch::before {
+	content: '';
+	position: absolute;
+	top: 2px;
+	left: 2px;
+	width: 22px;
+	height: 22px;
+	border-radius: 50%;
+	background: white;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+	transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.toggle-switch:checked::before {
+	transform: translateX(18px);
+}
+
+/* ─── Smooth slide animations ─────────────────────────── */
+
+@keyframes slide-down-fade {
+	from { opacity: 0; transform: translateY(-8px); max-height: 0; }
+	to { opacity: 1; transform: translateY(0); max-height: 300px; }
+}
+.animate-slide-down-fade {
+	animation: slide-down-fade 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+	overflow: hidden;
 }
 
 /* ─── Skeleton Loader ──────────────────────────────────── */
