@@ -370,10 +370,14 @@
 											{:else}
 												<button
 													onclick={() => startEditBudget(line)}
-													class="tabular-nums text-text-secondary hover:text-accent transition-smooth font-medium"
-													title="Cliquer pour modifier"
+													class="tabular-nums transition-smooth font-medium {line.planned_amount === 0 ? 'text-text-muted/40 hover:text-accent border border-dashed border-text-muted/20 hover:border-accent/40 rounded-lg px-2 py-0.5' : 'text-text-secondary hover:text-accent'}"
+													title="Cliquer pour définir le budget"
 												>
-													{confidentialStore.format(line.planned_amount)}
+													{#if line.planned_amount === 0}
+														<span class="text-[11px]">Définir</span>
+													{:else}
+														{confidentialStore.format(line.planned_amount)}
+													{/if}
 												</button>
 											{/if}
 											<span class="text-text-muted">/</span>
@@ -392,10 +396,14 @@
 										</div>
 									</div>
 									<div class="h-[6px] w-full rounded-full bg-bg-elevated overflow-hidden">
-										<div
-											class="h-full rounded-full progress-bar {progressColor(line)}"
-											style="width: {Math.min(progressPercent(line), 100)}%"
-										></div>
+										{#if line.planned_amount === 0 && line.actual_amount !== 0}
+											<div class="h-full w-full rounded-full bg-warning/30" style="background-image: repeating-linear-gradient(90deg, transparent, transparent 4px, rgba(255,214,10,0.25) 4px, rgba(255,214,10,0.25) 8px);"></div>
+										{:else}
+											<div
+												class="h-full rounded-full progress-bar {progressColor(line)}"
+												style="width: {Math.min(progressPercent(line), 100)}%"
+											></div>
+										{/if}
 									</div>
 								</div>
 							{/each}
