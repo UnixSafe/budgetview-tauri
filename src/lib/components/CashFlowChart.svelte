@@ -166,8 +166,7 @@
 		style="width: 100%; height: {CHART_HEIGHT}px"
 		onmousemove={handleMouseMove}
 		onmouseleave={handleMouseLeave}
-		role="img"
-		aria-label="Graphique des flux de trésorerie"
+		aria-hidden="true"
 	></canvas>
 
 	<!-- Tooltip -->
