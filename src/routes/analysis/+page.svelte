@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
-	import { BarChart3, TrendingUp, PieChart, ChevronLeft, ChevronRight, CalendarClock, ArrowUpRight, ArrowDownRight, Scale, Layers, Receipt } from 'lucide-svelte';
+	import { BarChart3, TrendingUp, PieChart, ChevronLeft, ChevronRight, CalendarClock, ArrowUpRight, ArrowDownRight, Scale, Layers, Receipt, Table2 } from 'lucide-svelte';
+	import SeriesEvolutionTable from '$lib/components/SeriesEvolutionTable.svelte';
 	import { query } from '$lib/stores/db';
 	import { formatCurrency, formatMonth, BUDGET_AREA_LABELS } from '$lib/utils/format';
 	import { confidentialStore } from '$lib/stores/confidential.svelte';
@@ -531,5 +532,19 @@
 				</div>
 			</div>
 		{/if}
+
+		<!-- Series Evolution Table -->
+		<div class="glass-card p-7 animate-slide-up" style="animation-delay: 360ms;">
+			<div class="mb-5 flex items-center gap-3">
+				<div class="flex h-9 w-9 items-center justify-center rounded-xl bg-teal/10">
+					<Table2 size={18} class="text-teal" strokeWidth={2} />
+				</div>
+				<div>
+					<h2 class="text-title text-text-primary">Évolution par catégorie</h2>
+					<p class="text-caption text-text-muted">Détail mensuel par zone budgétaire</p>
+				</div>
+			</div>
+			<SeriesEvolutionTable {year} />
+		</div>
 	{/if}
 </div>
