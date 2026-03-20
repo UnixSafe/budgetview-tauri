@@ -62,5 +62,11 @@ pub fn get_migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/010_account_thresholds.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 11,
+            description: "default_categories",
+            sql: include_str!("../migrations/011_default_categories.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
