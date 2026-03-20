@@ -4,7 +4,15 @@
 
 On refait **BudgetView** (https://budgetview.fr) — un logiciel de gestion de budget personnel — en **Tauri 2 + Svelte 5 + SQLite**.
 
-Le code source Java original est dans `/home/jeremy/Documents/budgetview-source/` (3266 fichiers Java). C'est ta référence pour comprendre la logique métier, les modèles de données, et les fonctionnalités.
+Le code source Java original est dans `/Users/jeremyfievet/Documents/IA/projet_dev/budgetview/` (3266 fichiers Java). C'est ta référence pour comprendre la logique métier, les modèles de données, et les fonctionnalités.
+
+### Agents d'analyse
+
+Pour l'analyse en profondeur du code Java source, utilise des **agents Sonnet 4.6 ou Opus** :
+- Scanner les features Java manquantes dans la réécriture Tauri
+- Comprendre la logique métier complexe (budget, catégorisation, récurrences)
+- Planifier les implémentations de nouvelles fonctionnalités
+- Comparer l'architecture Java avec l'implémentation Svelte/Rust
 
 ## Stack technique
 
@@ -165,12 +173,12 @@ CREATE TABLE project_items (
 ## Référence Java
 
 Pour comprendre la logique métier, consulte :
-- `budgetview-source/budgetview/bv_desktop/src/main/java/com/budgetview/desktop/` — UI & logique desktop
-- `budgetview-source/budgetview/bv_shared/src/main/java/com/budgetview/shared/` — modèles partagés
-- `budgetview-source/budgetview/bv_desktop/src/main/java/com/budgetview/desktop/model/` — modèles de données
-- `budgetview-source/budgetview/bv_desktop/src/main/java/com/budgetview/desktop/budget/` — logique budget
-- `budgetview-source/budgetview/bv_desktop/src/main/java/com/budgetview/desktop/transactions/` — transactions
-- `budgetview-source/budgetview/bv_desktop/src/main/java/com/budgetview/desktop/analysis/` — analyse & graphiques
+- `budgetview/budgetview/bv_desktop/src/main/java/com/budgetview/desktop/` — UI & logique desktop
+- `budgetview/budgetview/bv_shared/src/main/java/com/budgetview/shared/` — modèles partagés
+- `budgetview/budgetview/bv_desktop/src/main/java/com/budgetview/desktop/model/` — modèles de données
+- `budgetview/budgetview/bv_desktop/src/main/java/com/budgetview/desktop/budget/` — logique budget
+- `budgetview/budgetview/bv_desktop/src/main/java/com/budgetview/desktop/transactions/` — transactions
+- `budgetview/budgetview/bv_desktop/src/main/java/com/budgetview/desktop/analysis/` — analyse & graphiques
 
 ## Comment procéder
 
