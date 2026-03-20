@@ -1279,9 +1279,122 @@ pub struct BackupInfo {
     pub size_bytes: u64,
 }
 
+// ── AI Settings (encrypted API keys) ─────────────────────────
+
+/// Simple XOR-based obfuscation for API keys stored in local SQLite.
+/// Not military-grade encryption, but prevents plain-text keys in the DB.
+/// For a desktop app with local-only data, this is acceptable.
+fn obfuscate(data: &str, key: &str) -> String {
+    let key_bytes = key.as_bytes();
+    let obfuscated: Vec<u8> = data
+        .as_bytes()
+        .iter()
+        .enumerate()
+        .map(|(i, b)| b ^ key_bytes[i % key_bytes.len()])
+        .collect();
+    hex::encode(obfuscated)
+}
+
+fn deobfuscate(encoded: &str, key: &str) -> Result<String, String> {
+    let decoded = hex::decode(encoded)
+        .map_err(|_| "Erreur de décodage hex".to_string())?;
+    let key_bytes = key.as_bytes();
+    let original: Vec<u8> = decoded
+        .iter()
+        .enumerate()
+        .map(|(i, b)| b ^ key_bytes[i % key_bytes.len()])
+        .collect();
+    String::from_utf8(original).map_err(|_| "Erreur de décodage UTF-8".to_string())
+}
+
+const OBFUSCATION_KEY: &str = "BudgetView-Tauri-2026-SecretKey";
+
+#[command]
+pub async fn save_ai_setting(
+    db: tauri::State<'_, DbInstances>,
+    key: String,
+    value: String,
+) -> Result<(), String> {
+    let pool = get_db_pool(&db).await?;
+    // Obfuscate API keys, store other settings as-is
+    let stored_value = if key.ends_with("_api_key") {
+        obfuscate(&value, OBFUSCATION_KEY)
+    } else {
+        value
+    };
+    sqlx::query(
+        "INSERT INTO ai_settings (key, value, updated_at) VALUES (?, ?, datetime('now'))
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')"
+    )
+    .bind(&key)
+    .bind(&stored_value)
+    .execute(&pool)
+    .await
+    .map_err(|e| format!("Erreur: {}", e))?;
+    Ok(())
+}
+
+#[command]
+pub async fn get_ai_setting(
+    db: tauri::State<'_, DbInstances>,
+    key: String,
+) -> Result<Option<String>, String> {
+    let pool = get_db_pool(&db).await?;
+    let row: Option<(String,)> = sqlx::query_as(
+        "SELECT value FROM ai_settings WHERE key = ?"
+    )
+    .bind(&key)
+    .fetch_optional(&pool)
+    .await
+    .map_err(|e| format!("Erreur: {}", e))?;
+
+    match row {
+        Some((value,)) => {
+            if key.ends_with("_api_key") {
+                Ok(Some(deobfuscate(&value, OBFUSCATION_KEY)?))
+            } else {
+                Ok(Some(value))
+            }
+        }
+        None => Ok(None),
+    }
+}
+
+#[command]
+pub async fn delete_ai_setting(
+    db: tauri::State<'_, DbInstances>,
+    key: String,
+) -> Result<(), String> {
+    let pool = get_db_pool(&db).await?;
+    sqlx::query("DELETE FROM ai_settings WHERE key = ?")
+        .bind(&key)
+        .execute(&pool)
+        .await
+        .map_err(|e| format!("Erreur: {}", e))?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_obfuscation_roundtrip() {
+        let original = "sk-test-1234567890abcdef";
+        let key = OBFUSCATION_KEY;
+        let obfuscated = obfuscate(original, key);
+        assert_ne!(obfuscated, original);
+        let deobfuscated = deobfuscate(&obfuscated, key).unwrap();
+        assert_eq!(deobfuscated, original);
+    }
+
+    #[test]
+    fn test_obfuscation_different_keys_different_output() {
+        let data = "my-api-key";
+        let a = obfuscate(data, "key1");
+        let b = obfuscate(data, "key2");
+        assert_ne!(a, b);
+    }
 
     #[test]
     fn test_days_in_month() {

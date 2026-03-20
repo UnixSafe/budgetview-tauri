@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { RawTransaction, ImportPreview, ImportResult, CsvConfig, CsvColumnInfo } from '$lib/types';
 import { query, execute } from './db';
+import { aiStore } from './ai.svelte';
 
 class ImportStore {
 	preview = $state<ImportPreview | null>(null);
@@ -63,6 +64,12 @@ class ImportStore {
 				if (dictCategorized > 0) {
 					this.result.auto_categorized_count += dictCategorized;
 				}
+
+				// 3rd level: AI categorization for remaining uncategorized
+				const aiCategorized = await this.applyAiCategorization(this.result.batch_id);
+				if (aiCategorized > 0) {
+					this.result.auto_categorized_count += aiCategorized;
+				}
 			}
 		} catch (e) {
 			this.error = e instanceof Error ? e.message : String(e);
@@ -115,6 +122,49 @@ class ImportStore {
 					await execute(
 						'UPDATE transactions SET series_id = $1, is_auto_categorized = 1 WHERE id = $2',
 						[bestMatch.series_id, tx.id]
+					);
+					count++;
+				}
+			}
+			return count;
+		} catch {
+			return 0;
+		}
+	}
+
+	/**
+	 * Apply AI-based categorization to remaining uncategorized transactions.
+	 * This is the 3rd fallback after learned rules and keyword dictionary.
+	 */
+	private async applyAiCategorization(batchId: number): Promise<number> {
+		try {
+			if (aiStore.provider === 'none' || !aiStore.hasKey) return 0;
+
+			const uncategorized = await query<{ id: number; label: string; amount: number }>(
+				'SELECT id, label, amount FROM transactions WHERE import_batch_id = $1 AND series_id IS NULL',
+				[batchId]
+			);
+			if (uncategorized.length === 0) return 0;
+
+			// Load AI config
+			await aiStore.load();
+
+			const suggestions = await aiStore.categorizeTransactions(uncategorized);
+			if (suggestions.size === 0) return 0;
+
+			// Map category names to IDs
+			const series = await query<{ id: number; name: string }>(
+				'SELECT id, name FROM budget_series WHERE is_active = 1'
+			);
+			const seriesMap = new Map(series.map(s => [s.name, s.id]));
+
+			let count = 0;
+			for (const [txId, categoryName] of suggestions) {
+				const seriesId = seriesMap.get(categoryName);
+				if (seriesId) {
+					await execute(
+						'UPDATE transactions SET series_id = $1, is_auto_categorized = 1 WHERE id = $2',
+						[seriesId, txId]
 					);
 					count++;
 				}
