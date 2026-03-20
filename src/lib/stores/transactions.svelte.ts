@@ -4,9 +4,14 @@ import { toCents, anonymizeLabel, isExcludedFromAutoCategorization } from '$lib/
 import { categorizationStore } from './categorization.svelte';
 import { undoStore } from './undo.svelte';
 
+const PAGE_SIZE = 200;
+
 class TransactionStore {
 	transactions = $state<Transaction[]>([]);
 	loading = $state(false);
+	loadingMore = $state(false);
+	hasMore = $state(false);
+	totalCount = $state(0);
 	error = $state<string | null>(null);
 	search = $state('');
 	filterAccountId = $state<number | string>('');
@@ -14,49 +19,89 @@ class TransactionStore {
 	filterDateFrom = $state('');
 	filterDateTo = $state('');
 
+	private buildWhere(): { clause: string; params: unknown[] } {
+		let clause = ' WHERE 1=1';
+		const params: unknown[] = [];
+		let i = 1;
+		if (this.filterAccountId) {
+			clause += ` AND t.account_id = $${i++}`;
+			params.push(this.filterAccountId);
+		}
+		if (this.filterSeriesId) {
+			clause += ` AND t.series_id = $${i++}`;
+			params.push(this.filterSeriesId);
+		}
+		if (this.search) {
+			clause += ` AND t.label LIKE $${i++}`;
+			params.push(`%${this.search}%`);
+		}
+		if (this.filterDateFrom) {
+			clause += ` AND t.date >= $${i++}`;
+			params.push(this.filterDateFrom);
+		}
+		if (this.filterDateTo) {
+			clause += ` AND t.date <= $${i++}`;
+			params.push(this.filterDateTo);
+		}
+		return { clause, params };
+	}
+
 	async load() {
 		this.loading = true;
 		this.error = null;
 		try {
-			let sql = `
+			const { clause, params } = this.buildWhere();
+
+			const countResult = await query<{ count: number }>(
+				`SELECT COUNT(*) as count FROM transactions t${clause}`, params
+			);
+			this.totalCount = countResult[0]?.count ?? 0;
+
+			const sql = `
 				SELECT t.*, a.name as account_name, bs.name as series_name, ss.name as sub_series_name
 				FROM transactions t
 				LEFT JOIN accounts a ON t.account_id = a.id
 				LEFT JOIN budget_series bs ON t.series_id = bs.id
 				LEFT JOIN sub_series ss ON t.sub_series_id = ss.id
-				WHERE 1=1
+				${clause}
+				ORDER BY t.date DESC, t.id DESC
+				LIMIT ${PAGE_SIZE}
 			`;
-			const params: unknown[] = [];
-			let i = 1;
-
-			if (this.filterAccountId) {
-				sql += ` AND t.account_id = $${i++}`;
-				params.push(this.filterAccountId);
-			}
-			if (this.filterSeriesId) {
-				sql += ` AND t.series_id = $${i++}`;
-				params.push(this.filterSeriesId);
-			}
-			if (this.search) {
-				sql += ` AND t.label LIKE $${i++}`;
-				params.push(`%${this.search}%`);
-			}
-			if (this.filterDateFrom) {
-				sql += ` AND t.date >= $${i++}`;
-				params.push(this.filterDateFrom);
-			}
-			if (this.filterDateTo) {
-				sql += ` AND t.date <= $${i++}`;
-				params.push(this.filterDateTo);
-			}
-
-			sql += ' ORDER BY t.date DESC, t.id DESC LIMIT 500';
 
 			this.transactions = await query<Transaction>(sql, params);
+			this.hasMore = this.transactions.length < this.totalCount;
 		} catch (e) {
 			this.error = e instanceof Error ? e.message : 'Erreur inconnue';
 		} finally {
 			this.loading = false;
+		}
+	}
+
+	async loadMore() {
+		if (!this.hasMore || this.loadingMore) return;
+		this.loadingMore = true;
+		try {
+			const { clause, params } = this.buildWhere();
+			const offset = this.transactions.length;
+
+			const sql = `
+				SELECT t.*, a.name as account_name, bs.name as series_name, ss.name as sub_series_name
+				FROM transactions t
+				LEFT JOIN accounts a ON t.account_id = a.id
+				LEFT JOIN budget_series bs ON t.series_id = bs.id
+				LEFT JOIN sub_series ss ON t.sub_series_id = ss.id
+				${clause}
+				ORDER BY t.date DESC, t.id DESC
+				LIMIT ${PAGE_SIZE} OFFSET ${offset}
+			`;
+
+			const more = await query<Transaction>(sql, params);
+			this.transactions = [...this.transactions, ...more];
+			this.hasMore = this.transactions.length < this.totalCount;
+		} catch (e) {
+			this.error = e instanceof Error ? e.message : 'Erreur inconnue';
+		} finally {
+			this.loadingMore = false;
 		}
 	}
 

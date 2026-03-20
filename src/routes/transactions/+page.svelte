@@ -202,7 +202,12 @@
 	<div class="flex items-center justify-between">
 		<div>
 			<h1 class="text-3xl font-bold tracking-tight text-text-primary">Transactions</h1>
-			<p class="mt-1 text-sm text-text-muted">{filteredTransactions.length} opérations</p>
+			<p class="mt-1 text-sm text-text-muted">
+			{filteredTransactions.length} opération{filteredTransactions.length > 1 ? 's' : ''}
+			{#if transactionStore.totalCount > filteredTransactions.length}
+				<span class="text-text-muted/50">sur {transactionStore.totalCount}</span>
+			{/if}
+		</p>
 		</div>
 		<div class="flex gap-2">
 			<a
@@ -679,6 +684,23 @@
 		</div>
 	</div>
 {/if}
+
+	{#if transactionStore.hasMore}
+		<div class="flex justify-center py-6">
+			<button
+				onclick={() => transactionStore.loadMore()}
+				disabled={transactionStore.loadingMore}
+				class="flex items-center gap-2 rounded-xl border border-border px-8 py-3 text-[13px] font-medium text-text-secondary transition-smooth btn-press hover:bg-bg-hover hover:text-text-primary disabled:opacity-40"
+			>
+				{#if transactionStore.loadingMore}
+					<div class="h-4 w-4 animate-spin rounded-full border-2 border-accent/20 border-t-accent"></div>
+					Chargement...
+				{:else}
+					Charger plus ({transactionStore.totalCount - filteredTransactions.length} restantes)
+				{/if}
+			</button>
+		</div>
+	{/if}
 
 {#if splittingTx}
 	<SplitModal
