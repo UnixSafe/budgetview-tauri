@@ -1,5 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { RawTransaction, ImportPreview, ImportResult, CsvConfig, CsvColumnInfo } from '$lib/types';
+import { matchCategory } from '$lib/utils/category-dictionary';
+import { query, execute } from './db';
 
 class ImportStore {
 	preview = $state<ImportPreview | null>(null);
@@ -55,6 +57,14 @@ class ImportStore {
 				csvConfig: this.csvConfig ?? null,
 				skipIndices: uniqueSkips
 			});
+
+			// Post-import: apply dictionary-based categorization on uncategorized transactions
+			if (this.result) {
+				const dictCategorized = await this.applyDictionaryCategorization(this.result.batch_id);
+				if (dictCategorized > 0) {
+					this.result.auto_categorized_count += dictCategorized;
+				}
+			}
 		} catch (e) {
 			this.error = e instanceof Error ? e.message : String(e);
 		} finally {
@@ -67,6 +77,47 @@ class ImportStore {
 			return await invoke<number>('import_rollback', { batchId });
 		} catch (e) {
 			this.error = e instanceof Error ? e.message : String(e);
+			return 0;
+		}
+	}
+
+	/**
+	 * Apply dictionary-based categorization to uncategorized transactions from a batch.
+	 * This is a fallback when the learned rules don't match.
+	 */
+	private async applyDictionaryCategorization(batchId: number): Promise<number> {
+		try {
+			// Get uncategorized transactions from this batch
+			const uncategorized = await query<{ id: number; label: string }>(
+				'SELECT id, label FROM transactions WHERE import_batch_id = $1 AND series_id IS NULL',
+				[batchId]
+			);
+
+			if (uncategorized.length === 0) return 0;
+
+			// Load all series to map names to IDs
+			const series = await query<{ id: number; name: string }>(
+				'SELECT id, name FROM budget_series WHERE is_active = 1'
+			);
+			const seriesMap = new Map(series.map(s => [s.name, s.id]));
+
+			let count = 0;
+			for (const tx of uncategorized) {
+				const categoryName = matchCategory(tx.label);
+				if (categoryName) {
+					const seriesId = seriesMap.get(categoryName);
+					if (seriesId) {
+						await execute(
+							'UPDATE transactions SET series_id = $1, is_auto_categorized = 1 WHERE id = $2',
+							[seriesId, tx.id]
+						);
+						count++;
+					}
+				}
+			}
+
+			return count;
+		} catch {
 			return 0;
 		}
 	}
