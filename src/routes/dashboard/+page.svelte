@@ -32,6 +32,8 @@
 	let overBudgetLines = $state<BudgetLineItem[]>([]);
 	let dailySpending = $state<{ day: string; amount: number }[]>([]);
 	let topCategories = $state<{ name: string; total: number; color: string }[]>([]);
+	let prevMonthIncome = $state(0);
+	let prevMonthExpenses = $state(0);
 
 	let currentMonthLabel = $derived(
 		new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(new Date())
@@ -73,6 +75,20 @@
 
 			recentTransactions = recent;
 			uncategorizedCount = uncatResult[0]?.count ?? 0;
+
+			// Load previous month for comparison
+			const prevMonth = month === 1 ? 12 : month - 1;
+			const prevYear = month === 1 ? year - 1 : year;
+			const prevStart = `${prevYear}-${String(prevMonth).padStart(2, '0')}-01`;
+			const prevEndM = prevMonth === 12 ? 1 : prevMonth + 1;
+			const prevEndY = prevMonth === 12 ? prevYear + 1 : prevYear;
+			const prevEnd = `${prevEndY}-${String(prevEndM).padStart(2, '0')}-01`;
+			const [prevInc, prevExp] = await Promise.all([
+				query<{ total: number }>('SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE date >= $1 AND date < $2 AND amount > 0', [prevStart, prevEnd]),
+				query<{ total: number }>('SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE date >= $1 AND date < $2 AND amount < 0', [prevStart, prevEnd]),
+			]);
+			prevMonthIncome = prevInc[0]?.total ?? 0;
+			prevMonthExpenses = prevExp[0]?.total ?? 0;
 
 			// Load cash flow chart data (last 6 months)
 			await loadCashFlowData();
@@ -240,6 +256,12 @@
 			</div>
 			<p class="text-[12px] font-medium text-text-muted uppercase tracking-wide">Revenus</p>
 			<p class="mt-1 text-2xl font-bold tracking-tight text-income"><AnimatedNumber value={summary.month_income} /></p>
+			{#if prevMonthIncome > 0}
+				{@const pctChange = ((summary.month_income - prevMonthIncome) / prevMonthIncome) * 100}
+				<p class="mt-1 text-[10px] font-medium tabular-nums {pctChange >= 0 ? 'text-income' : 'text-expense'}">
+					{pctChange >= 0 ? '+' : ''}{pctChange.toFixed(0)}% vs mois dernier
+				</p>
+			{/if}
 		</div>
 
 		<div class="glass-card p-5">
@@ -248,6 +270,13 @@
 			</div>
 			<p class="text-[12px] font-medium text-text-muted uppercase tracking-wide">Dépenses</p>
 			<p class="mt-1 text-2xl font-bold tracking-tight text-expense"><AnimatedNumber value={summary.month_expenses} /></p>
+			{#if prevMonthExpenses !== 0}
+				{@const absChange = Math.abs(summary.month_expenses) - Math.abs(prevMonthExpenses)}
+				{@const pctChange = (absChange / Math.abs(prevMonthExpenses)) * 100}
+				<p class="mt-1 text-[10px] font-medium tabular-nums {pctChange <= 0 ? 'text-income' : 'text-expense'}">
+					{pctChange >= 0 ? '+' : ''}{pctChange.toFixed(0)}% vs mois dernier
+				</p>
+			{/if}
 		</div>
 
 		<div class="glass-card p-5">
