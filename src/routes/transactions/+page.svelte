@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { Plus, Upload, Search, X, Pencil, Trash2, Tag, Scissors, Calendar, CheckCircle2, Circle, ChevronDown, ChevronUp } from 'lucide-svelte';
+	import { goto } from '$app/navigation';
+	import { Plus, Upload, Search, X, Pencil, Trash2, Tag, Scissors, Calendar, CheckCircle2, Circle, ChevronDown, ChevronUp, ArrowLeft } from 'lucide-svelte';
 	import { transactionStore } from '$lib/stores/transactions.svelte';
 	import { accountStore } from '$lib/stores/accounts.svelte';
 	import { budgetStore } from '$lib/stores/budget.svelte';
@@ -119,6 +120,8 @@
 		if (params.get('account')) transactionStore.filterAccountId = params.get('account')!;
 		if (params.get('q')) transactionStore.search = params.get('q')!;
 
+		hasExternalFilter = !!(params.get('series') || params.get('account'));
+
 		await Promise.all([
 			accountStore.load(),
 			budgetStore.loadSeries(),
@@ -126,6 +129,17 @@
 			splitStore.loadBatchStatus()
 		]);
 		quickAccountId = accountStore.accounts[0]?.id ?? 0;
+
+		// Resolve filter label for the banner
+		if (params.get('series')) {
+			const seriesId = Number(params.get('series'));
+			const series = budgetStore.series.find(s => s.id === seriesId);
+			externalFilterLabel = series?.name ?? `Catégorie #${seriesId}`;
+		} else if (params.get('account')) {
+			const accountId = Number(params.get('account'));
+			const account = accountStore.accounts.find(a => a.id === accountId);
+			externalFilterLabel = account?.name ?? `Compte #${accountId}`;
+		}
 	});
 
 	function openCreate() {
@@ -260,6 +274,8 @@
 	}
 
 	let filterReconciled = $state<'' | 'yes' | 'no'>('');
+	let hasExternalFilter = $state(false);
+	let externalFilterLabel = $state('');
 
 	let filteredTransactions = $derived.by(() => {
 		let txs = transactionStore.transactions;
@@ -279,6 +295,29 @@
 </svelte:head>
 
 <div class="space-y-6">
+	<!-- Back banner when coming from a filtered view -->
+	{#if hasExternalFilter}
+		<div class="flex items-center gap-3 glass-card-sm px-4 py-3 animate-slide-down">
+			<button
+				onclick={() => history.back()}
+				class="flex items-center gap-1.5 rounded-xl px-3 py-2 text-[13px] font-medium text-accent transition-smooth btn-press hover:bg-accent/10"
+			>
+				<ArrowLeft size={16} strokeWidth={2} />
+				Retour
+			</button>
+			<div class="h-4 w-px bg-border"></div>
+			<p class="text-[13px] text-text-secondary">
+				Filtre : <span class="font-semibold text-accent">{externalFilterLabel}</span>
+			</p>
+			<button
+				onclick={() => { clearFilters(); filterReconciled = ''; hasExternalFilter = false; goto('/transactions'); }}
+				class="ml-auto text-[12px] text-text-muted hover:text-text-primary transition-smooth"
+			>
+				Effacer le filtre
+			</button>
+		</div>
+	{/if}
+
 	<div class="flex items-center justify-between">
 		<div>
 			<h1 class="text-3xl font-bold tracking-tight text-text-primary">Transactions</h1>
