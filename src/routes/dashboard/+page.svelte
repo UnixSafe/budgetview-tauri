@@ -13,6 +13,7 @@
 	import OnboardingGuide from '$lib/components/OnboardingGuide.svelte';
 	import CashFlowChart from '$lib/components/CashFlowChart.svelte';
 	import BudgetHealthGauge from '$lib/components/BudgetHealthGauge.svelte';
+	import AnimatedNumber from '$lib/components/AnimatedNumber.svelte';
 
 	let loading = $state(true);
 	let error = $state<string | null>(null);
@@ -191,7 +192,7 @@
 				<Wallet size={20} class="text-accent" strokeWidth={1.8} />
 			</div>
 			<p class="text-[12px] font-medium text-text-muted uppercase tracking-wide">Solde total</p>
-			<p class="mt-1 text-2xl font-bold tracking-tight text-text-primary">{confidentialStore.format(summary.total_balance)}</p>
+			<p class="mt-1 text-2xl font-bold tracking-tight text-text-primary"><AnimatedNumber value={summary.total_balance} /></p>
 		</div>
 
 		<div class="glass-card p-5">
@@ -199,7 +200,7 @@
 				<TrendingUp size={20} class="text-income" strokeWidth={1.8} />
 			</div>
 			<p class="text-[12px] font-medium text-text-muted uppercase tracking-wide">Revenus</p>
-			<p class="mt-1 text-2xl font-bold tracking-tight text-income">{confidentialStore.format(summary.month_income)}</p>
+			<p class="mt-1 text-2xl font-bold tracking-tight text-income"><AnimatedNumber value={summary.month_income} /></p>
 		</div>
 
 		<div class="glass-card p-5">
@@ -207,7 +208,7 @@
 				<TrendingDown size={20} class="text-expense" strokeWidth={1.8} />
 			</div>
 			<p class="text-[12px] font-medium text-text-muted uppercase tracking-wide">Dépenses</p>
-			<p class="mt-1 text-2xl font-bold tracking-tight text-expense">{confidentialStore.format(summary.month_expenses)}</p>
+			<p class="mt-1 text-2xl font-bold tracking-tight text-expense"><AnimatedNumber value={summary.month_expenses} /></p>
 		</div>
 
 		<div class="glass-card p-5">

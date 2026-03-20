@@ -77,6 +77,40 @@
 			ctx.textAlign = 'center';
 			ctx.fillText(d.label, x + groupWidth / 2, rect.height - 8);
 		});
+
+		// Draw net balance line overlay
+		if (data.length > 1) {
+			const maxNet = Math.max(...data.map(d => Math.abs(d.net)), 1);
+			const netScale = Math.max(maxVal, maxNet);
+
+			ctx.beginPath();
+			ctx.strokeStyle = 'rgba(10, 132, 255, 0.7)';
+			ctx.lineWidth = 2;
+			ctx.lineJoin = 'round';
+			ctx.lineCap = 'round';
+			ctx.setLineDash([]);
+
+			data.forEach((d, i) => {
+				const x = PADDING.left + groupWidth * i + groupWidth / 2;
+				const netH = (d.net / netScale) * chartH;
+				const y = PADDING.top + chartH - Math.max(netH, 0);
+				if (i === 0) ctx.moveTo(x, y);
+				else ctx.lineTo(x, y);
+			});
+			ctx.stroke();
+
+			// Draw dots on the net line
+			data.forEach((d, i) => {
+				const x = PADDING.left + groupWidth * i + groupWidth / 2;
+				const netH = (d.net / netScale) * chartH;
+				const y = PADDING.top + chartH - Math.max(netH, 0);
+				const isHov = hoveredIndex === i;
+				ctx.beginPath();
+				ctx.arc(x, y, isHov ? 4 : 2.5, 0, Math.PI * 2);
+				ctx.fillStyle = d.net >= 0 ? '#0a84ff' : '#ff453a';
+				ctx.fill();
+			});
+		}
 	}
 
 	function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
@@ -150,6 +184,10 @@
 					<div class="h-2 w-2 rounded-full bg-expense"></div>
 					<span class="text-expense font-medium">{confidentialStore.format(d.expenses)}</span>
 				</div>
+				<div class="flex items-center gap-1.5">
+					<div class="h-2 w-2 rounded-full bg-accent"></div>
+					<span class="{d.net >= 0 ? 'text-income' : 'text-expense'} font-medium">{confidentialStore.format(d.net)}</span>
+				</div>
 			</div>
 		</div>
 	{/if}
@@ -163,6 +201,10 @@
 		<div class="flex items-center gap-1.5 text-[11px] text-text-muted">
 			<div class="h-2 w-2 rounded-full bg-expense/70"></div>
 			Dépenses
+		</div>
+		<div class="flex items-center gap-1.5 text-[11px] text-text-muted">
+			<div class="h-2 w-2 rounded-full bg-accent/70"></div>
+			Solde net
 		</div>
 	</div>
 </div>
