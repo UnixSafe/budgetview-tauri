@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { invoke } from '@tauri-apps/api/core';
-	import { Wallet, TrendingUp, TrendingDown, ArrowLeftRight, Landmark, Tag, ChevronRight, AlertCircle, Clock, ShieldAlert, Sun, CloudRain, Cloud } from 'lucide-svelte';
+	import { Wallet, TrendingUp, TrendingDown, ArrowLeftRight, Landmark, Tag, ChevronRight, AlertCircle, Clock, ShieldAlert, Sun, CloudRain, Cloud, Upload, Target } from 'lucide-svelte';
 	import { formatCurrency, ACCOUNT_TYPE_LABELS } from '$lib/utils/format';
 	import { confidentialStore } from '$lib/stores/confidential.svelte';
 	import { accountStore } from '$lib/stores/accounts.svelte';
@@ -34,6 +34,8 @@
 	let topCategories = $state<{ name: string; total: number; color: string }[]>([]);
 	let prevMonthIncome = $state(0);
 	let prevMonthExpenses = $state(0);
+	let lastImportDate = $state<string | null>(null);
+	let savingsGoalProgress = $state<{ name: string; pct: number; current: number; target: number }[]>([]);
 
 	let currentMonthLabel = $derived(
 		new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(new Date())
@@ -135,6 +137,29 @@
 					days.push({ day: dayLabel, amount: result[0]?.total ?? 0 });
 				}
 				dailySpending = days;
+			} catch { /* ignore */ }
+
+			// Load last import date
+			try {
+				const importRows = await query<{ imported_at: string }>(
+					'SELECT imported_at FROM import_batches ORDER BY imported_at DESC LIMIT 1'
+				);
+				lastImportDate = importRows[0]?.imported_at ?? null;
+			} catch { /* table may not exist */ }
+
+			// Load savings goals progress
+			try {
+				const projects = await query<{ name: string; target_amount: number; total_saved: number }>(
+					`SELECT p.name, p.target_amount,
+						COALESCE((SELECT SUM(pi.planned_amount) FROM project_items pi WHERE pi.project_id = p.id), 0) as total_saved
+					 FROM projects p WHERE p.is_active = 1 AND p.target_amount > 0 LIMIT 3`
+				);
+				savingsGoalProgress = projects.map(p => ({
+					name: p.name,
+					pct: Math.min(Math.round((p.total_saved / p.target_amount) * 100), 100),
+					current: p.total_saved,
+					target: p.target_amount
+				}));
 			} catch { /* ignore */ }
 
 			// Load missing recurrences
@@ -484,6 +509,55 @@
 					</div>
 				{/each}
 			</div>
+		</div>
+	{/if}
+
+	<!-- Savings goals + Last import -->
+	{#if savingsGoalProgress.length > 0 || lastImportDate}
+		<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+			{#if savingsGoalProgress.length > 0}
+				<div class="glass-card p-6">
+					<div class="mb-4 flex items-center justify-between">
+						<h2 class="flex items-center gap-2 text-[14px] font-semibold text-text-primary">
+							<Target size={16} class="text-accent" /> Objectifs d'épargne
+						</h2>
+						<a href="/projects" class="text-[12px] font-medium text-accent hover:text-accent-hover transition-smooth">Détails</a>
+					</div>
+					<div class="space-y-3">
+						{#each savingsGoalProgress as goal}
+							<div>
+								<div class="flex items-center justify-between mb-1.5">
+									<span class="text-[13px] text-text-secondary">{goal.name}</span>
+									<span class="text-[12px] font-semibold tabular-nums {goal.pct >= 100 ? 'text-income' : 'text-accent'}">{goal.pct}%</span>
+								</div>
+								<div class="h-[5px] w-full rounded-full bg-bg-elevated overflow-hidden">
+									<div
+										class="h-full rounded-full progress-bar {goal.pct >= 100 ? 'bg-income' : 'bg-accent'}"
+										style="width: {goal.pct}%"
+									></div>
+								</div>
+							</div>
+						{/each}
+					</div>
+				</div>
+			{/if}
+
+			{#if lastImportDate}
+				<div class="glass-card p-6 flex items-center gap-4">
+					<div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple/10">
+						<Upload size={22} class="text-purple" strokeWidth={1.5} />
+					</div>
+					<div>
+						<p class="text-[13px] font-semibold text-text-primary">Dernier import</p>
+						<p class="text-[12px] text-text-muted mt-0.5">
+							{new Date(lastImportDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+						</p>
+					</div>
+					<a href="/import" class="ml-auto rounded-xl bg-accent/10 px-4 py-2 text-[12px] font-semibold text-accent transition-smooth btn-press hover:bg-accent/20">
+						Importer
+					</a>
+				</div>
+			{/if}
 		</div>
 	{/if}
 
