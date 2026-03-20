@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { formatCurrency } from '$lib/utils/format';
+	import { confidentialStore } from '$lib/stores/confidential.svelte';
 
 	interface Props {
 		planned: number;
@@ -63,7 +64,7 @@
 		<div class="mt-1 flex items-center gap-2 text-[11px]">
 			<span class="font-medium {statusColor}">{statusLabel}</span>
 			<span class="text-text-muted">·</span>
-			<span class="text-text-muted tabular-nums">{formatCurrency(actual)} / {formatCurrency(planned)}</span>
+			<span class="text-text-muted tabular-nums">{confidentialStore.format(actual)} / {confidentialStore.format(planned)}</span>
 		</div>
 	</div>
 </div>

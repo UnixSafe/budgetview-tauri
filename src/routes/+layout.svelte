@@ -10,6 +10,7 @@
 	import GlobalSearch from '$lib/components/GlobalSearch.svelte';
 	import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
 	import { query } from '$lib/stores/db';
+	import { confidentialStore } from '$lib/stores/confidential.svelte';
 
 	let { children } = $props();
 	let locked = $state(false);
@@ -24,6 +25,9 @@
 			locked = false;
 		}
 		checkingLock = false;
+
+		// Load confidential mode state
+		confidentialStore.load();
 
 		// Backfill label_for_categorization for transactions created before migration 003
 		invoke('backfill_categorization_labels');

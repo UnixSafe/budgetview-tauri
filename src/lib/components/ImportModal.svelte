@@ -4,6 +4,7 @@
 	import { X, Upload, FileText, AlertTriangle, Check, ChevronLeft, ChevronRight } from 'lucide-svelte';
 	import { accountStore } from '$lib/stores/accounts.svelte';
 	import { formatCurrency, formatDate } from '$lib/utils/format';
+	import { confidentialStore } from '$lib/stores/confidential.svelte';
 	import type { ImportPreview, ImportResult, CsvConfig, CsvColumnInfo, Account } from '$lib/types';
 
 	interface Props {
@@ -554,7 +555,7 @@
 													? 'text-income'
 													: 'text-expense'}"
 											>
-												{formatCurrency(tx.amount)}
+												{confidentialStore.format(tx.amount)}
 											</td>
 											<td class="px-3 py-2 text-center">
 												{#if dupe}

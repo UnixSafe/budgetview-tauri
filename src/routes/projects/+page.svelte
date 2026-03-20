@@ -5,6 +5,7 @@
 	import type { ProjectWithProgress } from '$lib/stores/projects.svelte';
 	import { accountStore } from '$lib/stores/accounts.svelte';
 	import { formatCurrency, toEuros } from '$lib/utils/format';
+	import { confidentialStore } from '$lib/stores/confidential.svelte';
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 	import ErrorBanner from '$lib/components/ErrorBanner.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
@@ -162,7 +163,7 @@
 								</span>
 								{#if monthlyNeeded}
 									<span class="badge bg-bg-elevated text-text-muted">
-										{formatCurrency(monthlyNeeded)} / mois nécessaire
+										{confidentialStore.format(monthlyNeeded)} / mois nécessaire
 									</span>
 								{/if}
 							</div>
@@ -174,7 +175,7 @@
 						<div class="mb-6">
 							<div class="mb-2.5 flex items-center justify-between">
 								<span class="text-[13px] text-text-secondary tabular-nums">
-									{formatCurrency(project.total_saved)} / {formatCurrency(project.target_amount)}
+									{confidentialStore.format(project.total_saved)} / {confidentialStore.format(project.target_amount)}
 								</span>
 								<span class="text-[14px] font-bold tabular-nums {pct >= 100 ? 'text-income' : 'text-accent'}">{pct.toFixed(0)}%</span>
 							</div>
@@ -194,7 +195,7 @@
 								<div class="flex items-center justify-between rounded-2xl bg-bg-primary/30 px-5 py-3 transition-smooth hover:bg-bg-hover/40">
 									<span class="text-[14px] text-text-primary">{item.label}</span>
 									<div class="flex items-center gap-3">
-										<span class="text-[13px] font-semibold text-text-secondary tabular-nums">{formatCurrency(item.planned_amount)}</span>
+										<span class="text-[13px] font-semibold text-text-secondary tabular-nums">{confidentialStore.format(item.planned_amount)}</span>
 										<button onclick={() => { if (confirm('Supprimer ?')) projectStore.removeItem(item.id); }} class="rounded-lg p-1.5 text-text-muted hover:text-danger hover:bg-danger/10 transition-smooth">
 											<X size={13} />
 										</button>

@@ -3,6 +3,7 @@
 	import { Plus, X, ChevronLeft, ChevronRight, Pencil, Trash2, FolderOpen, ChevronDown, ChevronUp, ArrowRightLeft, TrendingUp, TrendingDown, Copy, Coins, RefreshCw, ShoppingCart, Sparkles, Landmark, ArrowLeftRight } from 'lucide-svelte';
 	import { budgetStore } from '$lib/stores/budget.svelte';
 	import { formatCurrency, formatMonth, toEuros, BUDGET_AREA_LABELS } from '$lib/utils/format';
+	import { confidentialStore } from '$lib/stores/confidential.svelte';
 	import type { BudgetArea, BudgetLineItem } from '$lib/types';
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 	import ErrorBanner from '$lib/components/ErrorBanner.svelte';
@@ -232,23 +233,23 @@
 		<div class="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4 stagger-children">
 			<div class="glass-card p-5 text-center">
 				<p class="text-[11px] font-semibold text-text-muted uppercase tracking-wider">Planifié</p>
-				<p class="mt-2 text-2xl font-bold tracking-tight text-text-primary">{formatCurrency(budgetStore.totalPlanned)}</p>
+				<p class="mt-2 text-2xl font-bold tracking-tight text-text-primary">{confidentialStore.format(budgetStore.totalPlanned)}</p>
 			</div>
 			<div class="glass-card p-5 text-center">
 				<p class="text-[11px] font-semibold text-text-muted uppercase tracking-wider">Réalisé</p>
-				<p class="mt-2 text-2xl font-bold tracking-tight text-text-primary">{formatCurrency(budgetStore.totalActual)}</p>
+				<p class="mt-2 text-2xl font-bold tracking-tight text-text-primary">{confidentialStore.format(budgetStore.totalActual)}</p>
 			</div>
 			<div class="glass-card p-5 text-center">
 				<p class="text-[11px] font-semibold text-text-muted uppercase tracking-wider">Reste</p>
 				<p class="mt-2 text-2xl font-bold tracking-tight {remaining >= 0 ? 'text-income' : 'text-expense'}">
-					{formatCurrency(remaining)}
+					{confidentialStore.format(remaining)}
 				</p>
 			</div>
 			{#if isCurrentMonth}
 				<div class="glass-card p-5 text-center">
 					<p class="text-[11px] font-semibold text-text-muted uppercase tracking-wider">Par jour</p>
 					<p class="mt-2 text-2xl font-bold tracking-tight {dailyBudget >= 0 ? 'text-income' : 'text-expense'}">
-						{formatCurrency(dailyBudget)}
+						{confidentialStore.format(dailyBudget)}
 					</p>
 					<p class="text-[10px] text-text-muted mt-1">{daysLeft} jour{daysLeft > 1 ? 's' : ''} restant{daysLeft > 1 ? 's' : ''}</p>
 				</div>
@@ -327,7 +328,7 @@
 											{/if}
 											{#if carry !== 0}
 												<span class="badge {carry > 0 ? 'bg-income/10 text-income' : 'bg-expense/10 text-expense'}">
-													Report: {formatCurrency(carry)}
+													Report: {confidentialStore.format(carry)}
 												</span>
 											{/if}
 											<button onclick={() => openEditSeries(line)} class="rounded-lg p-1 text-text-muted hover:text-text-primary hover:bg-bg-hover transition-smooth opacity-0 group-hover:opacity-100" style="opacity: 1;">
@@ -353,12 +354,12 @@
 													class="tabular-nums text-text-secondary hover:text-accent transition-smooth font-medium"
 													title="Cliquer pour modifier"
 												>
-													{formatCurrency(line.planned_amount)}
+													{confidentialStore.format(line.planned_amount)}
 												</button>
 											{/if}
 											<span class="text-text-muted">/</span>
 											<span class="tabular-nums font-semibold {Math.abs(line.actual_amount) > Math.abs(line.planned_amount) && line.budget_area !== 'income' ? 'text-expense' : 'text-text-primary'}">
-												{formatCurrency(line.actual_amount)}
+												{confidentialStore.format(line.actual_amount)}
 											</span>
 											{#if diff !== 0 && prevActual !== 0}
 												<span class="flex items-center gap-0.5 text-[10px] font-medium {line.budget_area === 'income' ? (diff > 0 ? 'text-income' : 'text-expense') : (diff > 0 ? 'text-expense' : 'text-income')}" title="Vs mois précédent">

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { formatCurrency } from '$lib/utils/format';
+	import { confidentialStore } from '$lib/stores/confidential.svelte';
 
 	interface DataPoint {
 		label: string;
@@ -143,11 +144,11 @@
 			<div class="flex gap-4 text-[12px] tabular-nums">
 				<div class="flex items-center gap-1.5">
 					<div class="h-2 w-2 rounded-full bg-income"></div>
-					<span class="text-income font-medium">{formatCurrency(d.income)}</span>
+					<span class="text-income font-medium">{confidentialStore.format(d.income)}</span>
 				</div>
 				<div class="flex items-center gap-1.5">
 					<div class="h-2 w-2 rounded-full bg-expense"></div>
-					<span class="text-expense font-medium">{formatCurrency(d.expenses)}</span>
+					<span class="text-expense font-medium">{confidentialStore.format(d.expenses)}</span>
 				</div>
 			</div>
 		</div>

@@ -4,6 +4,7 @@
 	import MiniSparkline from '$lib/components/MiniSparkline.svelte';
 	import { accountStore } from '$lib/stores/accounts.svelte';
 	import { formatCurrency, toEuros, toCents, ACCOUNT_TYPE_LABELS } from '$lib/utils/format';
+	import { confidentialStore } from '$lib/stores/confidential.svelte';
 	import { query } from '$lib/stores/db';
 	import type { Account, AccountType } from '$lib/types';
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
@@ -212,12 +213,12 @@
 		<div class="grid grid-cols-2 gap-3 md:grid-cols-4 lg:gap-4 stagger-children">
 			<div class="glass-card p-5">
 				<p class="text-[11px] font-semibold text-text-muted uppercase tracking-wider">Solde total</p>
-				<p class="mt-2 text-2xl font-bold tracking-tight text-text-primary">{formatCurrency(accountStore.totalBalance)}</p>
+				<p class="mt-2 text-2xl font-bold tracking-tight text-text-primary">{confidentialStore.format(accountStore.totalBalance)}</p>
 			</div>
 			{#each Object.entries(byType) as [type, data]}
 				<div class="glass-card p-5">
 					<p class="text-[11px] font-semibold text-text-muted uppercase tracking-wider">{ACCOUNT_TYPE_LABELS[type]} ({data.count})</p>
-					<p class="mt-2 text-xl font-bold tracking-tight {data.total >= 0 ? 'text-income' : 'text-expense'}">{formatCurrency(data.total)}</p>
+					<p class="mt-2 text-xl font-bold tracking-tight {data.total >= 0 ? 'text-income' : 'text-expense'}">{confidentialStore.format(data.total)}</p>
 				</div>
 			{/each}
 		</div>
@@ -243,10 +244,10 @@
 								<tr class="border-b border-border-light/50 hover-row">
 									<td class="py-3 font-medium text-text-primary">{flow.account_name}</td>
 									{#each flow.months as m}
-										<td class="py-3 text-right font-medium tabular-nums {m.net >= 0 ? 'text-income' : 'text-expense'}">{formatCurrency(m.net)}</td>
+										<td class="py-3 text-right font-medium tabular-nums {m.net >= 0 ? 'text-income' : 'text-expense'}">{confidentialStore.format(m.net)}</td>
 									{/each}
 									<td class="py-3 text-right font-semibold tabular-nums {(acc?.computed_balance ?? 0) >= 0 ? 'text-income' : 'text-expense'}">
-										{formatCurrency(acc?.computed_balance ?? 0)}
+										{confidentialStore.format(acc?.computed_balance ?? 0)}
 									</td>
 								</tr>
 							{/each}
@@ -278,7 +279,7 @@
 										· {account.bank_name}
 									{/if}
 									{#if account.account_number}
-										· {account.account_number}
+										· {confidentialStore.enabled ? '····' + (account.account_number?.slice(-4) ?? '') : account.account_number}
 									{/if}
 								</p>
 							</div>
@@ -292,10 +293,10 @@
 							{/if}
 							<div class="text-right">
 								<span class="text-lg font-bold tabular-nums {account.computed_balance >= 0 ? 'text-income' : 'text-expense'}">
-									{formatCurrency(account.computed_balance)}
+									{confidentialStore.format(account.computed_balance)}
 								</span>
 								{#if account.low_balance_enabled && account.low_balance_threshold !== null && account.computed_balance < account.low_balance_threshold}
-									<p class="text-[10px] font-medium text-expense mt-0.5">Sous le seuil de {formatCurrency(account.low_balance_threshold)}</p>
+									<p class="text-[10px] font-medium text-expense mt-0.5">Sous le seuil de {confidentialStore.format(account.low_balance_threshold)}</p>
 								{/if}
 							</div>
 							<div class="flex gap-1 opacity-0 transition-smooth group-hover:opacity-100">

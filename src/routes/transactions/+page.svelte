@@ -6,6 +6,7 @@
 	import { budgetStore } from '$lib/stores/budget.svelte';
 	import { splitStore } from '$lib/stores/splits.svelte';
 	import { formatCurrency, formatDate, toEuros } from '$lib/utils/format';
+	import { confidentialStore } from '$lib/stores/confidential.svelte';
 	import type { Transaction } from '$lib/types';
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 	import ErrorBanner from '$lib/components/ErrorBanner.svelte';
@@ -401,9 +402,9 @@
 		{@const totalOut = filteredTransactions.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0)}
 		<div class="flex items-center gap-6 text-[12px] tabular-nums">
 			<span class="text-text-muted">{filteredTransactions.length} opérations</span>
-			<span class="text-income font-medium">+{formatCurrency(totalIn)}</span>
-			<span class="text-expense font-medium">{formatCurrency(totalOut)}</span>
-			<span class="font-semibold {totalIn + totalOut >= 0 ? 'text-income' : 'text-expense'}">= {formatCurrency(totalIn + totalOut)}</span>
+			<span class="text-income font-medium">+{confidentialStore.format(totalIn)}</span>
+			<span class="text-expense font-medium">{confidentialStore.format(totalOut)}</span>
+			<span class="font-semibold {totalIn + totalOut >= 0 ? 'text-income' : 'text-expense'}">= {confidentialStore.format(totalIn + totalOut)}</span>
 		</div>
 	{/if}
 
@@ -526,7 +527,7 @@
 									</div>
 								</td>
 								<td class="px-5 py-3.5 text-right text-[14px] font-semibold tabular-nums {tx.amount >= 0 ? 'text-income' : 'text-expense'}">
-									{formatCurrency(tx.amount)}
+									{confidentialStore.format(tx.amount)}
 								</td>
 								<td class="px-5 py-3.5">
 									<div class="flex gap-0.5 opacity-0 transition-smooth group-hover:opacity-100" style="opacity: 1;">
@@ -590,7 +591,7 @@
 
 						<!-- Amount -->
 						<span class="ml-2 text-[15px] font-bold tabular-nums whitespace-nowrap {tx.amount >= 0 ? 'text-income' : 'text-expense'}">
-							{formatCurrency(tx.amount)}
+							{confidentialStore.format(tx.amount)}
 						</span>
 					</div>
 				{/each}
