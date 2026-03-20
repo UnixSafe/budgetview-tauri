@@ -30,6 +30,7 @@
 	let cashFlowData = $state<{ label: string; income: number; expenses: number; net: number }[]>([]);
 	let missingRecurrences = $state<MissingRecurrence[]>([]);
 	let overBudgetLines = $state<BudgetLineItem[]>([]);
+	let dailySpending = $state<{ day: string; amount: number }[]>([]);
 
 	let currentMonthLabel = $derived(
 		new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(new Date())
@@ -81,6 +82,23 @@
 				l.planned_amount !== 0 &&
 				Math.abs(l.actual_amount) > Math.abs(l.planned_amount)
 			);
+
+			// Load daily spending for last 14 days
+			try {
+				const days: { day: string; amount: number }[] = [];
+				for (let d = 13; d >= 0; d--) {
+					const date = new Date();
+					date.setDate(date.getDate() - d);
+					const dateStr = date.toISOString().slice(0, 10);
+					const result = await query<{ total: number }>(
+						'SELECT COALESCE(SUM(ABS(amount)), 0) as total FROM transactions WHERE date = $1 AND amount < 0',
+						[dateStr]
+					);
+					const dayLabel = new Intl.DateTimeFormat('fr-FR', { weekday: 'narrow' }).format(date);
+					days.push({ day: dayLabel, amount: result[0]?.total ?? 0 });
+				}
+				dailySpending = days;
+			} catch { /* ignore */ }
 
 			// Load missing recurrences
 			try {
@@ -276,6 +294,36 @@
 			</a>
 		{/if}
 	</div>
+
+	<!-- Daily spending mini chart -->
+	{#if dailySpending.some(d => d.amount > 0)}
+		{@const maxSpend = Math.max(...dailySpending.map(d => d.amount), 1)}
+		<div class="glass-card p-5">
+			<div class="mb-3 flex items-center justify-between">
+				<h2 class="text-[13px] font-semibold text-text-secondary">Dépenses quotidiennes</h2>
+				<span class="text-[11px] text-text-muted">14 derniers jours</span>
+			</div>
+			<div class="flex items-end gap-[3px]" style="height: 48px;">
+				{#each dailySpending as day, i}
+					{@const h = day.amount === 0 ? 2 : Math.max((day.amount / maxSpend) * 44, 4)}
+					{@const isToday = i === dailySpending.length - 1}
+					<div class="flex flex-1 flex-col items-center gap-1">
+						<div
+							class="w-full rounded-t-sm transition-all duration-300 {isToday ? 'bg-accent' : 'bg-text-muted/20'}"
+							style="height: {h}px;"
+							title={confidentialStore.format(day.amount)}
+						></div>
+					</div>
+				{/each}
+			</div>
+			<div class="flex gap-[3px] mt-1">
+				{#each dailySpending as day, i}
+					{@const isToday = i === dailySpending.length - 1}
+					<div class="flex-1 text-center text-[8px] {isToday ? 'text-accent font-bold' : 'text-text-muted/50'}">{day.day}</div>
+				{/each}
+			</div>
+		</div>
+	{/if}
 
 	<!-- Cash flow chart -->
 	{#if cashFlowData.some(d => d.income > 0 || d.expenses > 0)}
