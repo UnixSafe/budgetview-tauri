@@ -17,6 +17,13 @@
 	};
 
 	function handleKeydown(e: KeyboardEvent) {
+		// Escape closes help dialog
+		if (e.key === 'Escape' && showHelp) {
+			e.preventDefault();
+			showHelp = false;
+			return;
+		}
+
 		// Ctrl+Z for undo (works everywhere)
 		if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
 			if (undoStore.canUndo) {
