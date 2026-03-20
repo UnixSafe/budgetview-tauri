@@ -4,6 +4,7 @@
 	import { budgetStore } from '$lib/stores/budget.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatCurrency, toEuros, toCents } from '$lib/utils/format';
+	import { confidentialStore } from '$lib/stores/confidential.svelte';
 	import type { Transaction } from '$lib/types';
 	import { onMount } from 'svelte';
 
@@ -107,7 +108,7 @@
 		<div class="mb-6 rounded-2xl bg-bg-primary/40 p-4">
 			<p class="text-[14px] font-medium text-text-primary">{transaction.label}</p>
 			<p class="mt-1 text-lg font-bold tabular-nums {transaction.amount >= 0 ? 'text-income' : 'text-expense'}">
-				{formatCurrency(transaction.amount)}
+				{confidentialStore.format(transaction.amount)}
 			</p>
 		</div>
 
@@ -165,7 +166,7 @@
 			<div class="mb-5 flex items-center justify-between rounded-2xl bg-bg-primary/40 px-5 py-3">
 				<span class="text-[13px] text-text-secondary">Reste à ventiler</span>
 				<span class="text-[14px] font-bold tabular-nums {remainingCents === 0 ? 'text-income' : remainingCents < 0 ? 'text-expense' : 'text-text-primary'}">
-					{formatCurrency(remainingCents)}
+					{confidentialStore.format(remainingCents)}
 				</span>
 			</div>
 

@@ -17,6 +17,7 @@
 	import type { RawTransaction } from '$lib/types';
 	import { accountStore } from '$lib/stores/accounts.svelte';
 	import { formatCurrency, formatDate, toCents } from '$lib/utils/format';
+	import { confidentialStore } from '$lib/stores/confidential.svelte';
 
 	let selectedAccountId = $state<number | null>(null);
 	let createNewAccount = $state(false);
@@ -233,7 +234,7 @@
 							<td class="px-5 py-3 text-text-muted tabular-nums">{formatDate(tx.date)}</td>
 							<td class="px-5 py-3 text-text-primary">{tx.label}</td>
 							<td class="px-5 py-3 text-right font-semibold tabular-nums {tx.amount >= 0 ? 'text-income' : 'text-expense'}">
-								{formatCurrency(toCents(tx.amount))}
+								{confidentialStore.format(toCents(tx.amount))}
 							</td>
 						</tr>
 					{/each}

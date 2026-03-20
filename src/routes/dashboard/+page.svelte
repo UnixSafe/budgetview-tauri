@@ -3,6 +3,7 @@
 	import { invoke } from '@tauri-apps/api/core';
 	import { Wallet, TrendingUp, TrendingDown, ArrowLeftRight, Landmark, Tag, ChevronRight, AlertCircle, Clock, ShieldAlert, Sun, CloudRain, Cloud } from 'lucide-svelte';
 	import { formatCurrency, ACCOUNT_TYPE_LABELS } from '$lib/utils/format';
+	import { confidentialStore } from '$lib/stores/confidential.svelte';
 	import { accountStore } from '$lib/stores/accounts.svelte';
 	import { budgetStore } from '$lib/stores/budget.svelte';
 	import { query } from '$lib/stores/db';
@@ -190,7 +191,7 @@
 				<Wallet size={20} class="text-accent" strokeWidth={1.8} />
 			</div>
 			<p class="text-[12px] font-medium text-text-muted uppercase tracking-wide">Solde total</p>
-			<p class="mt-1 text-2xl font-bold tracking-tight text-text-primary">{formatCurrency(summary.total_balance)}</p>
+			<p class="mt-1 text-2xl font-bold tracking-tight text-text-primary">{confidentialStore.format(summary.total_balance)}</p>
 		</div>
 
 		<div class="glass-card p-5">
@@ -198,7 +199,7 @@
 				<TrendingUp size={20} class="text-income" strokeWidth={1.8} />
 			</div>
 			<p class="text-[12px] font-medium text-text-muted uppercase tracking-wide">Revenus</p>
-			<p class="mt-1 text-2xl font-bold tracking-tight text-income">{formatCurrency(summary.month_income)}</p>
+			<p class="mt-1 text-2xl font-bold tracking-tight text-income">{confidentialStore.format(summary.month_income)}</p>
 		</div>
 
 		<div class="glass-card p-5">
@@ -206,7 +207,7 @@
 				<TrendingDown size={20} class="text-expense" strokeWidth={1.8} />
 			</div>
 			<p class="text-[12px] font-medium text-text-muted uppercase tracking-wide">Dépenses</p>
-			<p class="mt-1 text-2xl font-bold tracking-tight text-expense">{formatCurrency(summary.month_expenses)}</p>
+			<p class="mt-1 text-2xl font-bold tracking-tight text-expense">{confidentialStore.format(summary.month_expenses)}</p>
 		</div>
 
 		<div class="glass-card p-5">
@@ -267,7 +268,7 @@
 				<div class="flex-1 min-w-0">
 					<p class="text-[13px] font-semibold text-text-primary">Solde bas</p>
 					<p class="text-[11px] text-text-muted truncate">
-						{accountStore.lowBalanceAlerts.map(a => `${a.name}: ${formatCurrency(a.computed_balance)}`).join(', ')}
+						{accountStore.lowBalanceAlerts.map(a => `${a.name}: ${confidentialStore.format(a.computed_balance)}`).join(', ')}
 					</p>
 				</div>
 				<ChevronRight size={16} class="text-text-muted/50 group-hover:text-expense transition-smooth" />
@@ -282,7 +283,7 @@
 				<h2 class="text-lg font-semibold tracking-tight text-text-primary">Flux de trésorerie</h2>
 				<div class="flex items-center gap-2">
 					<span class="text-[12px] font-medium tabular-nums {netBalance >= 0 ? 'text-income' : 'text-expense'}">
-						{netBalance >= 0 ? '+' : ''}{formatCurrency(netBalance)} ce mois
+						{netBalance >= 0 ? '+' : ''}{confidentialStore.format(netBalance)} ce mois
 					</span>
 				</div>
 			</div>
@@ -319,7 +320,7 @@
 								</div>
 							</div>
 							<span class="text-[14px] font-semibold tabular-nums {account.computed_balance >= 0 ? 'text-income' : 'text-expense'}">
-								{formatCurrency(account.computed_balance)}
+								{confidentialStore.format(account.computed_balance)}
 							</span>
 						</div>
 					{/each}
@@ -350,7 +351,7 @@
 								<p class="text-[11px] text-text-muted">{tx.account_name} · {formatDateShort(tx.date)}</p>
 							</div>
 							<span class="ml-3 text-[13px] font-semibold tabular-nums whitespace-nowrap {tx.amount >= 0 ? 'text-income' : 'text-expense'}">
-								{formatCurrency(tx.amount)}
+								{confidentialStore.format(tx.amount)}
 							</span>
 						</div>
 					{/each}
@@ -386,8 +387,8 @@
 					></div>
 				</div>
 				<div class="mt-2 flex justify-between text-[11px] text-text-muted tabular-nums">
-					<span>Dépensé: {formatCurrency(totalSpent * -1)}</span>
-					<span>Budget: {formatCurrency(totalPlanned * -1)}</span>
+					<span>Dépensé: {confidentialStore.format(totalSpent * -1)}</span>
+					<span>Budget: {confidentialStore.format(totalPlanned * -1)}</span>
 				</div>
 			</div>
 			{/if}

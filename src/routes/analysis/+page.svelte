@@ -3,6 +3,7 @@
 	import { BarChart3, TrendingUp, PieChart, ChevronLeft, ChevronRight, CalendarClock, ArrowUpRight, ArrowDownRight, Scale, Layers, Receipt } from 'lucide-svelte';
 	import { query } from '$lib/stores/db';
 	import { formatCurrency, formatMonth, BUDGET_AREA_LABELS } from '$lib/utils/format';
+	import { confidentialStore } from '$lib/stores/confidential.svelte';
 	import { Chart, registerables } from 'chart.js';
 	import type { BudgetArea } from '$lib/types';
 
@@ -173,9 +174,9 @@
 			options: {
 				responsive: true, maintainAspectRatio: false,
 				plugins: { legend: { position: 'top', labels: { usePointStyle: true, pointStyleWidth: 8, padding: 16 } },
-					tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y ?? 0)}` } }
+					tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${confidentialStore.format(ctx.parsed.y ?? 0)}` } }
 				},
-				scales: { y: { beginAtZero: true, ticks: { callback: (v) => formatCurrency(Number(v)) }, grid: { color: 'rgba(84, 84, 88, 0.15)' } }, x: { grid: { display: false } } }
+				scales: { y: { beginAtZero: true, ticks: { callback: (v) => confidentialStore.format(Number(v)) }, grid: { color: 'rgba(84, 84, 88, 0.15)' } }, x: { grid: { display: false } } }
 			}
 		});
 
@@ -191,7 +192,7 @@
 					responsive: true, maintainAspectRatio: false, cutout: '65%',
 					plugins: {
 						legend: { position: 'right', labels: { boxWidth: 10, padding: 12, usePointStyle: true } },
-						tooltip: { callbacks: { label: (ctx) => { const total = (ctx.dataset.data as number[]).reduce((a, b) => a + b, 0); return `${ctx.label}: ${formatCurrency(ctx.parsed)} (${total === 0 ? '0.0' : ((ctx.parsed / total) * 100).toFixed(1)}%)`; } } }
+						tooltip: { callbacks: { label: (ctx) => { const total = (ctx.dataset.data as number[]).reduce((a, b) => a + b, 0); const pct = total === 0 ? '0.0' : ((ctx.parsed / total) * 100).toFixed(1); return confidentialStore.enabled ? `${ctx.label}: ${pct}%` : `${ctx.label}: ${formatCurrency(ctx.parsed)} (${pct}%)`; } } }
 					}
 				}
 			});
@@ -206,8 +207,8 @@
 			data: { labels: MONTH_LABELS, datasets: [{ label: 'Solde cumule', data: cumulativeBalance, borderColor: '#0a84ff', backgroundColor: '#0a84ff15', fill: true, tension: 0.4, pointBackgroundColor: '#0a84ff', pointRadius: 4, pointHoverRadius: 6 }] },
 			options: {
 				responsive: true, maintainAspectRatio: false,
-				plugins: { legend: { position: 'top', labels: { usePointStyle: true } }, tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y ?? 0)}` } } },
-				scales: { y: { ticks: { callback: (v) => formatCurrency(Number(v)) }, grid: { color: 'rgba(84, 84, 88, 0.15)' } }, x: { grid: { display: false } } }
+				plugins: { legend: { position: 'top', labels: { usePointStyle: true } }, tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${confidentialStore.format(ctx.parsed.y ?? 0)}` } } },
+				scales: { y: { ticks: { callback: (v) => confidentialStore.format(Number(v)) }, grid: { color: 'rgba(84, 84, 88, 0.15)' } }, x: { grid: { display: false } } }
 			}
 		});
 
@@ -223,8 +224,8 @@
 				},
 				options: {
 					responsive: true, maintainAspectRatio: false,
-					plugins: { legend: { position: 'top', labels: { usePointStyle: true } }, tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y ?? 0)}` } } },
-					scales: { y: { ticks: { callback: (v) => formatCurrency(Number(v)) }, grid: { color: 'rgba(84, 84, 88, 0.15)' } }, x: { grid: { display: false } } }
+					plugins: { legend: { position: 'top', labels: { usePointStyle: true } }, tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${confidentialStore.format(ctx.parsed.y ?? 0)}` } } },
+					scales: { y: { ticks: { callback: (v) => confidentialStore.format(Number(v)) }, grid: { color: 'rgba(84, 84, 88, 0.15)' } }, x: { grid: { display: false } } }
 				}
 			});
 		}
@@ -234,6 +235,12 @@
 	function nextYear() { year++; loadData(); }
 
 	onMount(() => { loadData(); return () => { barChart?.destroy(); doughnutChart?.destroy(); lineChart?.destroy(); forecastChart?.destroy(); }; });
+
+	// Re-render charts when confidential mode toggles
+	$effect(() => {
+		confidentialStore.enabled;
+		if (!loading && barCanvas) renderCharts();
+	});
 
 	let totalIncome = $derived(monthlyData.reduce((s, d) => s + d.income, 0));
 	let totalExpenses = $derived(monthlyData.reduce((s, d) => s + d.expenses, 0));
@@ -324,7 +331,7 @@
 					</div>
 					<p class="text-caption text-text-muted uppercase tracking-wider">Revenus {year}</p>
 				</div>
-				<p class="text-[1.75rem] font-bold tracking-tight text-income tabular-nums">{formatCurrency(totalIncome)}</p>
+				<p class="text-[1.75rem] font-bold tracking-tight text-income tabular-nums">{confidentialStore.format(totalIncome)}</p>
 				{#if prevYearIncome > 0}
 					<p class="mt-1 text-[11px] font-medium tabular-nums {yoyIncomeChange >= 0 ? 'text-income' : 'text-expense'}">
 						{yoyIncomeChange >= 0 ? '+' : ''}{yoyIncomeChange.toFixed(0)}% vs {year - 1}
@@ -338,7 +345,7 @@
 					</div>
 					<p class="text-caption text-text-muted uppercase tracking-wider">Depenses {year}</p>
 				</div>
-				<p class="text-[1.75rem] font-bold tracking-tight text-expense tabular-nums">{formatCurrency(totalExpenses)}</p>
+				<p class="text-[1.75rem] font-bold tracking-tight text-expense tabular-nums">{confidentialStore.format(totalExpenses)}</p>
 				{#if prevYearExpenses > 0}
 					<p class="mt-1 text-[11px] font-medium tabular-nums {yoyExpenseChange <= 0 ? 'text-income' : 'text-expense'}">
 						{yoyExpenseChange >= 0 ? '+' : ''}{yoyExpenseChange.toFixed(0)}% vs {year - 1}
@@ -353,7 +360,7 @@
 					<p class="text-caption text-text-muted uppercase tracking-wider">Balance</p>
 				</div>
 				<p class="text-[1.75rem] font-bold tracking-tight tabular-nums" class:text-income={balance >= 0} class:text-expense={balance < 0}>
-					{formatCurrency(balance)}
+					{confidentialStore.format(balance)}
 				</p>
 			</div>
 		</div>
@@ -462,7 +469,7 @@
 										<span class="badge bg-bg-elevated text-text-muted">{expense.count}x</span>
 									</td>
 									<td class="px-3 py-3.5 text-right rounded-r-xl">
-										<span class="text-[14px] font-semibold tabular-nums text-expense">{formatCurrency(expense.total)}</span>
+										<span class="text-[14px] font-semibold tabular-nums text-expense">{confidentialStore.format(expense.total)}</span>
 									</td>
 								</tr>
 							{/each}
@@ -510,14 +517,14 @@
 								{#each items as item}
 									<div class="flex items-center justify-between text-[13px]">
 										<span class="text-text-secondary truncate mr-3">{item.name}</span>
-										<span class="font-medium text-text-primary tabular-nums whitespace-nowrap">{formatCurrency(item.total)}</span>
+										<span class="font-medium text-text-primary tabular-nums whitespace-nowrap">{confidentialStore.format(item.total)}</span>
 									</div>
 								{/each}
 							</div>
 							<div class="divider my-3"></div>
 							<div class="flex justify-between text-[13px] font-bold">
 								<span class="text-text-muted">Total</span>
-								<span class="text-text-primary tabular-nums">{formatCurrency(areaTotal)}</span>
+								<span class="text-text-primary tabular-nums">{confidentialStore.format(areaTotal)}</span>
 							</div>
 						</div>
 					{/each}

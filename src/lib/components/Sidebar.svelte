@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import { query } from '$lib/stores/db';
 	import { formatCurrency } from '$lib/utils/format';
+	import { confidentialStore } from '$lib/stores/confidential.svelte';
 	import {
 		LayoutDashboard,
 		Landmark,
@@ -18,7 +19,9 @@
 		Database,
 		StickyNote,
 		MoreHorizontal,
-		X
+		X,
+		Eye,
+		EyeOff
 	} from 'lucide-svelte';
 
 	const mainNav = [
@@ -184,21 +187,35 @@
 		{/each}
 	</nav>
 
-	<!-- Footer with balance and version -->
+	<!-- Footer with balance, confidential toggle and version -->
 	<div class="px-4 py-3 border-t border-glass-border space-y-2">
 		{#if totalBalance !== null}
 			<div class="rounded-xl bg-bg-hover/30 px-3 py-2">
 				<p class="text-[9px] font-semibold text-text-muted/60 uppercase tracking-wider">Solde total</p>
 				<p class="text-[14px] font-bold tabular-nums tracking-tight {totalBalance >= 0 ? 'text-income' : 'text-expense'}">
-					{formatCurrency(totalBalance)}
+					{confidentialStore.format(totalBalance)}
 				</p>
 			</div>
 		{/if}
-		<div class="flex items-center gap-2 px-1">
-			<span class="inline-flex items-center rounded-md bg-accent/[0.08] px-2 py-0.5 text-[10px] font-semibold text-accent/80 tracking-wide ring-1 ring-inset ring-accent/[0.12]">
-				v0.1.0
-			</span>
-			<span class="text-[10.5px] text-text-muted/50 font-medium">beta</span>
+		<div class="flex items-center justify-between px-1">
+			<div class="flex items-center gap-2">
+				<span class="inline-flex items-center rounded-md bg-accent/[0.08] px-2 py-0.5 text-[10px] font-semibold text-accent/80 tracking-wide ring-1 ring-inset ring-accent/[0.12]">
+					v0.1.0
+				</span>
+				<span class="text-[10.5px] text-text-muted/50 font-medium">beta</span>
+			</div>
+			<button
+				onclick={() => confidentialStore.toggle()}
+				class="rounded-lg p-1.5 text-text-muted/60 hover:text-text-primary hover:bg-bg-hover transition-smooth"
+				title={confidentialStore.enabled ? 'Désactiver le mode confidentiel' : 'Activer le mode confidentiel'}
+				aria-label={confidentialStore.enabled ? 'Désactiver le mode confidentiel' : 'Activer le mode confidentiel'}
+			>
+				{#if confidentialStore.enabled}
+					<EyeOff size={14} strokeWidth={1.8} />
+				{:else}
+					<Eye size={14} strokeWidth={1.8} />
+				{/if}
+			</button>
 		</div>
 	</div>
 </aside>

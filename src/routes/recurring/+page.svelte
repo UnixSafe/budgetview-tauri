@@ -7,6 +7,7 @@
 	import { budgetStore } from '$lib/stores/budget.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatCurrency, formatDate, toCents } from '$lib/utils/format';
+	import { confidentialStore } from '$lib/stores/confidential.svelte';
 	import type { RecurringTransaction } from '$lib/types';
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 	import ErrorBanner from '$lib/components/ErrorBanner.svelte';
@@ -135,7 +136,7 @@
 								</p>
 							</div>
 							<span class="text-[15px] font-bold tabular-nums {alert.amount >= 0 ? 'text-income' : 'text-expense'}">
-								{formatCurrency(alert.amount)}
+								{confidentialStore.format(alert.amount)}
 							</span>
 						</div>
 					{/each}
@@ -161,7 +162,7 @@
 								<p class="text-[14px] font-semibold text-text-primary tracking-tight">{pattern.label}</p>
 								<p class="text-caption text-text-muted mt-1">
 									{pattern.account_name} &middot; {FREQ_LABELS[pattern.frequency] ?? pattern.frequency}
-									&middot; ~{formatCurrency(pattern.avg_amount)} &middot; {pattern.transaction_count} occ.
+									&middot; ~{confidentialStore.format(pattern.avg_amount)} &middot; {pattern.transaction_count} occ.
 									{#if pattern.series_name} &middot; {pattern.series_name}{/if}
 								</p>
 							</div>
@@ -228,7 +229,7 @@
 								{item.next_expected_date ? formatDate(item.next_expected_date) : '—'}
 							</td>
 							<td class="px-6 py-4 text-right text-[15px] font-bold tabular-nums {item.amount >= 0 ? 'text-income' : 'text-expense'}">
-								{formatCurrency(item.amount)}
+								{confidentialStore.format(item.amount)}
 							</td>
 							<td class="px-6 py-4">
 								<div class="flex gap-1 justify-end">
