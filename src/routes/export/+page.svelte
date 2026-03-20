@@ -39,7 +39,7 @@
 					filePath: path, year: budgetYear, month: budgetMonth
 				});
 			}
-			toastStore.success(`${count} ligne(s) exportee(s)`);
+			toastStore.success(`${count} ligne(s) exportée(s)`);
 		} catch (e) {
 			toastStore.error(String(e));
 		} finally { exporting = false; }
@@ -56,7 +56,7 @@
 	<!-- Header -->
 	<div class="text-center pt-4">
 		<h1 class="text-headline text-text-primary">Export</h1>
-		<p class="mt-2 text-body text-text-muted">Exportez vos donnees en CSV ou imprimez en PDF</p>
+		<p class="mt-2 text-body text-text-muted">Exportez vos données en CSV ou imprimez en PDF</p>
 	</div>
 
 	<!-- Type selector — segmented cards -->
@@ -90,7 +90,7 @@
 				<FileText size={26} class={exportType === 'budget' ? 'text-accent' : 'text-text-muted'} strokeWidth={1.5} />
 			</div>
 			<p class="text-title text-text-primary mb-1">Budget</p>
-			<p class="text-caption text-text-muted">Resume du budget mensuel au format CSV</p>
+			<p class="text-caption text-text-muted">Résumé du budget mensuel au format CSV</p>
 		</button>
 	</div>
 
@@ -111,22 +111,22 @@
 				</div>
 				<div class="grid grid-cols-2 gap-4">
 					<div>
-						<label for="exp-from" class="mb-2 block text-[13px] font-medium text-text-muted">Date debut</label>
+						<label for="exp-from" class="mb-2 block text-[13px] font-medium text-text-muted">Date début</label>
 						<input id="exp-from" type="date" bind:value={dateFrom}
 							class="w-full rounded-2xl border border-border bg-bg-input px-5 py-3.5 text-[14px] text-text-primary outline-none focus-ring" />
 					</div>
 					<div>
-						<label for="exp-to" class="mb-2 block text-[13px] font-medium text-text-muted">Date fin</label>
+						<label for="exp-to" class="mb-2 block text-[13px] font-medium text-text-muted">Date de fin</label>
 						<input id="exp-to" type="date" bind:value={dateTo}
 							class="w-full rounded-2xl border border-border bg-bg-input px-5 py-3.5 text-[14px] text-text-primary outline-none focus-ring" />
 					</div>
 				</div>
 			</div>
 		{:else}
-			<h3 class="text-caption text-text-secondary uppercase tracking-wider mb-5">Periode du budget</h3>
+			<h3 class="text-caption text-text-secondary uppercase tracking-wider mb-5">Période du budget</h3>
 			<div class="grid grid-cols-2 gap-4">
 				<div>
-					<label for="exp-year" class="mb-2 block text-[13px] font-medium text-text-muted">Annee</label>
+					<label for="exp-year" class="mb-2 block text-[13px] font-medium text-text-muted">Année</label>
 					<input id="exp-year" type="number" bind:value={budgetYear} min="2000" max="2100"
 						class="w-full rounded-2xl border border-border bg-bg-input px-5 py-3.5 text-[14px] text-text-primary outline-none focus-ring" />
 				</div>

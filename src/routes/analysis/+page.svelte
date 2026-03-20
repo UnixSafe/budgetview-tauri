@@ -24,10 +24,10 @@
 	let forecastActual = $state<(number | null)[]>([]);
 	let forecastProjected = $state<(number | null)[]>([]);
 
-	let barCanvas: HTMLCanvasElement;
-	let doughnutCanvas: HTMLCanvasElement;
-	let lineCanvas: HTMLCanvasElement;
-	let forecastCanvas: HTMLCanvasElement;
+	let barCanvas = $state<HTMLCanvasElement>(undefined!);
+	let doughnutCanvas = $state<HTMLCanvasElement>(undefined!);
+	let lineCanvas = $state<HTMLCanvasElement>(undefined!);
+	let forecastCanvas = $state<HTMLCanvasElement>(undefined!);
 	let barChart: Chart | null = null;
 	let doughnutChart: Chart | null = null;
 	let lineChart: Chart | null = null;
@@ -145,7 +145,7 @@
 		extras: '#bf5af2', savings: '#64d2ff', transfers: '#6e6e73'
 	};
 
-	const MONTH_LABELS = ['Jan', 'Fev', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aout', 'Sep', 'Oct', 'Nov', 'Dec'];
+	const MONTH_LABELS = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
 
 	function renderCharts() {
 		barChart?.destroy();
@@ -168,7 +168,7 @@
 				labels: MONTH_LABELS,
 				datasets: [
 					{ label: 'Revenus', data: incomeByMonth, backgroundColor: '#30d15830', borderColor: '#30d158', borderWidth: 1.5, borderRadius: 6 },
-					{ label: 'Depenses', data: expensesByMonth, backgroundColor: '#ff453a30', borderColor: '#ff453a', borderWidth: 1.5, borderRadius: 6 }
+					{ label: 'Dépenses', data: expensesByMonth, backgroundColor: '#ff453a30', borderColor: '#ff453a', borderWidth: 1.5, borderRadius: 6 }
 				]
 			},
 			options: {
@@ -204,7 +204,7 @@
 
 		lineChart = new Chart(lineCanvas, {
 			type: 'line',
-			data: { labels: MONTH_LABELS, datasets: [{ label: 'Solde cumule', data: cumulativeBalance, borderColor: '#0a84ff', backgroundColor: '#0a84ff15', fill: true, tension: 0.4, pointBackgroundColor: '#0a84ff', pointRadius: 4, pointHoverRadius: 6 }] },
+			data: { labels: MONTH_LABELS, datasets: [{ label: 'Solde cumulé', data: cumulativeBalance, borderColor: '#0a84ff', backgroundColor: '#0a84ff15', fill: true, tension: 0.4, pointBackgroundColor: '#0a84ff', pointRadius: 4, pointHoverRadius: 6 }] },
 			options: {
 				responsive: true, maintainAspectRatio: false,
 				plugins: { legend: { position: 'top', labels: { usePointStyle: true } }, tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${confidentialStore.format(ctx.parsed.y ?? 0)}` } } },
@@ -218,8 +218,8 @@
 				data: {
 					labels: forecastLabels,
 					datasets: [
-						{ label: 'Realise', data: forecastActual, borderColor: '#0a84ff', backgroundColor: '#0a84ff15', fill: false, tension: 0.4, pointBackgroundColor: '#0a84ff', pointRadius: 4, spanGaps: false },
-						{ label: 'Previsionnel', data: forecastProjected, borderColor: '#ff9f0a', backgroundColor: '#ff9f0a15', borderDash: [6, 4], fill: false, tension: 0.4, pointBackgroundColor: '#ff9f0a', pointRadius: 4, spanGaps: false }
+						{ label: 'Réalisé', data: forecastActual, borderColor: '#0a84ff', backgroundColor: '#0a84ff15', fill: false, tension: 0.4, pointBackgroundColor: '#0a84ff', pointRadius: 4, spanGaps: false },
+						{ label: 'Prévisionnel', data: forecastProjected, borderColor: '#ff9f0a', backgroundColor: '#ff9f0a15', borderDash: [6, 4], fill: false, tension: 0.4, pointBackgroundColor: '#ff9f0a', pointRadius: 4, spanGaps: false }
 					]
 				},
 				options: {
@@ -273,7 +273,7 @@
 	<div class="flex items-center justify-between">
 		<div>
 			<h1 class="text-headline text-text-primary">Analyse</h1>
-			<p class="mt-1.5 text-body text-text-muted">Visualisez vos finances en un coup d'oeil</p>
+			<p class="mt-1.5 text-body text-text-muted">Visualisez vos finances en un coup d'œil</p>
 		</div>
 
 		<!-- Prominent year navigation -->
@@ -316,9 +316,9 @@
 					<PieChart size={14} class="text-warning" strokeWidth={2} />
 				</div>
 			</div>
-			<p class="text-title text-text-primary mb-2">Pas de donnees pour {year}</p>
+			<p class="text-title text-text-primary mb-2">Pas de données pour {year}</p>
 			<p class="text-body text-text-muted text-center max-w-sm">
-				Importez des transactions pour voir apparaitre vos graphiques d'analyse et statistiques detaillees.
+				Importez des transactions pour voir apparaitre vos graphiques d'analyse et statistiques détaillées.
 			</p>
 		</div>
 	{:else}
@@ -343,7 +343,7 @@
 					<div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-expense/10">
 						<ArrowDownRight size={20} class="text-expense" strokeWidth={2} />
 					</div>
-					<p class="text-caption text-text-muted uppercase tracking-wider">Depenses {year}</p>
+					<p class="text-caption text-text-muted uppercase tracking-wider">Dépenses {year}</p>
 				</div>
 				<p class="text-[1.75rem] font-bold tracking-tight text-expense tabular-nums">{confidentialStore.format(totalExpenses)}</p>
 				{#if prevYearExpenses > 0}
@@ -372,8 +372,8 @@
 					<BarChart3 size={18} class="text-accent" strokeWidth={2} />
 				</div>
 				<div>
-					<h2 class="text-title text-text-primary">Revenus vs Depenses</h2>
-					<p class="text-caption text-text-muted">Comparaison mensuelle sur l'annee</p>
+					<h2 class="text-title text-text-primary">Revenus vs dépenses</h2>
+					<p class="text-caption text-text-muted">Comparaison mensuelle sur l'année</p>
 				</div>
 			</div>
 			<div class="h-80"><canvas bind:this={barCanvas}></canvas></div>
@@ -387,8 +387,8 @@
 						<PieChart size={18} class="text-warning" strokeWidth={2} />
 					</div>
 					<div>
-						<h2 class="text-title text-text-primary">Par categorie</h2>
-						<p class="text-caption text-text-muted">Repartition des depenses</p>
+						<h2 class="text-title text-text-primary">Par catégorie</h2>
+						<p class="text-caption text-text-muted">Répartition des dépenses</p>
 					</div>
 				</div>
 				{#if categoryData.length > 0}
@@ -398,7 +398,7 @@
 						<div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-bg-elevated mb-3">
 							<PieChart size={24} class="text-text-muted" strokeWidth={1.5} />
 						</div>
-						<p class="text-body text-text-muted">Aucune transaction categorisee</p>
+						<p class="text-body text-text-muted">Aucune transaction catégorisée</p>
 					</div>
 				{/if}
 			</div>
@@ -409,8 +409,8 @@
 						<TrendingUp size={18} class="text-income" strokeWidth={2} />
 					</div>
 					<div>
-						<h2 class="text-title text-text-primary">Solde cumule</h2>
-						<p class="text-caption text-text-muted">Evolution sur l'annee</p>
+						<h2 class="text-title text-text-primary">Solde cumulé</h2>
+						<p class="text-caption text-text-muted">Évolution sur l'année</p>
 					</div>
 				</div>
 				<div class="h-72"><canvas bind:this={lineCanvas}></canvas></div>
@@ -424,8 +424,8 @@
 					<CalendarClock size={18} class="text-orange" strokeWidth={2} />
 				</div>
 				<div>
-					<h2 class="text-title text-text-primary">Tresorerie previsionnelle</h2>
-					<p class="text-caption text-text-muted">Projection sur 6 mois basee sur le budget et les recurrences</p>
+					<h2 class="text-title text-text-primary">Trésorerie prévisionnelle</h2>
+					<p class="text-caption text-text-muted">Projection sur 6 mois basée sur le budget et les récurrences</p>
 				</div>
 			</div>
 			<div class="h-80"><canvas bind:this={forecastCanvas}></canvas></div>
@@ -438,8 +438,8 @@
 					<Receipt size={18} class="text-expense" strokeWidth={2} />
 				</div>
 				<div>
-					<h2 class="text-title text-text-primary">Top 10 des depenses</h2>
-					<p class="text-caption text-text-muted">Vos plus gros postes de depenses en {year}</p>
+					<h2 class="text-title text-text-primary">Top 10 des dépenses</h2>
+					<p class="text-caption text-text-muted">Vos plus gros postes de dépenses en {year}</p>
 				</div>
 			</div>
 			{#if topExpenses.length > 0}
@@ -448,7 +448,7 @@
 						<thead>
 							<tr class="text-caption text-text-muted uppercase tracking-wider">
 								<th class="px-3 py-3 text-left font-medium w-12">#</th>
-								<th class="px-3 py-3 text-left font-medium">Libelle</th>
+								<th class="px-3 py-3 text-left font-medium">Libellé</th>
 								<th class="px-3 py-3 text-right font-medium">Occurrences</th>
 								<th class="px-3 py-3 text-right font-medium">Total</th>
 							</tr>
@@ -481,7 +481,7 @@
 					<div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-bg-elevated mb-3">
 						<Receipt size={24} class="text-text-muted" strokeWidth={1.5} />
 					</div>
-					<p class="text-body text-text-muted">Aucune depense enregistree</p>
+					<p class="text-body text-text-muted">Aucune dépense enregistrée</p>
 				</div>
 			{/if}
 		</div>
@@ -494,8 +494,8 @@
 						<Layers size={18} class="text-purple" strokeWidth={2} />
 					</div>
 					<div>
-						<h2 class="text-title text-text-primary">Detail par type</h2>
-						<p class="text-caption text-text-muted">Repartition par categorie budgetaire</p>
+						<h2 class="text-title text-text-primary">Détail par type</h2>
+						<p class="text-caption text-text-muted">Répartition par catégorie budgétaire</p>
 					</div>
 				</div>
 				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 stagger-children">
