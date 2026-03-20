@@ -165,6 +165,13 @@
 		credit_card: CreditCard,
 		cash: Banknote
 	} as Record<string, typeof Landmark>;
+
+	const ACCOUNT_COLORS: Record<string, { bg: string; text: string }> = {
+		checking: { bg: 'bg-accent/10', text: 'text-accent' },
+		savings: { bg: 'bg-income/10', text: 'text-income' },
+		credit_card: { bg: 'bg-purple/10', text: 'text-purple' },
+		cash: { bg: 'bg-orange/10', text: 'text-orange' },
+	};
 </script>
 
 <svelte:head>
@@ -260,15 +267,16 @@
 		<!-- Account list -->
 		<div class="space-y-3 stagger-children">
 			{#each accountStore.accounts as account (account.id)}
+				{@const accColor = ACCOUNT_COLORS[account.account_type] ?? { bg: 'bg-accent/10', text: 'text-accent' }}
 				<div class="group glass-card p-5 transition-smooth hover:bg-bg-hover/30 card-hover">
 					<div class="flex items-center justify-between">
 						<div class="flex items-center gap-4">
-							<div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/10">
+							<div class="flex h-12 w-12 items-center justify-center rounded-2xl {accColor.bg}">
 								{#if ACCOUNT_ICONS[account.account_type]}
 									{@const AccIcon = ACCOUNT_ICONS[account.account_type]}
-									<AccIcon size={22} class="text-accent" strokeWidth={1.5} />
+									<AccIcon size={22} class={accColor.text} strokeWidth={1.5} />
 								{:else}
-									<Landmark size={22} class="text-accent" strokeWidth={1.5} />
+									<Landmark size={22} class={accColor.text} strokeWidth={1.5} />
 								{/if}
 							</div>
 							<div>
