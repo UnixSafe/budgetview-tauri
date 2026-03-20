@@ -50,7 +50,10 @@
 
 	let categorizingId = $state<number | null>(null);
 	let splittingTx = $state<Transaction | null>(null);
-	let similarPrompt = $state<{ txId: number; seriesId: number; subSeriesId: number | null; count: number } | null>(null);
+	let similarPrompt = $state<{ txId: number; seriesId: number; subSeriesId: number | null; count: number; seriesName: string } | null>(null);
+	let similarTransactions = $state<Transaction[]>([]);
+	let showSimilarList = $state(false);
+	let similarExcluded = $state<Set<number>>(new Set());
 
 	// Batch selection
 	let selectedIds = $state<Set<number>>(new Set());
@@ -170,19 +173,61 @@
 		categorizingId = null;
 
 		if (seriesId !== null && similarCount > 0) {
-			similarPrompt = { txId, seriesId, subSeriesId, count: similarCount };
+			const seriesName = budgetStore.series.find(s => s.id === seriesId)?.name ?? '';
+			similarPrompt = { txId, seriesId, subSeriesId, count: similarCount, seriesName };
+			similarTransactions = [];
+			showSimilarList = false;
+			similarExcluded = new Set();
 		}
+	}
+
+	async function loadSimilarTransactions() {
+		if (!similarPrompt) return;
+		const tx = transactionStore.transactions.find(t => t.id === similarPrompt!.txId);
+		if (!tx) return;
+		const { categorizationStore } = await import('$lib/stores/categorization.svelte');
+		similarTransactions = await categorizationStore.findSimilarUncategorized(tx);
+		showSimilarList = true;
+		similarExcluded = new Set();
+	}
+
+	function toggleSimilarExclude(id: number) {
+		const next = new Set(similarExcluded);
+		if (next.has(id)) next.delete(id);
+		else next.add(id);
+		similarExcluded = next;
 	}
 
 	async function handleApplyToSimilar() {
 		if (!similarPrompt) return;
-		const count = await transactionStore.applyToSimilar(similarPrompt.txId, similarPrompt.seriesId, similarPrompt.subSeriesId);
-		toastStore.success(`${count} transaction${count > 1 ? 's' : ''} catégorisée${count > 1 ? 's' : ''}`);
+
+		if (showSimilarList && similarExcluded.size > 0) {
+			// Apply only to non-excluded similar transactions
+			const toApply = similarTransactions.filter(t => !similarExcluded.has(t.id));
+			let count = 0;
+			for (const tx of toApply) {
+				await query(
+					'UPDATE transactions SET series_id = $1, sub_series_id = $2, is_auto_categorized = 0 WHERE id = $3',
+					[similarPrompt.seriesId, similarPrompt.subSeriesId, tx.id]
+				);
+				count++;
+			}
+			toastStore.success(`${count} transaction${count > 1 ? 's' : ''} catégorisée${count > 1 ? 's' : ''}`);
+		} else {
+			const count = await transactionStore.applyToSimilar(similarPrompt.txId, similarPrompt.seriesId, similarPrompt.subSeriesId);
+			toastStore.success(`${count} transaction${count > 1 ? 's' : ''} catégorisée${count > 1 ? 's' : ''}`);
+		}
+
 		similarPrompt = null;
+		showSimilarList = false;
+		similarTransactions = [];
+		await transactionStore.load();
 	}
 
 	function dismissSimilarPrompt() {
 		similarPrompt = null;
+		showSimilarList = false;
+		similarTransactions = [];
 	}
 
 	function handleSearch() {
@@ -313,24 +358,69 @@
 	{/if}
 
 	{#if similarPrompt}
-		<div class="flex items-center justify-between glass-card p-5 border-accent/20 animate-slide-up">
-			<p class="text-[13px] text-text-primary">
-				<strong class="text-accent">{similarPrompt.count}</strong> transaction{similarPrompt.count > 1 ? 's' : ''} similaire{similarPrompt.count > 1 ? 's' : ''} non catégorisée{similarPrompt.count > 1 ? 's' : ''}.
-			</p>
-			<div class="flex gap-2">
-				<button
-					onclick={handleApplyToSimilar}
-					class="rounded-xl bg-accent px-4 py-2 text-[13px] font-semibold text-white transition-smooth btn-press hover:bg-accent-hover"
-				>
-					Appliquer
-				</button>
-				<button
-					onclick={dismissSimilarPrompt}
-					class="rounded-xl border border-border px-4 py-2 text-[13px] text-text-secondary transition-smooth hover:text-text-primary"
-				>
-					Ignorer
-				</button>
+		<div class="glass-card border-accent/20 animate-slide-up overflow-hidden">
+			<div class="flex items-center justify-between p-5">
+				<p class="text-[13px] text-text-primary">
+					<strong class="text-accent">{similarPrompt.count}</strong> transaction{similarPrompt.count > 1 ? 's' : ''} similaire{similarPrompt.count > 1 ? 's' : ''} non catégorisée{similarPrompt.count > 1 ? 's' : ''}
+					→ <span class="font-semibold text-accent">{similarPrompt.seriesName}</span>
+				</p>
+				<div class="flex gap-2">
+					<button
+						onclick={loadSimilarTransactions}
+						class="rounded-xl border border-accent/30 bg-accent/5 px-4 py-2 text-[13px] font-medium text-accent transition-smooth btn-press hover:bg-accent/10"
+					>
+						{showSimilarList ? 'Masquer' : 'Vérifier'}
+					</button>
+					<button
+						onclick={handleApplyToSimilar}
+						class="rounded-xl bg-accent px-4 py-2 text-[13px] font-semibold text-white transition-smooth btn-press hover:bg-accent-hover"
+					>
+						Appliquer{#if showSimilarList && similarExcluded.size > 0} ({similarTransactions.length - similarExcluded.size}){/if}
+					</button>
+					<button
+						onclick={dismissSimilarPrompt}
+						class="rounded-xl border border-border px-4 py-2 text-[13px] text-text-secondary transition-smooth hover:text-text-primary"
+					>
+						Ignorer
+					</button>
+				</div>
 			</div>
+
+			<!-- Similar transactions list -->
+			{#if showSimilarList && similarTransactions.length > 0}
+				<div class="border-t border-border-light/50 divide-y divide-border-light/30 max-h-64 overflow-y-auto">
+					{#each similarTransactions as stx (stx.id)}
+						{@const excluded = similarExcluded.has(stx.id)}
+						<label class="flex items-center gap-3 px-5 py-3 cursor-pointer transition-smooth hover:bg-bg-hover/30 {excluded ? 'opacity-40' : ''}">
+							<input
+								type="checkbox"
+								checked={!excluded}
+								onchange={() => toggleSimilarExclude(stx.id)}
+								class="accent-accent rounded"
+							/>
+							<div class="min-w-0 flex-1">
+								<p class="text-[13px] font-medium text-text-primary truncate">{stx.label}</p>
+								<p class="text-[11px] text-text-muted">
+									{new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(stx.date))}
+									{#if stx.account_name} · {stx.account_name}{/if}
+								</p>
+							</div>
+							<span class="text-[13px] font-semibold tabular-nums whitespace-nowrap {stx.amount >= 0 ? 'text-income' : 'text-expense'}">
+								{confidentialStore.format(stx.amount)}
+							</span>
+						</label>
+					{/each}
+				</div>
+				{#if similarExcluded.size > 0}
+					<div class="px-5 py-2 bg-bg-primary/20 text-[11px] text-text-muted border-t border-border-light/30">
+						{similarExcluded.size} exclue{similarExcluded.size > 1 ? 's' : ''} — {similarTransactions.length - similarExcluded.size} sera/seront catégorisée{similarTransactions.length - similarExcluded.size > 1 ? 's' : ''}
+					</div>
+				{/if}
+			{:else if showSimilarList}
+				<div class="px-5 py-4 border-t border-border-light/50 text-[13px] text-text-muted text-center">
+					Chargement...
+				</div>
+			{/if}
 		</div>
 	{/if}
 
