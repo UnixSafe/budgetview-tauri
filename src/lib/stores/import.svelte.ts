@@ -1,6 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { RawTransaction, ImportPreview, ImportResult, CsvConfig, CsvColumnInfo } from '$lib/types';
-import { matchCategory } from '$lib/utils/category-dictionary';
 import { query, execute } from './db';
 
 class ImportStore {
@@ -83,39 +82,43 @@ class ImportStore {
 
 	/**
 	 * Apply dictionary-based categorization to uncategorized transactions from a batch.
-	 * This is a fallback when the learned rules don't match.
+	 * Reads keyword patterns from the category_keywords table in the database.
 	 */
 	private async applyDictionaryCategorization(batchId: number): Promise<number> {
 		try {
-			// Get uncategorized transactions from this batch
 			const uncategorized = await query<{ id: number; label: string }>(
 				'SELECT id, label FROM transactions WHERE import_batch_id = $1 AND series_id IS NULL',
 				[batchId]
 			);
-
 			if (uncategorized.length === 0) return 0;
 
-			// Load all series to map names to IDs
-			const series = await query<{ id: number; name: string }>(
-				'SELECT id, name FROM budget_series WHERE is_active = 1'
+			// Load keyword dictionary from DB
+			const keywords = await query<{ pattern: string; series_id: number; priority: number }>(
+				'SELECT pattern, series_id, priority FROM category_keywords ORDER BY priority DESC'
 			);
-			const seriesMap = new Map(series.map(s => [s.name, s.id]));
+			if (keywords.length === 0) return 0;
 
 			let count = 0;
 			for (const tx of uncategorized) {
-				const categoryName = matchCategory(tx.label);
-				if (categoryName) {
-					const seriesId = seriesMap.get(categoryName);
-					if (seriesId) {
-						await execute(
-							'UPDATE transactions SET series_id = $1, is_auto_categorized = 1 WHERE id = $2',
-							[seriesId, tx.id]
-						);
-						count++;
+				const upper = tx.label.toUpperCase();
+				let bestMatch: { series_id: number; priority: number } | null = null;
+
+				for (const kw of keywords) {
+					if (upper.includes(kw.pattern.toUpperCase())) {
+						if (!bestMatch || kw.priority > bestMatch.priority) {
+							bestMatch = { series_id: kw.series_id, priority: kw.priority };
+						}
 					}
 				}
-			}
 
+				if (bestMatch) {
+					await execute(
+						'UPDATE transactions SET series_id = $1, is_auto_categorized = 1 WHERE id = $2',
+						[bestMatch.series_id, tx.id]
+					);
+					count++;
+				}
+			}
 			return count;
 		} catch {
 			return 0;

@@ -68,5 +68,11 @@ pub fn get_migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/011_default_categories.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 12,
+            description: "keyword_dictionary",
+            sql: include_str!("../migrations/012_keyword_dictionary.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
