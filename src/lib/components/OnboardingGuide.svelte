@@ -1,9 +1,71 @@
 <script lang="ts">
-	import { Landmark, Upload, PieChart, Tag, ChevronRight, Sparkles, X } from 'lucide-svelte';
+	import { Landmark, Upload, PieChart, Tag, ChevronRight, Sparkles, X, Database } from 'lucide-svelte';
 	import { execute, query } from '$lib/stores/db';
+	import { DEMO_ACCOUNTS, DEMO_SERIES, DEMO_TRANSACTIONS } from '$lib/utils/demo-data';
+	import { toastStore } from '$lib/stores/toast.svelte';
 
 	let visible = $state(true);
 	let currentStep = $state(0);
+	let loadingDemo = $state(false);
+
+	async function loadDemoData() {
+		if (!confirm('Charger les données de démonstration ? Cela créera des comptes, catégories et transactions fictives.')) return;
+		loadingDemo = true;
+		try {
+			// Create accounts
+			const accountIds: number[] = [];
+			for (const acc of DEMO_ACCOUNTS) {
+				await execute(
+					'INSERT INTO accounts (name, account_type, bank_name, initial_balance) VALUES ($1, $2, $3, $4)',
+					[acc.name, acc.account_type, acc.bank_name, acc.initial_balance]
+				);
+				const rows = await query<{ id: number }>('SELECT id FROM accounts ORDER BY id DESC LIMIT 1');
+				accountIds.push(rows[0]?.id ?? 0);
+			}
+
+			// Create series
+			const seriesIds: number[] = [];
+			for (const s of DEMO_SERIES) {
+				await execute(
+					'INSERT INTO budget_series (name, budget_area, target_amount, is_active) VALUES ($1, $2, $3, 1)',
+					[s.name, s.budget_area, s.target_amount]
+				);
+				const rows = await query<{ id: number }>('SELECT id FROM budget_series ORDER BY id DESC LIMIT 1');
+				seriesIds.push(rows[0]?.id ?? 0);
+			}
+
+			// Create monthly budgets for current and previous months
+			const now = new Date();
+			for (let offset = -2; offset <= 1; offset++) {
+				const m = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+				for (let i = 0; i < DEMO_SERIES.length; i++) {
+					await execute(
+						'INSERT OR IGNORE INTO monthly_budget (series_id, year, month, planned_amount) VALUES ($1, $2, $3, $4)',
+						[seriesIds[i], m.getFullYear(), m.getMonth() + 1, DEMO_SERIES[i].target_amount]
+					);
+				}
+			}
+
+			// Create transactions
+			for (const tx of DEMO_TRANSACTIONS) {
+				const accountId = accountIds[tx.account_index] ?? accountIds[0];
+				const seriesId = tx.series_index !== null ? seriesIds[tx.series_index] : null;
+				await execute(
+					'INSERT INTO transactions (account_id, date, label, amount, series_id) VALUES ($1, $2, $3, $4, $5)',
+					[accountId, tx.date, tx.label, tx.amount, seriesId]
+				);
+			}
+
+			toastStore.success('Données de démonstration chargées !');
+			dismiss();
+			// Reload the page to show new data
+			window.location.reload();
+		} catch (e) {
+			toastStore.error('Erreur: ' + String(e));
+		} finally {
+			loadingDemo = false;
+		}
+	}
 
 	interface OnboardingStep {
 		icon: typeof Landmark;
@@ -113,7 +175,20 @@
 				{/each}
 			</div>
 
-			<div class="mt-5 flex justify-end">
+			<div class="mt-5 flex items-center justify-between">
+				<button
+					onclick={loadDemoData}
+					disabled={loadingDemo}
+					class="flex items-center gap-2 rounded-xl bg-accent/10 px-4 py-2 text-[12px] font-semibold text-accent transition-smooth btn-press hover:bg-accent/20 disabled:opacity-40"
+				>
+					{#if loadingDemo}
+						<div class="h-3.5 w-3.5 animate-spin rounded-full border-2 border-accent/20 border-t-accent"></div>
+						Chargement...
+					{:else}
+						<Database size={14} />
+						Charger des données de démo
+					{/if}
+				</button>
 				<button onclick={dismiss} class="text-[12px] font-medium text-text-muted hover:text-text-primary transition-smooth">
 					Ne plus afficher
 				</button>
