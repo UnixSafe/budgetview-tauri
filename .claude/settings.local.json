@@ -21,6 +21,13 @@
       "Read(.claude/BUDGETVIEW_AGENT_GUIDE.md)",
       "Read(.claude/agents/budgetview-frontend-reviewer.md)",
       "Read(.claude/agents/budgetview-rust-reviewer.md)",
+      "Read(.claude/agents/budgetview-finance-reviewer.md)",
+      "Read(.claude/commands/workflow-budgetview.md)"
+    ]
+  }
+}
+udgetview-frontend-reviewer.md)",
+      "Read(.claude/agents/budgetview-rust-reviewer.md)",
       "Read(.claude/agents/budgetview-finance-reviewer.md)"
     ]
   }
