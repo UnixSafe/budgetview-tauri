@@ -17,7 +17,11 @@
       "Bash(.claude/scripts/setup-ralph-loop.sh:*)",
       "Bash(test -f .claude/ralph-loop.local.md:*)",
       "Bash(rm .claude/ralph-loop.local.md)",
-      "Read(.claude/ralph-loop.local.md)"
+      "Read(.claude/ralph-loop.local.md)",
+      "Read(.claude/BUDGETVIEW_AGENT_GUIDE.md)",
+      "Read(.claude/agents/budgetview-frontend-reviewer.md)",
+      "Read(.claude/agents/budgetview-rust-reviewer.md)",
+      "Read(.claude/agents/budgetview-finance-reviewer.md)"
     ]
   }
 }
