@@ -2,7 +2,7 @@ import { query, execute } from './db';
 import type { CategorizationRule, Transaction } from '$lib/types';
 import { anonymizeLabel } from '$lib/utils/format';
 
-class CategorizationStore {
+export class CategorizationStore {
 	rules = $state<CategorizationRule[]>([]);
 	loading = $state(false);
 

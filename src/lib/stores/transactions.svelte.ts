@@ -6,7 +6,7 @@ import { undoStore } from './undo.svelte';
 
 const PAGE_SIZE = 200;
 
-class TransactionStore {
+export class TransactionStore {
 	transactions = $state<Transaction[]>([]);
 	loading = $state(false);
 	loadingMore = $state(false);

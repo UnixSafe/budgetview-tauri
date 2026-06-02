@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Mock toast store
 vi.mock('$lib/stores/toast.svelte', () => ({
 	toastStore: {
 		success: vi.fn(),
@@ -8,37 +7,57 @@ vi.mock('$lib/stores/toast.svelte', () => ({
 	}
 }));
 
-// We can't directly test the Svelte 5 runes-based store in vitest without
-// a Svelte context, so we test the logic patterns instead.
+import { toastStore } from '$lib/stores/toast.svelte';
+import { UndoStore } from './undo.svelte';
 
-describe('UndoStore logic', () => {
-	it('undo stack is LIFO', () => {
-		const stack: string[] = [];
-		stack.push('action1');
-		stack.push('action2');
-		stack.push('action3');
-
-		expect(stack[stack.length - 1]).toBe('action3');
-		stack.pop();
-		expect(stack[stack.length - 1]).toBe('action2');
+describe('UndoStore', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
 	});
 
-	it('max stack size is enforced', () => {
-		const maxSize = 20;
-		const stack: string[] = [];
+	it('pushes actions in LIFO order and enforces max stack size', () => {
+		const store = new UndoStore();
+
 		for (let i = 0; i < 30; i++) {
-			stack.push(`action${i}`);
-			if (stack.length > maxSize) {
-				stack.shift();
-			}
+			store.push({ label: `action${i}`, undo: vi.fn() });
 		}
-		expect(stack.length).toBe(maxSize);
+
+		expect(store.stack).toHaveLength(20);
+		expect(store.lastAction?.label).toBe('action29');
+		expect(store.canUndo).toBe(true);
 	});
 
-	it('undo function is callable', async () => {
+	it('runs undo, removes the action and notifies success', async () => {
+		const store = new UndoStore();
 		const undoFn = vi.fn();
-		const action = { label: 'test', undo: undoFn };
-		await action.undo();
+		store.push({ label: 'test', undo: undoFn });
+
+		await store.undo();
+
 		expect(undoFn).toHaveBeenCalled();
+		expect(store.canUndo).toBe(false);
+		expect(toastStore.success).toHaveBeenCalledWith('Annulé : test');
+	});
+
+	it('keeps going when undo is called on an empty stack or fails', async () => {
+		const store = new UndoStore();
+
+		await store.undo();
+		expect(toastStore.success).not.toHaveBeenCalled();
+
+		store.push({ label: 'bad', undo: vi.fn().mockRejectedValue(new Error('boom')) });
+		await store.undo();
+
+		expect(toastStore.error).toHaveBeenCalledWith('Erreur d\'annulation : Error: boom');
+	});
+
+	it('clears the stack', () => {
+		const store = new UndoStore();
+		store.push({ label: 'test', undo: vi.fn() });
+
+		store.clear();
+
+		expect(store.stack).toEqual([]);
+		expect(store.lastAction).toBeNull();
 	});
 });

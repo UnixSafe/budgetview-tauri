@@ -10,7 +10,7 @@ const FREQUENCY_LABELS: Record<string, string> = {
 	yearly: 'Annuel'
 };
 
-class RecurringStore {
+export class RecurringStore {
 	items = $state<RecurringTransaction[]>([]);
 	patterns = $state<RecurringPattern[]>([]);
 	missing = $state<MissingRecurrence[]>([]);

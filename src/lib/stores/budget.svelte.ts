@@ -2,7 +2,7 @@ import { query, execute } from './db';
 import type { BudgetSeries, SubSeries, MonthlyBudget, BudgetLineItem, BudgetArea, SeriesGroup, BudgetCarryOver } from '$lib/types';
 import { toCents } from '$lib/utils/format';
 
-class BudgetStore {
+export class BudgetStore {
 	series = $state<BudgetSeries[]>([]);
 	subSeries = $state<SubSeries[]>([]);
 	monthlyBudgets = $state<MonthlyBudget[]>([]);

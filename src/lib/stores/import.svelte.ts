@@ -3,7 +3,7 @@ import type { RawTransaction, ImportPreview, ImportResult, CsvConfig, CsvColumnI
 import { query, execute } from './db';
 import { aiStore } from './ai.svelte';
 
-class ImportStore {
+export class ImportStore {
 	preview = $state<ImportPreview | null>(null);
 	loading = $state(false);
 	error = $state<string | null>(null);

@@ -5,7 +5,7 @@ export interface UndoAction {
 	undo: () => Promise<void>;
 }
 
-class UndoStore {
+export class UndoStore {
 	stack = $state<UndoAction[]>([]);
 	maxSize = 20;
 

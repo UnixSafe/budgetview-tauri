@@ -179,6 +179,8 @@
 	<title>Budget — BudgetView</title>
 </svelte:head>
 
+<svelte:window onkeydown={(e) => { if (e.key === 'Escape' && showSeriesForm) showSeriesForm = false; }} />
+
 <div class="space-y-8">
 	<div class="flex items-center justify-between">
 		<div>
@@ -376,7 +378,7 @@
 													Report: {confidentialStore.format(carry)}
 												</span>
 											{/if}
-											<button onclick={() => openEditSeries(line)} class="rounded-lg p-1 text-text-muted hover:text-text-primary hover:bg-bg-hover transition-smooth opacity-0 group-hover:opacity-100" style="opacity: 1;">
+											<button onclick={() => openEditSeries(line)} class="rounded-lg p-1 text-text-muted hover:text-text-primary hover:bg-bg-hover transition-smooth opacity-0 group-hover:opacity-100">
 												<Pencil size={12} />
 											</button>
 											<button onclick={() => handleCarryOver(line.series_id)} class="rounded-lg p-1 text-text-muted hover:text-accent hover:bg-accent/10 transition-smooth" title="Calculer le report du mois précédent">

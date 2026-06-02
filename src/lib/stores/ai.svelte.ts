@@ -18,7 +18,7 @@ const DEFAULT_MODELS: Record<string, string> = {
 	xai: 'grok-3-mini',
 };
 
-class AiStore {
+export class AiStore {
 	provider = $state<AiProvider>('none');
 	model = $state('');
 	hasKey = $state(false);
