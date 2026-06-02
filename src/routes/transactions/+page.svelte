@@ -7,6 +7,7 @@
 	import { accountStore } from '$lib/stores/accounts.svelte';
 	import { budgetStore } from '$lib/stores/budget.svelte';
 	import { splitStore } from '$lib/stores/splits.svelte';
+	import { tagStore } from '$lib/stores/tags.svelte';
 	import { formatCurrency, formatDate, toEuros } from '$lib/utils/format';
 	import { confidentialStore } from '$lib/stores/confidential.svelte';
 	import type { Transaction } from '$lib/types';
@@ -52,6 +53,8 @@
 
 	let categorizingId = $state<number | null>(null);
 	let splittingTx = $state<Transaction | null>(null);
+	let taggingTx = $state<Transaction | null>(null);
+	let newTagName = $state('');
 	let similarPrompt = $state<{ txId: number; seriesId: number; subSeriesId: number | null; count: number; seriesName: string } | null>(null);
 	let similarTransactions = $state<Transaction[]>([]);
 	let showSimilarList = $state(false);
@@ -125,6 +128,7 @@
 		await Promise.all([
 			accountStore.load(),
 			budgetStore.loadSeries(),
+			tagStore.load(),
 			transactionStore.load(),
 			splitStore.loadBatchStatus()
 		]);
@@ -261,9 +265,47 @@
 		transactionStore.search = '';
 		transactionStore.filterAccountId = '';
 		transactionStore.filterSeriesId = '';
+		transactionStore.filterTagId = '';
 		transactionStore.filterDateFrom = '';
 		transactionStore.filterDateTo = '';
 		transactionStore.load();
+	}
+
+	function tagIds(tx: Transaction): number[] {
+		return (tx.tag_ids ?? '')
+			.split('|')
+			.map((id) => Number(id))
+			.filter((id) => Number.isFinite(id) && id > 0);
+	}
+
+	function tagNames(tx: Transaction): string[] {
+		return (tx.tag_names ?? '').split('|').filter(Boolean);
+	}
+
+	async function toggleTag(tagId: number) {
+		if (!taggingTx) return;
+		const current = new Set(tagIds(taggingTx));
+		if (current.has(tagId)) {
+			await tagStore.removeFromTransaction(taggingTx.id, tagId);
+			toastStore.success('Tag retiré');
+		} else {
+			await tagStore.addToTransaction(taggingTx.id, tagId);
+			toastStore.success('Tag ajouté');
+		}
+		await transactionStore.load();
+		taggingTx = transactionStore.transactions.find((tx) => tx.id === taggingTx?.id) ?? taggingTx;
+	}
+
+	async function createAndAssignTag() {
+		if (!taggingTx || !newTagName.trim()) return;
+		const tagId = await tagStore.create(newTagName);
+		if (tagId > 0) {
+			await tagStore.addToTransaction(taggingTx.id, tagId);
+			await transactionStore.load();
+			taggingTx = transactionStore.transactions.find((tx) => tx.id === taggingTx?.id) ?? taggingTx;
+			newTagName = '';
+			toastStore.success('Tag créé');
+		}
 	}
 
 	async function toggleReconciled(tx: Transaction) {
@@ -572,6 +614,16 @@
 			{/each}
 		</select>
 		<select
+			bind:value={transactionStore.filterTagId}
+			onchange={handleSearch}
+			class="rounded-xl border border-border bg-bg-card/60 px-4 py-2.5 text-[13px] text-text-primary outline-none focus-ring"
+		>
+			<option value="">Tous les tags</option>
+			{#each tagStore.tags as tag}
+				<option value={tag.id}>{tag.name}</option>
+			{/each}
+		</select>
+		<select
 			bind:value={filterReconciled}
 			class="rounded-xl border border-border bg-bg-card/60 px-4 py-2.5 text-[13px] text-text-primary outline-none focus-ring"
 		>
@@ -579,7 +631,7 @@
 			<option value="yes">Pointées</option>
 			<option value="no">Non pointées</option>
 		</select>
-		{#if transactionStore.search || transactionStore.filterAccountId || transactionStore.filterSeriesId || filterReconciled || transactionStore.filterDateFrom || transactionStore.filterDateTo}
+		{#if transactionStore.search || transactionStore.filterAccountId || transactionStore.filterSeriesId || transactionStore.filterTagId || filterReconciled || transactionStore.filterDateFrom || transactionStore.filterDateTo}
 			<button onclick={() => { clearFilters(); filterReconciled = ''; transactionStore.filterDateFrom = ''; transactionStore.filterDateTo = ''; }} class="text-[12px] font-medium text-accent hover:text-accent-hover transition-smooth">
 				Effacer
 			</button>
@@ -681,6 +733,7 @@
 					</thead>
 					<tbody>
 						{#each filteredTransactions as tx (tx.id)}
+							{@const tags = tagNames(tx)}
 							<tr class="border-b border-border-light/50 hover-row {selectedIds.has(tx.id) ? 'bg-accent/5' : ''}">
 								<td class="px-3 py-3.5">
 									<input
@@ -717,6 +770,13 @@
 									</p>
 									{#if tx.note}
 										<p class="text-[11px] text-text-muted mt-0.5">{tx.note}</p>
+									{/if}
+									{#if tags.length > 0}
+										<div class="mt-1.5 flex flex-wrap gap-1">
+											{#each tags as tag}
+												<span class="rounded-md bg-bg-elevated px-1.5 py-0.5 text-[10px] font-medium text-text-muted">#{tag}</span>
+											{/each}
+										</div>
 									{/if}
 								</td>
 								<td class="px-5 py-3.5 text-[13px] text-text-muted">{tx.account_name ?? ''}</td>
@@ -771,6 +831,9 @@
 										<button onclick={() => (splittingTx = tx)} class="rounded-lg p-1.5 text-text-muted hover:text-purple hover:bg-purple/10 transition-smooth" title="Ventiler" aria-label="Ventiler la transaction {tx.label}">
 											<Scissors size={14} />
 										</button>
+										<button onclick={() => (taggingTx = tx)} class="rounded-lg p-1.5 text-text-muted hover:text-accent hover:bg-accent/10 transition-smooth" title="Tags" aria-label="Gérer les tags de {tx.label}">
+											<Tag size={14} />
+										</button>
 										<button onclick={() => openEdit(tx)} class="rounded-lg p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-hover transition-smooth" aria-label="Modifier">
 											<Pencil size={14} />
 										</button>
@@ -788,6 +851,7 @@
 			<!-- Mobile list -->
 			<div class="md:hidden divide-y divide-border-light/50">
 				{#each filteredTransactions as tx (tx.id)}
+					{@const tags = tagNames(tx)}
 					<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 					<div
 						class="flex items-center gap-3 px-4 py-3.5 transition-smooth active:bg-bg-hover/50"
@@ -824,12 +888,28 @@
 									<span class="text-accent/70"> · {tx.series_name}</span>
 								{/if}
 							</p>
+							{#if tags.length > 0}
+								<div class="mt-1 flex flex-wrap gap-1">
+									{#each tags as tag}
+										<span class="rounded-md bg-bg-elevated px-1.5 py-0.5 text-[10px] font-medium text-text-muted">#{tag}</span>
+									{/each}
+								</div>
+							{/if}
 						</div>
 
 						<!-- Amount -->
-						<span class="ml-2 text-[15px] font-bold tabular-nums whitespace-nowrap {tx.amount >= 0 ? 'text-income' : 'text-expense'}">
-							{confidentialStore.format(tx.amount)}
-						</span>
+						<div class="ml-2 flex shrink-0 flex-col items-end gap-1">
+							<span class="text-[15px] font-bold tabular-nums whitespace-nowrap {tx.amount >= 0 ? 'text-income' : 'text-expense'}">
+								{confidentialStore.format(tx.amount)}
+							</span>
+							<button
+								onclick={(e) => { e.stopPropagation(); taggingTx = tx; }}
+								class="rounded-lg p-1.5 text-text-muted hover:text-accent hover:bg-accent/10 transition-smooth"
+								aria-label="Gérer les tags de {tx.label}"
+							>
+								<Tag size={13} />
+							</button>
+						</div>
 					</div>
 				{/each}
 			</div>
@@ -933,6 +1013,55 @@
 			</button>
 		</div>
 	{/if}
+
+{#if taggingTx}
+	{@const currentTagIds = new Set(tagIds(taggingTx))}
+	<div class="fixed inset-0 z-50 flex items-center justify-center modal-overlay animate-fade-in" role="dialog" aria-modal="true" aria-label="Gérer les tags">
+		<button type="button" class="absolute inset-0" onclick={() => (taggingTx = null)} aria-label="Fermer les tags"></button>
+		<div class="relative w-full max-w-sm glass-card p-7 shadow-2xl animate-modal-in mx-4">
+			<div class="mb-6 flex items-center justify-between">
+				<div>
+					<h2 class="text-xl font-bold tracking-tight text-text-primary">Tags</h2>
+					<p class="mt-1 truncate text-[12px] text-text-muted">{taggingTx.label}</p>
+				</div>
+				<button onclick={() => (taggingTx = null)} class="rounded-xl p-2 text-text-muted hover:text-text-primary hover:bg-bg-hover transition-smooth" aria-label="Fermer">
+					<X size={18} />
+				</button>
+			</div>
+
+			<form onsubmit={createAndAssignTag} class="mb-5 flex gap-2">
+				<label for="new-tag" class="sr-only">Nouveau tag</label>
+				<input
+					id="new-tag"
+					bind:value={newTagName}
+					placeholder="Nouveau tag"
+					class="min-w-0 flex-1 rounded-xl border border-border bg-bg-primary/60 px-3 py-2.5 text-[13px] text-text-primary outline-none focus-ring placeholder:text-text-muted"
+				/>
+				<button type="submit" disabled={!newTagName.trim()} class="rounded-xl bg-accent px-4 py-2.5 text-[13px] font-semibold text-white transition-smooth btn-press hover:bg-accent-hover disabled:opacity-40">
+					Ajouter
+				</button>
+			</form>
+
+			{#if tagStore.tags.length === 0}
+				<p class="rounded-xl bg-bg-primary/40 px-4 py-5 text-center text-[13px] text-text-muted">Aucun tag pour le moment</p>
+			{:else}
+				<div class="max-h-72 space-y-2 overflow-y-auto">
+					{#each tagStore.tags as tag}
+						<label class="flex cursor-pointer items-center justify-between rounded-xl border border-border-light bg-bg-primary/30 px-4 py-3 transition-smooth hover:bg-bg-hover/50">
+							<span class="text-[13px] font-medium text-text-primary">#{tag.name}</span>
+							<input
+								type="checkbox"
+								checked={currentTagIds.has(tag.id)}
+								onchange={() => toggleTag(tag.id)}
+								class="accent-accent"
+							/>
+						</label>
+					{/each}
+				</div>
+			{/if}
+		</div>
+	</div>
+{/if}
 
 {#if splittingTx}
 	<SplitModal

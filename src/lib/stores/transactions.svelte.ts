@@ -18,6 +18,7 @@ class TransactionStore {
 	filterSeriesId = $state<number | string>('');
 	filterDateFrom = $state('');
 	filterDateTo = $state('');
+	filterTagId = $state<number | string>('');
 
 	private buildWhere(): { clause: string; params: unknown[] } {
 		let clause = ' WHERE 1=1';
@@ -30,6 +31,13 @@ class TransactionStore {
 		if (this.filterSeriesId) {
 			clause += ` AND t.series_id = $${i++}`;
 			params.push(this.filterSeriesId);
+		}
+		if (this.filterTagId) {
+			clause += ` AND EXISTS (
+				SELECT 1 FROM transaction_tags tt
+				WHERE tt.transaction_id = t.id AND tt.tag_id = $${i++}
+			)`;
+			params.push(this.filterTagId);
 		}
 		if (this.search) {
 			clause += ` AND t.label LIKE $${i++}`;
@@ -58,7 +66,9 @@ class TransactionStore {
 			this.totalCount = countResult[0]?.count ?? 0;
 
 			const sql = `
-				SELECT t.*, a.name as account_name, bs.name as series_name, ss.name as sub_series_name
+				SELECT t.*, a.name as account_name, bs.name as series_name, ss.name as sub_series_name,
+					(SELECT GROUP_CONCAT(tag.id, '|') FROM transaction_tags tt JOIN tags tag ON tag.id = tt.tag_id WHERE tt.transaction_id = t.id) as tag_ids,
+					(SELECT GROUP_CONCAT(tag.name, '|') FROM transaction_tags tt JOIN tags tag ON tag.id = tt.tag_id WHERE tt.transaction_id = t.id) as tag_names
 				FROM transactions t
 				LEFT JOIN accounts a ON t.account_id = a.id
 				LEFT JOIN budget_series bs ON t.series_id = bs.id
@@ -85,7 +95,9 @@ class TransactionStore {
 			const offset = this.transactions.length;
 
 			const sql = `
-				SELECT t.*, a.name as account_name, bs.name as series_name, ss.name as sub_series_name
+				SELECT t.*, a.name as account_name, bs.name as series_name, ss.name as sub_series_name,
+					(SELECT GROUP_CONCAT(tag.id, '|') FROM transaction_tags tt JOIN tags tag ON tag.id = tt.tag_id WHERE tt.transaction_id = t.id) as tag_ids,
+					(SELECT GROUP_CONCAT(tag.name, '|') FROM transaction_tags tt JOIN tags tag ON tag.id = tt.tag_id WHERE tt.transaction_id = t.id) as tag_names
 				FROM transactions t
 				LEFT JOIN accounts a ON t.account_id = a.id
 				LEFT JOIN budget_series bs ON t.series_id = bs.id

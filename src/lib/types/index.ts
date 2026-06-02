@@ -57,6 +57,14 @@ export interface Transaction {
 	account_name?: string;
 	series_name?: string;
 	sub_series_name?: string;
+	tag_ids?: string | null;
+	tag_names?: string | null;
+}
+
+// === Tags ===
+export interface TransactionTag {
+	id: number;
+	name: string;
 }
 
 // === Budget mensuel ===
