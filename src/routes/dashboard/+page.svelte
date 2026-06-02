@@ -563,6 +563,9 @@
 
 	<!-- Budget health -->
 	{#if budgetStore.budgetLines.length > 0}
+		{@const totalPlanned = budgetStore.budgetLines.filter((l: BudgetLineItem) => l.budget_area !== 'income' && l.planned_amount !== 0).reduce((sum: number, l: BudgetLineItem) => sum + Math.abs(l.planned_amount), 0)}
+		{@const totalSpent = budgetStore.budgetLines.filter((l: BudgetLineItem) => l.budget_area !== 'income' && l.planned_amount !== 0).reduce((sum: number, l: BudgetLineItem) => sum + Math.abs(l.actual_amount), 0)}
+		{@const overallPct = totalPlanned === 0 ? 0 : (totalSpent / totalPlanned) * 100}
 		<div class="glass-card p-6">
 			<div class="mb-5 flex items-center justify-between">
 				<h2 class="text-lg font-semibold tracking-tight text-text-primary">Santé du budget</h2>
@@ -570,10 +573,6 @@
 			</div>
 
 			<!-- Overall budget gauge -->
-			{#if true}
-			{@const totalPlanned = budgetStore.budgetLines.filter((l: BudgetLineItem) => l.budget_area !== 'income' && l.planned_amount !== 0).reduce((sum: number, l: BudgetLineItem) => sum + Math.abs(l.planned_amount), 0)}
-			{@const totalSpent = budgetStore.budgetLines.filter((l: BudgetLineItem) => l.budget_area !== 'income' && l.planned_amount !== 0).reduce((sum: number, l: BudgetLineItem) => sum + Math.abs(l.actual_amount), 0)}
-			{@const overallPct = totalPlanned === 0 ? 0 : (totalSpent / totalPlanned) * 100}
 			<div class="mb-6 glass-subtle rounded-2xl p-4">
 				<div class="flex items-center justify-between mb-3">
 					<span class="text-[13px] font-semibold text-text-primary">Budget global</span>
@@ -588,11 +587,10 @@
 					></div>
 				</div>
 				<div class="mt-2 flex justify-between text-[11px] text-text-muted tabular-nums">
-					<span>Dépensé: {confidentialStore.format(totalSpent * -1)}</span>
-					<span>Budget: {confidentialStore.format(totalPlanned * -1)}</span>
+					<span>Dépensé: {confidentialStore.format(totalSpent)}</span>
+					<span>Budget: {confidentialStore.format(totalPlanned)}</span>
 				</div>
 			</div>
-			{/if}
 
 			<!-- Individual budget gauges (top categories) -->
 			<div class="space-y-4">

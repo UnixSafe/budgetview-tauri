@@ -56,6 +56,7 @@
 	let similarTransactions = $state<Transaction[]>([]);
 	let showSimilarList = $state(false);
 	let similarExcluded = $state<Set<number>>(new Set());
+	let loadingSimilar = $state(false);
 
 	// Batch selection
 	let selectedIds = $state<Set<number>>(new Set());
@@ -208,9 +209,12 @@
 		if (!similarPrompt) return;
 		const tx = transactionStore.transactions.find(t => t.id === similarPrompt!.txId);
 		if (!tx) return;
+		similarTransactions = [];
+		showSimilarList = true;
+		loadingSimilar = true;
 		const { categorizationStore } = await import('$lib/stores/categorization.svelte');
 		similarTransactions = await categorizationStore.findSimilarUncategorized(tx);
-		showSimilarList = true;
+		loadingSimilar = false;
 		similarExcluded = new Set();
 	}
 
@@ -293,6 +297,16 @@
 <svelte:head>
 	<title>Transactions — BudgetView</title>
 </svelte:head>
+
+<svelte:window onkeydown={(e) => {
+	if (e.key === 'Escape') {
+		if (splittingTx) { splittingTx = null; }
+		else if (showForm) { showForm = false; }
+		else if (categorizingId !== null) { categorizingId = null; }
+		else if (showBatchCategorize) { showBatchCategorize = false; }
+		else if (similarPrompt) { dismissSimilarPrompt(); }
+	}
+}} />
 
 <div class="space-y-6">
 	<!-- Back banner when coming from a filtered view -->
@@ -466,7 +480,7 @@
 				{/if}
 			{:else if showSimilarList}
 				<div class="px-5 py-4 border-t border-border-light/50 text-[13px] text-text-muted text-center">
-					Chargement...
+					{#if loadingSimilar}Chargement...{:else}Aucune transaction similaire trouvée{/if}
 				</div>
 			{/if}
 		</div>
@@ -767,7 +781,7 @@
 									{confidentialStore.format(tx.amount)}
 								</td>
 								<td class="px-5 py-3.5">
-									<div class="flex gap-0.5 opacity-0 transition-smooth group-hover:opacity-100" style="opacity: 1;">
+									<div class="flex gap-0.5 opacity-0 transition-smooth group-hover:opacity-100">
 										<button onclick={() => (splittingTx = tx)} class="rounded-lg p-1.5 text-text-muted hover:text-purple hover:bg-purple/10 transition-smooth" title="Ventiler" aria-label="Ventiler la transaction {tx.label}">
 											<Scissors size={14} />
 										</button>

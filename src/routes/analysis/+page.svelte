@@ -319,7 +319,7 @@
 			</div>
 			<p class="text-title text-text-primary mb-2">Pas de données pour {year}</p>
 			<p class="text-body text-text-muted text-center max-w-sm">
-				Importez des transactions pour voir apparaitre vos graphiques d'analyse et statistiques détaillées.
+				Importez des transactions pour voir apparaître vos graphiques d'analyse et statistiques détaillées.
 			</p>
 		</div>
 	{:else}
@@ -358,7 +358,7 @@
 					<div class="flex h-10 w-10 items-center justify-center rounded-2xl {balance >= 0 ? 'bg-income/10' : 'bg-expense/10'}">
 						<Scale size={20} class={balance >= 0 ? 'text-income' : 'text-expense'} strokeWidth={2} />
 					</div>
-					<p class="text-caption text-text-muted uppercase tracking-wider">Balance</p>
+					<p class="text-caption text-text-muted uppercase tracking-wider">Solde net</p>
 				</div>
 				<p class="text-[1.75rem] font-bold tracking-tight tabular-nums" class:text-income={balance >= 0} class:text-expense={balance < 0}>
 					{confidentialStore.format(balance)}

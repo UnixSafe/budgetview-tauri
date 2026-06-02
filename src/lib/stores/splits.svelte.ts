@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { Split, SplitInput } from '$lib/types';
 
-class SplitStore {
+export class SplitStore {
 	splits = $state<Split[]>([]);
 	loading = $state(false);
 	error = $state<string | null>(null);

@@ -7,7 +7,7 @@ export interface ProjectWithProgress extends Project {
 	items: ProjectItem[];
 }
 
-class ProjectStore {
+export class ProjectStore {
 	projects = $state<ProjectWithProgress[]>([]);
 	loading = $state(false);
 	error = $state<string | null>(null);

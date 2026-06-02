@@ -78,9 +78,9 @@
 				</div>
 
 				<div class="border-t border-border-light pt-6">
-					<p class="mb-3 text-[13px] font-semibold text-text-secondary">Supprimer le mot de passe</p>
+					<label for="security-current-password" class="mb-3 block text-[13px] font-semibold text-text-secondary">Supprimer le mot de passe</label>
 					<div class="flex gap-3">
-						<input type="password" bind:value={currentPassword} placeholder="Mot de passe actuel"
+						<input id="security-current-password" type="password" bind:value={currentPassword} placeholder="Mot de passe actuel"
 							class="flex-1 rounded-xl border border-border bg-bg-primary/60 px-4 py-3 text-[14px] text-text-primary outline-none focus-ring placeholder:text-text-muted" />
 						<button onclick={handleRemovePassword} disabled={removingPassword || !currentPassword}
 							class="flex items-center gap-2 rounded-xl border border-danger/50 px-5 py-3 text-[13px] font-medium text-danger transition-smooth btn-press hover:bg-danger/10 disabled:opacity-40">
@@ -100,10 +100,16 @@
 				<div class="border-t border-border-light pt-6">
 					<p class="mb-3 text-[13px] font-semibold text-text-secondary">Définir un mot de passe</p>
 					<form onsubmit={handleSetPassword} class="space-y-4">
-						<input type="password" bind:value={newPassword} placeholder="Nouveau mot de passe (4 car. min.)"
-							class="w-full rounded-xl border border-border bg-bg-primary/60 px-4 py-3 text-[14px] text-text-primary outline-none focus-ring placeholder:text-text-muted" />
-						<input type="password" bind:value={confirmPassword} placeholder="Confirmer"
-							class="w-full rounded-xl border border-border bg-bg-primary/60 px-4 py-3 text-[14px] text-text-primary outline-none focus-ring placeholder:text-text-muted" />
+						<div>
+							<label for="security-new-password" class="mb-1.5 block text-[12px] font-medium text-text-muted">Nouveau mot de passe</label>
+							<input id="security-new-password" type="password" bind:value={newPassword} placeholder="4 caractères minimum"
+								class="w-full rounded-xl border border-border bg-bg-primary/60 px-4 py-3 text-[14px] text-text-primary outline-none focus-ring placeholder:text-text-muted" />
+						</div>
+						<div>
+							<label for="security-confirm-password" class="mb-1.5 block text-[12px] font-medium text-text-muted">Confirmer</label>
+							<input id="security-confirm-password" type="password" bind:value={confirmPassword} placeholder="Confirmer le mot de passe"
+								class="w-full rounded-xl border border-border bg-bg-primary/60 px-4 py-3 text-[14px] text-text-primary outline-none focus-ring placeholder:text-text-muted" />
+						</div>
 						<button type="submit" disabled={settingPassword || newPassword.length < 4}
 							class="flex items-center gap-2 rounded-xl bg-accent px-6 py-3 text-[14px] font-semibold text-white transition-smooth btn-press hover:bg-accent-hover shadow-lg shadow-accent/20 disabled:opacity-40">
 							<Lock size={15} />

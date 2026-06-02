@@ -84,6 +84,8 @@
 	<title>Projets — BudgetView</title>
 </svelte:head>
 
+<svelte:window onkeydown={(e) => { if (e.key === 'Escape' && showForm) showForm = false; }} />
+
 <div class="space-y-8 animate-fade-in">
 	<!-- Header -->
 	<div class="flex items-center justify-between">
