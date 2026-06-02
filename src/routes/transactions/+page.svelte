@@ -263,6 +263,10 @@
 		transactionStore.filterSeriesId = '';
 		transactionStore.filterDateFrom = '';
 		transactionStore.filterDateTo = '';
+		transactionStore.filterAmountMin = '';
+		transactionStore.filterAmountMax = '';
+		transactionStore.filterCategorization = '';
+		transactionStore.filterReconciled = '';
 		transactionStore.load();
 	}
 
@@ -273,16 +277,10 @@
 		toastStore.success(newValue ? 'Transaction pointée' : 'Pointage annulé');
 	}
 
-	let filterReconciled = $state<'' | 'yes' | 'no'>('');
 	let hasExternalFilter = $state(false);
 	let externalFilterLabel = $state('');
 
-	let filteredTransactions = $derived.by(() => {
-		let txs = transactionStore.transactions;
-		if (filterReconciled === 'yes') txs = txs.filter(t => t.is_reconciled);
-		if (filterReconciled === 'no') txs = txs.filter(t => !t.is_reconciled);
-		return txs;
-	});
+	let filteredTransactions = $derived(transactionStore.transactions);
 
 	function formatDateShort(dateStr: string) {
 		const d = new Date(dateStr);
@@ -310,7 +308,7 @@
 				Filtre : <span class="font-semibold text-accent">{externalFilterLabel}</span>
 			</p>
 			<button
-				onclick={() => { clearFilters(); filterReconciled = ''; hasExternalFilter = false; goto('/transactions'); }}
+				onclick={() => { clearFilters(); hasExternalFilter = false; goto('/transactions'); }}
 				class="ml-auto text-[12px] text-text-muted hover:text-text-primary transition-smooth"
 			>
 				Effacer le filtre
@@ -572,15 +570,25 @@
 			{/each}
 		</select>
 		<select
-			bind:value={filterReconciled}
+			bind:value={transactionStore.filterCategorization}
+			onchange={handleSearch}
+			class="rounded-xl border border-border bg-bg-card/60 px-4 py-2.5 text-[13px] text-text-primary outline-none focus-ring"
+		>
+			<option value="">Catégorisation</option>
+			<option value="categorized">Catégorisées</option>
+			<option value="uncategorized">Non catégorisées</option>
+		</select>
+		<select
+			bind:value={transactionStore.filterReconciled}
+			onchange={handleSearch}
 			class="rounded-xl border border-border bg-bg-card/60 px-4 py-2.5 text-[13px] text-text-primary outline-none focus-ring"
 		>
 			<option value="">Pointage</option>
 			<option value="yes">Pointées</option>
 			<option value="no">Non pointées</option>
 		</select>
-		{#if transactionStore.search || transactionStore.filterAccountId || transactionStore.filterSeriesId || filterReconciled || transactionStore.filterDateFrom || transactionStore.filterDateTo}
-			<button onclick={() => { clearFilters(); filterReconciled = ''; transactionStore.filterDateFrom = ''; transactionStore.filterDateTo = ''; }} class="text-[12px] font-medium text-accent hover:text-accent-hover transition-smooth">
+		{#if transactionStore.search || transactionStore.filterAccountId || transactionStore.filterSeriesId || transactionStore.filterCategorization || transactionStore.filterReconciled || transactionStore.filterDateFrom || transactionStore.filterDateTo || transactionStore.filterAmountMin || transactionStore.filterAmountMax}
+			<button onclick={clearFilters} class="text-[12px] font-medium text-accent hover:text-accent-hover transition-smooth">
 				Effacer
 			</button>
 		{/if}
@@ -618,6 +626,27 @@
 			class="rounded-xl border border-border bg-bg-card/60 px-3 py-2 text-[12px] text-text-primary outline-none focus-ring"
 			title="Date de fin"
 		/>
+		<div class="flex items-center gap-2">
+			<input
+				type="number"
+				step="0.01"
+				bind:value={transactionStore.filterAmountMin}
+				onchange={handleSearch}
+				class="w-28 rounded-xl border border-border bg-bg-card/60 px-3 py-2 text-[12px] text-text-primary outline-none focus-ring"
+				placeholder="Min €"
+				title="Montant minimum"
+			/>
+			<span class="text-[12px] text-text-muted">à</span>
+			<input
+				type="number"
+				step="0.01"
+				bind:value={transactionStore.filterAmountMax}
+				onchange={handleSearch}
+				class="w-28 rounded-xl border border-border bg-bg-card/60 px-3 py-2 text-[12px] text-text-primary outline-none focus-ring"
+				placeholder="Max €"
+				title="Montant maximum"
+			/>
+		</div>
 	</div>
 
 	<!-- Transaction summary + categorization gauge -->
