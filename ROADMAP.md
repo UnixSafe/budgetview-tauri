@@ -1,214 +1,142 @@
-# BudgetView Tauri — Roadmap
+# BudgetView Tauri - Roadmap
 
-Comparaison exhaustive entre le code Java original (870 classes) et la version Tauri.
+Etat verifie localement le 2 juin 2026.
 
-**Légende** : ✅ Fait | 🔧 Partiel | ❌ Manquant
+Cette roadmap remplace l'ancien audit qui marquait encore comme manquantes plusieurs fonctionnalites deja presentes dans le depot. Elle distingue l'implementation disponible, les zones partielles et les chantiers restants pour arriver a une version publiable.
 
----
+## Etat actuel
 
-## État actuel (ce qui est fait)
-
-| Fonctionnalité | État | Notes |
+| Domaine | Etat | Notes |
 |---|---|---|
-| Dashboard (solde, résumé, dernières transactions) | ✅ | |
-| Comptes CRUD | ✅ | checking, savings, credit_card, cash |
-| Transactions CRUD + recherche par label | ✅ | |
-| Import OFX/QIF/CSV | ✅ | Détection format, doublons, preview |
-| Catégories budget (series) CRUD | ✅ | 6 budget areas |
-| Budget mensuel (planifié par mois) | ✅ | |
-| Vue budget planifié vs réalisé | ✅ | Barres de progression colorées |
-| Graphiques d'analyse (4 types) | ✅ | Barres, camembert, lignes, prévision |
-| Projets & objectifs épargne | ✅ | CRUD + items + progression |
-| Auto-catégorisation | ✅ | 3 niveaux matching, seuil 3, apprentissage |
-| Gestion des règles de catégorisation | ✅ | Page settings/rules |
+| Dashboard | Fait | Solde, resume mensuel, sante budget, tresorerie et dernieres transactions. |
+| Comptes | Fait | CRUD, types de comptes, seuils de solde bas et correction de solde. |
+| Transactions | Fait | CRUD, recherche, filtres, categorisation manuelle, batch actions, rapprochement. |
+| Import | Fait | OFX, QIF, CSV, preview, detection colonnes CSV, doublons et rollback par batch. |
+| Budget | Fait | Series, sous-series, budgets mensuels, groupes de series, report manuel. |
+| Analyse | Fait | Graphiques annuels, repartition, top depenses, prevision simple. |
+| Projets | Fait | CRUD projets, items, progression et rattachement aux comptes/categories. |
+| Auto-categorisation | Fait | Regles apprises, normalisation, exclusions, badge auto, dictionnaire mots-cles. |
+| Ventilation | Fait | Splits de transaction avec controle du total et UI modale. |
+| Recurrences | Fait | Detection, confirmation, CRUD, alertes de recurrence manquante. |
+| Export | Partiel | CSV transactions et budget. OFX/PDF non livres. |
+| Sauvegarde | Partiel | Backup/restore SQLite disponible. Il manque une strategie de sauvegarde automatique et tests d'integration. |
+| Securite | Partiel | Mot de passe au lancement et hachage PBKDF2. Pas de chiffrement complet de la base au repos. |
+| Preferences | Partiel | Format date, horizon previsionnel, mois budgetaire. Pas encore de vrai toggle theme. |
+| IA | Optionnel | Categorisation via OpenRouter/xAI, avec cle stockee localement. Depend d'un appel reseau explicite. |
+| Tests | Partiel | Tests frontend et backend existants. Les commandes Tauri et migrations doivent etre davantage couvertes. |
 
----
+## Validations locales recentes
 
-## Fonctionnalités manquantes
+- `npm run check` : passe, avec des warnings a11y sur `master` tant que la PR accessibilite n'est pas mergee.
+- `npm run build` : passe.
+- `npx vitest run` : passe sur `master`.
+- `cargo test` : passe.
+- Une PR dediee ajoute `npm run test`, `npm run test:coverage` et des seuils de couverture frontend.
 
-### P1 — Priorité haute (fonctionnalités métier essentielles)
+## Reste a faire
 
-#### 1. ❌ Ventilation de transactions (Transaction Splitting)
-**Java** : `SplitTransactionAction`, `SplitTransactionDialog`
-- Découper une transaction en plusieurs lignes affectées à des séries différentes
-- Ex : ticket Carrefour 80€ → 60€ courses + 20€ maison
-- Table `transaction_splits` existe déjà dans le schéma
-- **Impact** : fonctionnalité critique pour un budget précis
+### P0 - Stabilisation release
 
-#### 2. ❌ Export des données (CSV, OFX)
-**Java** : `OfxExporter`, `TsvExporter`
-- Export CSV/TSV des transactions filtrées
-- Export OFX pour compatibilité
-- Sélection par période, compte, catégorie
-- **Impact** : impossible de sortir ses données actuellement
+1. **Merger les PRs de qualite deja ouvertes**
+   - Couverture frontend stores et configuration coverage.
+   - Corrections des warnings accessibilite Svelte.
 
-#### 3. ❌ Sauvegarde & restauration
-**Java** : `BackupService`, `RestoreFileAction`, `RestoreSnapshotAction`
-- Backup complet de la base SQLite
-- Restauration depuis fichier
-- Protection par mot de passe
-- **Impact** : risque de perte de données
+2. **Tester le lancement reel Tauri**
+   - Lancer `cargo tauri dev`.
+   - Verifier creation DB, migrations, preload SQL, CSP, navigation et ouverture des dialogues fichiers.
+   - Ajouter une checklist de smoke test documentee.
 
-#### 4. ❌ Sous-séries (sous-catégories) — UI
-**Java** : `SubSeriesEditionPanel`
-- Table `sub_series` existe, pas d'UI
-- Créer/modifier/supprimer des sous-catégories
-- Assigner des transactions à une sous-série
-- **Impact** : granularité du budget (ex : Santé → Médecin, Pharmacie)
+3. **Nettoyer le depot**
+   - Supprimer les fichiers parasites non suivis (`.DS_Store`, temporaires agents).
+   - Garder `node_modules/`, `build/`, `coverage/`, `.svelte-kit/`, `src-tauri/target/` ignores.
+   - Decider si `AGENTS.md` et `dataset.md` doivent etre versionnes.
 
-#### 5. ❌ Recherche avancée des transactions
-**Java** : `TransactionFilterPanel`
-- Filtrer par plage de montant
-- Filtrer par plage de dates
-- Filtrer par état (catégorisé/non catégorisé)
-- Recherche combinée multi-critères
-- **Impact** : retrouver une transaction précise est laborieux
+4. **Renforcer les tests Rust critiques**
+   - Migrations SQLite.
+   - `import_confirm`, rollback, splits, recurrences, backup/restore, exports CSV.
+   - Edge cases : montants nuls/negatifs, ids inexistants, labels vides, fichiers invalides.
 
-#### 6. ❌ Détection des transactions récurrentes
-**Java** : `SeriesRepeatPanel`, `FilteredRepeats`
-- Analyser l'historique pour détecter les récurrences
-- Suggérer la création de séries budget
-- Table `recurring_transactions` existe, pas de logique
-- **Impact** : aide à la planification du budget
+### P1 - Donnees et securite
 
-#### 7. ❌ Report de budget (Carryover)
-**Java** : `CarryOverAction`, `CarryOverComputer`
-- Reporter le surplus/déficit d'un mois au suivant
-- Options : automatique ou manuel
-- **Impact** : les enveloppes budgétaires perdent leur excédent chaque mois
+5. **Chiffrement au repos**
+   - Definir l'approche : SQLCipher, base chiffree externe, ou coffre applicatif local.
+   - Ne pas presenter le mot de passe actuel comme un chiffrement complet.
 
----
+6. **Sauvegarde automatique**
+   - Snapshots locaux horodates.
+   - Rotation configurable.
+   - Restauration avec verification de schema et sauvegarde de securite.
 
-### P2 — Priorité moyenne (enrichissement fonctionnel)
+7. **Verification d'integrite**
+   - Controle des references orphelines.
+   - Verification splits = montant transaction.
+   - Rapport de donnees incoherentes et corrections proposees.
 
-#### 8. ❌ Groupes de séries
-**Java** : `SeriesGroupMenu`, `CreateSeriesGroupDialog`
-- Regrouper des séries liées (ex : "Auto" = Carburant + Assurance + Crédit)
-- Vue agrégée du budget par groupe
+### P2 - Fonctionnel avance
 
-#### 9. ❌ Suivi des positions de compte
-**Java** : `DailyAccountPositionComputer`, `AccountPositionEditionDialog`
-- Historique du solde quotidien
-- Graphe d'évolution du solde par compte
-- Correction manuelle de position
+8. **Tags de transactions**
+   - Tables deja presentes.
+   - Ajouter UI d'edition, affichage et filtres.
 
-#### 10. ❌ Rapprochement bancaire (Réconciliation)
-**Java** : `ReconciliationAnnotationColumn`
-- Marquer les transactions comme rapprochées
-- Vérification croisée avec les relevés bancaires
+9. **Types de transactions**
+   - CB, cheque, virement, prelevement, retrait, depot, frais, remboursement.
+   - Detection a l'import et filtres dedies.
 
-#### 11. ❌ Tags sur les transactions
-- Tables `tags` et `transaction_tags` existent, pas d'UI
-- Ajouter des tags libres aux transactions
-- Filtrer/rechercher par tag
+10. **Carte a debit differe**
+    - Modeliser compte carte, date de debit et liaison avec compte bancaire.
+    - Adapter categorisation et prevision.
 
-#### 12. ❌ Types de transactions
-**Java** : `TransactionType` (14 types)
-- Virement, chèque, retrait DAB, prélèvement, CB, etc.
-- Détection automatique du type à l'import
-- Filtrage par type
+11. **Export OFX et PDF**
+    - OFX pour compatibilite.
+    - PDF/print pour budget mensuel et transactions filtrees.
 
-#### 13. ❌ Undo/Redo
-**Java** : `UndoRedoService`
-- Annuler/refaire les dernières actions
-- Historique des modifications
+12. **Previsions plus proches du Java**
+    - Integrer series recurrentes, jours du mois, reports, projets et historique.
+    - Distinguer prevision automatique et montant fixe.
 
-#### 14. ❌ Impression / PDF
-**Java** : `TransactionsReport`, `BudgetReport`
-- Imprimer la liste des transactions
-- Imprimer le budget mensuel
-- Mise en page configurable
+### P3 - Ergonomie
 
-#### 15. ❌ Navigation temporelle avancée
-**Java** : `TimeGraph`, `MonthGraph`, `YearGraph`
-- Graphe de navigation par mois/année
-- Sélection de période par clic sur le graphe
-- Vue annuelle
+13. **Navigation temporelle avancee**
+    - Vue mois/annee.
+    - Selection de periode par graphe.
+    - Comparaison multi-mois plus directe.
 
-#### 16. ❌ Prévision de séries
-**Java** : `SeriesForecastPanel`
-- Auto-forecast vs montant fixe
-- Prévision basée sur l'historique
-- Tendances par série
+14. **Theme clair/sombre**
+    - Toggle manuel.
+    - Preference systeme.
+    - Persistance dans `app_settings`.
 
----
+15. **Notifications internes**
+    - Budget depasse.
+    - Solde bas.
+    - Transactions non categorisees.
+    - Recurrences manquantes.
 
-### P3 — Priorité basse (confort & avancé)
+16. **Onboarding final**
+    - Parcours premier lancement.
+    - Import de demo optionnel.
+    - Checklist utilisateur : compte, import, budget, categorisation.
 
-#### 17. ❌ Chiffrement des données
-**Java** : `MD5PasswordBasedEncryptor`
-- Mot de passe pour protéger la base
-- Chiffrement au repos
+## Ordre de PR recommande
 
-#### 18. ❌ Préférences utilisateur
-**Java** : `StorageDirPane`, `ColorsPane`, `ParametersPane`
-- Choix du répertoire de stockage
-- Thème de couleurs
-- Paramètres divers
+1. `test: expand frontend store coverage`
+2. `fix: resolve modal accessibility warnings`
+3. `docs: refresh project roadmap`
+4. `test: add backend command and migration coverage`
+5. `fix: harden backup restore workflow`
+6. `feat: add transaction tags UI`
+7. `feat: add transaction type detection`
+8. `feat: add automatic backups`
+9. `feat: add data integrity checks`
+10. `feat: implement at-rest encryption`
 
-#### 19. ❌ Notifications & alertes
-**Java** : `NotificationService`, `NotificationsDialog`
-- Alertes budget dépassé
-- Rappels de catégorisation
-- Notifications dans l'interface
+## Definition de "pret pour release"
 
-#### 20. ❌ Indicateur de santé des comptes (Weather)
-**Java** : `AccountWeather`, `WeatherWidget`
-- Indicateurs rouge/orange/vert
-- Basé sur l'évolution du solde et le taux d'épargne
-
-#### 21. ❌ Onboarding / Visite guidée
-**Java** : `Signpost`, `PersistentSignpost`
-- Parcours guidé pour les nouveaux utilisateurs
-- Aide contextuelle
-
-#### 22. ❌ Vérification d'intégrité des données
-**Java** : `DataCheckingService`
-- Validation des comptes, séries, transactions
-- Rapport d'intégrité
-- Correction automatique
-
-#### 23. ❌ Toggle dark/light mode
-- Le dark mode est en dur, pas de switch
-- Préférence système ou toggle manuel
-
-#### 24. ❌ Carte débit différé
-**Java** : `DeferredCardEditionPanel`, `DeferredCardCategorizationPanel`
-- Gestion des CB à débit différé
-- Vue spéciale catégorisation
-
----
-
-## Ordre d'implémentation suggéré
-
-### Sprint 1 — Compléter le MVP
-1. **Ventilation de transactions** (P1) — la table existe déjà
-2. **Export CSV** (P1) — sortir ses données
-3. **Sauvegarde/restauration** (P1) — sécuriser les données
-
-### Sprint 2 — Budget avancé
-4. **Sous-séries UI** (P1)
-5. **Report de budget** (P1)
-6. **Recherche avancée** (P1)
-
-### Sprint 3 — Automatisation
-7. **Détection récurrences** (P1)
-8. **Groupes de séries** (P2)
-9. **Types de transactions** (P2)
-
-### Sprint 4 — Intégrité & Analyse
-10. **Rapprochement bancaire** (P2)
-11. **Tags** (P2)
-12. **Navigation temporelle** (P2)
-
-### Sprint 5 — Confort
-13. **Undo/Redo** (P2)
-14. **Positions de compte** (P2)
-15. **Prévision de séries** (P2)
-
-### Sprint 6 — Finalisation
-16. **Impression/PDF** (P2)
-17. **Préférences** (P3)
-18. **Chiffrement** (P3)
-19. **Notifications** (P3)
-20. **Onboarding** (P3)
+- `cargo tauri dev` demarre sans erreur sur une base neuve.
+- `npm run check`, `npm run build`, `npm run test` et `cargo test` passent.
+- Import OFX/QIF/CSV teste avec fixtures.
+- Backup/restore teste sur une base non vide.
+- Aucune donnee financiere stockee en `REAL`.
+- CSP active.
+- Aucun fichier genere ou log agent versionne.
+- Les limitations de securite sont documentees clairement.
