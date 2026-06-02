@@ -125,12 +125,9 @@
 }} />
 
 {#if open}
-	<!-- Backdrop -->
-	<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-	<div class="fixed inset-0 z-[200] modal-overlay animate-fade-in" onclick={() => (open = false)}>
-		<!-- Search dialog -->
-		<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-		<div class="mx-auto mt-[15vh] w-full max-w-xl px-4" onclick={(e) => e.stopPropagation()}>
+	<div class="fixed inset-0 z-[200] modal-overlay animate-fade-in" role="dialog" aria-modal="true" aria-label="Recherche globale">
+		<button type="button" class="absolute inset-0" onclick={() => (open = false)} aria-label="Fermer la recherche"></button>
+		<div class="relative mx-auto mt-[15vh] w-full max-w-xl px-4">
 			<div class="glass-card shadow-2xl overflow-hidden animate-modal-in">
 				<!-- Search input -->
 				<div class="flex items-center gap-3 border-b border-glass-border px-5 py-4">

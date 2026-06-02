@@ -98,9 +98,8 @@
 
 <svelte:window on:keydown={handleKeydown} />
 
-<div class="fixed inset-0 z-50 flex items-center justify-center modal-overlay animate-fade-in" role="dialog" aria-label="Ventiler la transaction">
-	<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-	<div class="absolute inset-0" onclick={onclose}></div>
+<div class="fixed inset-0 z-50 flex items-center justify-center modal-overlay animate-fade-in" role="dialog" aria-modal="true" aria-label="Ventiler la transaction">
+	<button type="button" class="absolute inset-0" onclick={onclose} aria-label="Fermer la ventilation"></button>
 	<div class="relative w-full max-w-lg glass-card p-7 shadow-2xl animate-modal-in mx-4">
 		<div class="mb-6 flex items-center justify-between">
 			<h2 class="text-xl font-bold tracking-tight text-text-primary">Ventiler la transaction</h2>

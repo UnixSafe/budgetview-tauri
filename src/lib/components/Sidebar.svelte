@@ -256,11 +256,9 @@
 
 <!-- Mobile more sheet -->
 {#if showMoreSheet}
-	<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-	<div class="fixed inset-0 z-40 md:hidden" onclick={() => (showMoreSheet = false)}>
-		<div class="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fade-in"></div>
-		<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-		<div class="absolute bottom-[72px] left-0 right-0 safe-area-bottom" onclick={(e) => e.stopPropagation()}>
+	<div class="fixed inset-0 z-40 md:hidden" role="dialog" aria-modal="true" aria-label="Navigation secondaire">
+		<button type="button" class="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fade-in" onclick={() => (showMoreSheet = false)} aria-label="Fermer la navigation"></button>
+		<div class="absolute bottom-[72px] left-0 right-0 safe-area-bottom">
 			<div class="mx-3 mb-2 glass rounded-2xl overflow-hidden shadow-2xl animate-slide-up p-2">
 				<div class="grid grid-cols-4 gap-1">
 					{#each moreNav as item}
