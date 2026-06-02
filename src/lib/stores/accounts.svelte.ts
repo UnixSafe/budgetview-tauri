@@ -6,7 +6,7 @@ interface AccountWithBalance extends Account {
 	computed_balance: number;
 }
 
-class AccountStore {
+export class AccountStore {
 	accounts = $state<AccountWithBalance[]>([]);
 	loading = $state(false);
 	error = $state<string | null>(null);

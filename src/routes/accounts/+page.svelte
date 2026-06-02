@@ -209,6 +209,13 @@
 	<title>Comptes — BudgetView</title>
 </svelte:head>
 
+<svelte:window onkeydown={(e) => {
+	if (e.key === 'Escape') {
+		if (showBalanceCorrection) showBalanceCorrection = false;
+		else if (showForm) showForm = false;
+	}
+}} />
+
 <div class="space-y-8">
 	<div class="flex items-center justify-between">
 		<div>
@@ -339,7 +346,7 @@
 								{/if}
 							</div>
 							<div class="flex gap-1 opacity-0 transition-smooth group-hover:opacity-100">
-								<a href="/transactions" class="rounded-xl p-2 text-text-muted transition-smooth hover:bg-bg-hover hover:text-text-primary" aria-label="Transactions" title="Voir les transactions">
+								<a href="/transactions?account={account.id}" class="rounded-xl p-2 text-text-muted transition-smooth hover:bg-bg-hover hover:text-text-primary" aria-label="Transactions" title="Voir les transactions">
 									<ArrowLeftRight size={15} />
 								</a>
 								<button onclick={() => openBalanceCorrection(account)} class="rounded-xl p-2 text-text-muted transition-smooth hover:bg-accent/10 hover:text-accent" aria-label="Ajuster le solde" title="Ajuster le solde">

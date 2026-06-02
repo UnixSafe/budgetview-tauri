@@ -108,7 +108,7 @@
 				<table class="w-full">
 					<thead>
 						<tr class="border-b border-border-light text-left text-[12px] font-semibold text-text-muted uppercase tracking-wider">
-							<th class="px-5 py-3.5">Label</th>
+							<th class="px-5 py-3.5">Libellé</th>
 							<th class="px-5 py-3.5">Catégorie</th>
 							<th class="px-5 py-3.5 text-center">Confiance</th>
 							<th class="px-5 py-3.5 text-center">Utilisations</th>

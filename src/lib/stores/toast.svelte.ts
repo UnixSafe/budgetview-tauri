@@ -8,7 +8,7 @@ export interface Toast {
 
 let nextId = 0;
 
-class ToastStore {
+export class ToastStore {
 	toasts = $state<Toast[]>([]);
 
 	show(message: string, type: Toast['type'] = 'info', duration = 3000) {

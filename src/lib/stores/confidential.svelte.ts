@@ -2,7 +2,7 @@ import { query, execute } from './db';
 
 const MASK = '***,** \u20AC';
 
-class ConfidentialStore {
+export class ConfidentialStore {
 	enabled = $state(false);
 
 	async load() {

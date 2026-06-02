@@ -8,7 +8,7 @@ interface Note {
 	updated_at: string;
 }
 
-class NotesStore {
+export class NotesStore {
 	content = $state('');
 	year = $state(new Date().getFullYear());
 	month = $state(new Date().getMonth() + 1);

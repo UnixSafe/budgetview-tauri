@@ -206,7 +206,7 @@
 				{#if preview.transactions.length > 20}
 					<button onclick={() => (showAllTransactions = !showAllTransactions)}
 						class="flex items-center gap-1 text-[12px] font-medium text-accent hover:text-accent-hover transition-smooth">
-						{showAllTransactions ? 'Réduire' : `Voir ${preview.transactions.length}`}
+						{showAllTransactions ? 'Réduire' : `Tout afficher (${preview.transactions.length})`}
 						{#if showAllTransactions}<ChevronUp size={14} />{:else}<ChevronDown size={14} />{/if}
 					</button>
 				{/if}

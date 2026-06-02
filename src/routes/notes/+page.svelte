@@ -12,7 +12,8 @@
 		notesStore.load();
 	});
 
-	function prevMonth() {
+	async function prevMonth() {
+		await notesStore.save();
 		if (notesStore.month === 1) {
 			notesStore.setMonth(notesStore.year - 1, 12);
 		} else {
@@ -20,7 +21,8 @@
 		}
 	}
 
-	function nextMonth() {
+	async function nextMonth() {
+		await notesStore.save();
 		if (notesStore.month === 12) {
 			notesStore.setMonth(notesStore.year + 1, 1);
 		} else {

@@ -39,7 +39,11 @@
 					filePath: path, year: budgetYear, month: budgetMonth
 				});
 			}
-			toastStore.success(`${count} ligne(s) exportée(s)`);
+			if (count === 0) {
+				toastStore.show('Aucune ligne à exporter avec ces filtres');
+			} else {
+				toastStore.success(`${count} ligne(s) exportée(s)`);
+			}
 		} catch (e) {
 			toastStore.error(String(e));
 		} finally { exporting = false; }

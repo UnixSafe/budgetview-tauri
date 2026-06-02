@@ -28,7 +28,7 @@
 </script>
 
 {#if toastStore.toasts.length > 0}
-	<div class="fixed bottom-6 right-6 z-[100] flex flex-col gap-3 max-w-sm">
+	<div class="fixed bottom-20 md:bottom-6 right-6 z-[100] flex flex-col gap-3 max-w-sm">
 		{#each toastStore.toasts as toast, i (toast.id)}
 			{@const config = typeConfig[toast.type] || typeConfig.info}
 			<div
