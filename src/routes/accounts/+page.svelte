@@ -43,8 +43,8 @@
 		// Create an adjustment transaction
 		const label = diff > 0 ? 'Ajustement de solde (+)' : 'Ajustement de solde (-)';
 		await query(
-			'INSERT INTO transactions (account_id, date, label, amount, note) VALUES ($1, $2, $3, $4, $5)',
-			[correctionAccountId, new Date().toISOString().slice(0, 10), label, diff, 'Correction manuelle du solde']
+			'INSERT INTO transactions (account_id, date, label, amount, note, transaction_type) VALUES ($1, $2, $3, $4, $5, $6)',
+			[correctionAccountId, new Date().toISOString().slice(0, 10), label, diff, 'Correction manuelle du solde', 'other']
 		);
 		await accountStore.load();
 		await loadSparklines();

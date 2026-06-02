@@ -7,7 +7,8 @@ import {
 	formatMonth,
 	anonymizeLabel,
 	isExcludedFromAutoCategorization,
-	isTransferLabel
+	isTransferLabel,
+	detectTransactionType
 } from './format';
 
 describe('toCents', () => {
@@ -179,5 +180,23 @@ describe('isExcludedFromAutoCategorization', () => {
 		expect(isExcludedFromAutoCategorization('CARREFOUR CB')).toBe(false);
 		expect(isExcludedFromAutoCategorization('VIR SEPA SALAIRE')).toBe(false);
 		expect(isExcludedFromAutoCategorization('PRLV EDF')).toBe(false);
+	});
+});
+
+describe('detectTransactionType', () => {
+	it('detects common French bank labels', () => {
+		expect(detectTransactionType('CARTE 17/03 CARREFOUR CB*1234', -4200)).toBe('card');
+		expect(detectTransactionType('VIR SEPA SALAIRE', 250000)).toBe('transfer');
+		expect(detectTransactionType('PRLV EDF', -8000)).toBe('direct_debit');
+		expect(detectTransactionType('CHEQUE 12345', -5000)).toBe('check');
+		expect(detectTransactionType('RETRAIT DAB 50 EUR', -5000)).toBe('cash_withdrawal');
+		expect(detectTransactionType('REMISE ESP', 5000)).toBe('cash_deposit');
+		expect(detectTransactionType('FRAIS TENUE DE COMPTE', -200)).toBe('fee');
+		expect(detectTransactionType('REMBOURSEMENT ASSURANCE', 1200)).toBe('refund');
+	});
+
+	it('falls back to income or other based on sign', () => {
+		expect(detectTransactionType('SALAIRE MARS', 250000)).toBe('income');
+		expect(detectTransactionType('ACHAT INCONNU', -1200)).toBe('other');
 	});
 });
