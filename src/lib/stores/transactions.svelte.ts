@@ -6,6 +6,81 @@ import { undoStore } from './undo.svelte';
 
 const PAGE_SIZE = 200;
 
+export type TransactionCategorizationFilter = '' | 'categorized' | 'uncategorized';
+export type TransactionReconciledFilter = '' | 'yes' | 'no';
+
+export interface TransactionFilters {
+	accountId: number | string;
+	seriesId: number | string;
+	search: string;
+	dateFrom: string;
+	dateTo: string;
+	amountMin: string;
+	amountMax: string;
+	categorization: TransactionCategorizationFilter;
+	reconciled: TransactionReconciledFilter;
+}
+
+function parseAmountFilter(value: string): number | null {
+	const normalized = value.trim().replace(',', '.');
+	if (!normalized) return null;
+	const parsed = Number(normalized);
+	return Number.isFinite(parsed) ? toCents(parsed) : null;
+}
+
+export function buildTransactionWhere(filters: TransactionFilters): { clause: string; params: unknown[] } {
+	let clause = ' WHERE 1=1';
+	const params: unknown[] = [];
+	let i = 1;
+
+	if (filters.accountId) {
+		clause += ` AND t.account_id = $${i++}`;
+		params.push(filters.accountId);
+	}
+	if (filters.seriesId) {
+		clause += ` AND t.series_id = $${i++}`;
+		params.push(filters.seriesId);
+	}
+	if (filters.search) {
+		clause += ` AND t.label LIKE $${i++}`;
+		params.push(`%${filters.search}%`);
+	}
+	if (filters.dateFrom) {
+		clause += ` AND t.date >= $${i++}`;
+		params.push(filters.dateFrom);
+	}
+	if (filters.dateTo) {
+		clause += ` AND t.date <= $${i++}`;
+		params.push(filters.dateTo);
+	}
+
+	const amountMin = parseAmountFilter(filters.amountMin);
+	if (amountMin !== null) {
+		clause += ` AND t.amount >= $${i++}`;
+		params.push(amountMin);
+	}
+
+	const amountMax = parseAmountFilter(filters.amountMax);
+	if (amountMax !== null) {
+		clause += ` AND t.amount <= $${i++}`;
+		params.push(amountMax);
+	}
+
+	if (filters.categorization === 'categorized') {
+		clause += ' AND t.series_id IS NOT NULL';
+	} else if (filters.categorization === 'uncategorized') {
+		clause += ' AND t.series_id IS NULL';
+	}
+
+	if (filters.reconciled === 'yes') {
+		clause += ' AND t.is_reconciled = 1';
+	} else if (filters.reconciled === 'no') {
+		clause += ' AND COALESCE(t.is_reconciled, 0) = 0';
+	}
+
+	return { clause, params };
+}
+
 class TransactionStore {
 	transactions = $state<Transaction[]>([]);
 	loading = $state(false);
@@ -18,32 +93,23 @@ class TransactionStore {
 	filterSeriesId = $state<number | string>('');
 	filterDateFrom = $state('');
 	filterDateTo = $state('');
+	filterAmountMin = $state('');
+	filterAmountMax = $state('');
+	filterCategorization = $state<TransactionCategorizationFilter>('');
+	filterReconciled = $state<TransactionReconciledFilter>('');
 
 	private buildWhere(): { clause: string; params: unknown[] } {
-		let clause = ' WHERE 1=1';
-		const params: unknown[] = [];
-		let i = 1;
-		if (this.filterAccountId) {
-			clause += ` AND t.account_id = $${i++}`;
-			params.push(this.filterAccountId);
-		}
-		if (this.filterSeriesId) {
-			clause += ` AND t.series_id = $${i++}`;
-			params.push(this.filterSeriesId);
-		}
-		if (this.search) {
-			clause += ` AND t.label LIKE $${i++}`;
-			params.push(`%${this.search}%`);
-		}
-		if (this.filterDateFrom) {
-			clause += ` AND t.date >= $${i++}`;
-			params.push(this.filterDateFrom);
-		}
-		if (this.filterDateTo) {
-			clause += ` AND t.date <= $${i++}`;
-			params.push(this.filterDateTo);
-		}
-		return { clause, params };
+		return buildTransactionWhere({
+			accountId: this.filterAccountId,
+			seriesId: this.filterSeriesId,
+			search: this.search,
+			dateFrom: this.filterDateFrom,
+			dateTo: this.filterDateTo,
+			amountMin: this.filterAmountMin,
+			amountMax: this.filterAmountMax,
+			categorization: this.filterCategorization,
+			reconciled: this.filterReconciled
+		});
 	}
 
 	async load() {
