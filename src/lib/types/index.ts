@@ -36,6 +36,18 @@ export interface SubSeries {
 }
 
 // === Transactions ===
+export type TransactionType =
+	| 'card'
+	| 'transfer'
+	| 'direct_debit'
+	| 'check'
+	| 'cash_withdrawal'
+	| 'cash_deposit'
+	| 'fee'
+	| 'refund'
+	| 'income'
+	| 'other';
+
 export interface Transaction {
 	id: number;
 	account_id: number;
@@ -52,6 +64,7 @@ export interface Transaction {
 	label_for_categorization: string | null;
 	is_auto_categorized: boolean;
 	is_reconciled: boolean;
+	transaction_type: TransactionType;
 	created_at: string;
 	// Joined fields
 	account_name?: string;

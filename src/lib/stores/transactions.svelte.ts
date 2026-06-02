@@ -1,6 +1,6 @@
 import { query, execute } from './db';
-import type { Transaction } from '$lib/types';
-import { toCents, anonymizeLabel, isExcludedFromAutoCategorization } from '$lib/utils/format';
+import type { Transaction, TransactionType } from '$lib/types';
+import { toCents, anonymizeLabel, isExcludedFromAutoCategorization, detectTransactionType } from '$lib/utils/format';
 import { categorizationStore } from './categorization.svelte';
 import { undoStore } from './undo.svelte';
 
@@ -18,6 +18,7 @@ class TransactionStore {
 	filterSeriesId = $state<number | string>('');
 	filterDateFrom = $state('');
 	filterDateTo = $state('');
+	filterType = $state<TransactionType | ''>('');
 
 	private buildWhere(): { clause: string; params: unknown[] } {
 		let clause = ' WHERE 1=1';
@@ -30,6 +31,10 @@ class TransactionStore {
 		if (this.filterSeriesId) {
 			clause += ` AND t.series_id = $${i++}`;
 			params.push(this.filterSeriesId);
+		}
+		if (this.filterType) {
+			clause += ` AND t.transaction_type = $${i++}`;
+			params.push(this.filterType);
 		}
 		if (this.search) {
 			clause += ` AND t.label LIKE $${i++}`;
@@ -114,24 +119,34 @@ class TransactionStore {
 		series_id?: number | null;
 	}) {
 		const labelAnon = anonymizeLabel(data.label);
+		const amountCents = toCents(data.amount);
+		const transactionType = detectTransactionType(data.label, amountCents);
 		await execute(
-			'INSERT INTO transactions (account_id, date, label, amount, note, series_id, label_for_categorization) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-			[data.account_id, data.date, data.label, toCents(data.amount), data.note ?? null, data.series_id ?? null, labelAnon || null]
+			'INSERT INTO transactions (account_id, date, label, amount, note, series_id, label_for_categorization, transaction_type) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+			[data.account_id, data.date, data.label, amountCents, data.note ?? null, data.series_id ?? null, labelAnon || null, transactionType]
 		);
 		await this.load();
 	}
 
-	private static readonly ALLOWED_COLUMNS = new Set(['label', 'amount', 'date', 'note', 'series_id', 'account_id', 'is_reconciled']);
+	private static readonly ALLOWED_COLUMNS = new Set(['label', 'amount', 'date', 'note', 'series_id', 'account_id', 'is_reconciled', 'transaction_type']);
 
-	async update(id: number, data: Partial<{ label: string; amount: number; date: string; note: string | null; series_id: number | null; account_id: number; is_reconciled: number }>) {
+	async update(id: number, data: Partial<{ label: string; amount: number; date: string; note: string | null; series_id: number | null; account_id: number; is_reconciled: number; transaction_type: TransactionType }>) {
 		const fields: string[] = [];
 		const values: unknown[] = [];
 		let i = 1;
+		let nextLabel: string | undefined;
+		let nextAmountCents: number | undefined;
 
 		for (const [key, val] of Object.entries(data)) {
 			if (val !== undefined && TransactionStore.ALLOWED_COLUMNS.has(key)) {
 				fields.push(`${key} = $${i++}`);
-				values.push(key === 'amount' ? toCents(val as number) : val);
+				if (key === 'amount') {
+					nextAmountCents = toCents(val as number);
+					values.push(nextAmountCents);
+				} else {
+					if (key === 'label') nextLabel = val as string;
+					values.push(val);
+				}
 			}
 		}
 
@@ -139,6 +154,14 @@ class TransactionStore {
 		if (data.label !== undefined) {
 			fields.push(`label_for_categorization = $${i++}`);
 			values.push(anonymizeLabel(data.label) || null);
+		}
+
+		if ((data.label !== undefined || data.amount !== undefined) && data.transaction_type === undefined) {
+			const current = this.transactions.find((t) => t.id === id);
+			const label = nextLabel ?? current?.label ?? '';
+			const amount = nextAmountCents ?? current?.amount ?? 0;
+			fields.push(`transaction_type = $${i++}`);
+			values.push(detectTransactionType(label, amount));
 		}
 
 		if (fields.length > 0) {
@@ -242,8 +265,8 @@ class TransactionStore {
 				label: `Suppression de "${tx.label}"`,
 				undo: async () => {
 					await execute(
-						'INSERT INTO transactions (account_id, date, label, original_label, amount, note, series_id, sub_series_id, label_for_categorization) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
-						[tx.account_id, tx.date, tx.label, tx.original_label, tx.amount, tx.note, tx.series_id, tx.sub_series_id, tx.label_for_categorization]
+						'INSERT INTO transactions (account_id, date, label, original_label, amount, note, series_id, sub_series_id, label_for_categorization, transaction_type) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
+						[tx.account_id, tx.date, tx.label, tx.original_label, tx.amount, tx.note, tx.series_id, tx.sub_series_id, tx.label_for_categorization, tx.transaction_type]
 					);
 					await this.load();
 				}
