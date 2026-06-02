@@ -3,3 +3,11 @@ node_modules/
 src-tauri/target/
 .svelte-kit/
 build/
+coverage/
+
+.DS_Store
+*.log
+*.tmp.*
+
+.claude/*.local.md
+.claude/settings.local.json
