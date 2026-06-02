@@ -7,7 +7,7 @@
 	import { accountStore } from '$lib/stores/accounts.svelte';
 	import { budgetStore } from '$lib/stores/budget.svelte';
 	import { splitStore } from '$lib/stores/splits.svelte';
-	import { formatCurrency, formatDate, toEuros } from '$lib/utils/format';
+	import { formatCurrency, formatDate, toEuros, TRANSACTION_TYPE_LABELS } from '$lib/utils/format';
 	import { confidentialStore } from '$lib/stores/confidential.svelte';
 	import type { Transaction } from '$lib/types';
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
@@ -261,6 +261,7 @@
 		transactionStore.search = '';
 		transactionStore.filterAccountId = '';
 		transactionStore.filterSeriesId = '';
+		transactionStore.filterType = '';
 		transactionStore.filterDateFrom = '';
 		transactionStore.filterDateTo = '';
 		transactionStore.load();
@@ -572,6 +573,16 @@
 			{/each}
 		</select>
 		<select
+			bind:value={transactionStore.filterType}
+			onchange={handleSearch}
+			class="rounded-xl border border-border bg-bg-card/60 px-4 py-2.5 text-[13px] text-text-primary outline-none focus-ring"
+		>
+			<option value="">Tous types</option>
+			{#each Object.entries(TRANSACTION_TYPE_LABELS) as [type, label]}
+				<option value={type}>{label}</option>
+			{/each}
+		</select>
+		<select
 			bind:value={filterReconciled}
 			class="rounded-xl border border-border bg-bg-card/60 px-4 py-2.5 text-[13px] text-text-primary outline-none focus-ring"
 		>
@@ -579,7 +590,7 @@
 			<option value="yes">Pointées</option>
 			<option value="no">Non pointées</option>
 		</select>
-		{#if transactionStore.search || transactionStore.filterAccountId || transactionStore.filterSeriesId || filterReconciled || transactionStore.filterDateFrom || transactionStore.filterDateTo}
+		{#if transactionStore.search || transactionStore.filterAccountId || transactionStore.filterSeriesId || transactionStore.filterType || filterReconciled || transactionStore.filterDateFrom || transactionStore.filterDateTo}
 			<button onclick={() => { clearFilters(); filterReconciled = ''; transactionStore.filterDateFrom = ''; transactionStore.filterDateTo = ''; }} class="text-[12px] font-medium text-accent hover:text-accent-hover transition-smooth">
 				Effacer
 			</button>
@@ -718,6 +729,11 @@
 									{#if tx.note}
 										<p class="text-[11px] text-text-muted mt-0.5">{tx.note}</p>
 									{/if}
+									{#if tx.transaction_type && tx.transaction_type !== 'other'}
+										<span class="mt-1.5 inline-flex rounded-md bg-bg-elevated px-1.5 py-0.5 text-[10px] font-medium text-text-muted">
+											{TRANSACTION_TYPE_LABELS[tx.transaction_type]}
+										</span>
+									{/if}
 								</td>
 								<td class="px-5 py-3.5 text-[13px] text-text-muted">{tx.account_name ?? ''}</td>
 								<td class="px-5 py-3.5">
@@ -822,6 +838,9 @@
 								{#if tx.account_name} · {tx.account_name}{/if}
 								{#if tx.series_name}
 									<span class="text-accent/70"> · {tx.series_name}</span>
+								{/if}
+								{#if tx.transaction_type && tx.transaction_type !== 'other'}
+									<span> · {TRANSACTION_TYPE_LABELS[tx.transaction_type]}</span>
 								{/if}
 							</p>
 						</div>

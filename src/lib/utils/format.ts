@@ -74,6 +74,33 @@ export function isTransferLabel(label: string): boolean {
 	return /\b(vir(ement)?(\s+(sepa|emis|recu|interne))?|transfert|mouvement\s+interne)\b/.test(lower);
 }
 
+export const TRANSACTION_TYPE_LABELS: Record<string, string> = {
+	card: 'Carte',
+	transfer: 'Virement',
+	direct_debit: 'Prélèvement',
+	check: 'Chèque',
+	cash_withdrawal: 'Retrait',
+	cash_deposit: 'Dépôt espèces',
+	fee: 'Frais',
+	refund: 'Remboursement',
+	income: 'Revenu',
+	other: 'Autre'
+};
+
+export function detectTransactionType(label: string, amountCents: number): string {
+	const lower = label.toLowerCase();
+	if (/\b(cheque|chèque|chq)\b/.test(lower)) return 'check';
+	if (/\b(retrait|dab|gab)\b/.test(lower)) return 'cash_withdrawal';
+	if (/\b(depot\s*esp|dépôt\s*esp|remise\s*esp|versement\s*esp)\b/.test(lower)) return 'cash_deposit';
+	if (/\b(prlv|prelevement|prélèvement)\b/.test(lower)) return 'direct_debit';
+	if (isTransferLabel(label)) return 'transfer';
+	if (/\b(cb|carte)\b/.test(lower)) return 'card';
+	if (/\b(frais|commission)\b/.test(lower)) return 'fee';
+	if (/\b(remb|remboursement|refund)\b/.test(lower)) return 'refund';
+	if (amountCents > 0) return 'income';
+	return 'other';
+}
+
 export const BUDGET_AREA_COLORS: Record<string, string> = {
 	income: 'text-income',
 	recurring: 'text-accent',

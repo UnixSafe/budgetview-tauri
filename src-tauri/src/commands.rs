@@ -235,6 +235,7 @@ pub async fn import_confirm(
 
         let amount_cents = (tx.amount * 100.0).round() as i64;
         let label_anon = anonymize_label(&tx.label);
+        let transaction_type = detect_transaction_type(&tx.label, amount_cents);
 
         // Check if excluded from auto-categorization (checks, cash withdrawals/deposits)
         let excluded = is_excluded_from_auto_categorization(&tx.label);
@@ -254,8 +255,8 @@ pub async fn import_confirm(
         }
 
         sqlx::query(
-            "INSERT INTO transactions (account_id, date, label, original_label, amount, note, fitid, import_batch_id, series_id, sub_series_id, is_auto_categorized, label_for_categorization)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO transactions (account_id, date, label, original_label, amount, note, fitid, import_batch_id, series_id, sub_series_id, is_auto_categorized, label_for_categorization, transaction_type)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         )
         .bind(account_id)
         .bind(&tx.date)
@@ -269,6 +270,7 @@ pub async fn import_confirm(
         .bind(sub_series_id)
         .bind(is_auto)
         .bind(&label_anon)
+        .bind(transaction_type)
         .execute(&mut *db_tx)
         .await
         .map_err(|e| format!("Erreur insertion transaction: {}", e))?;
@@ -1062,6 +1064,33 @@ fn anonymize_label(label: &str) -> String {
         .to_uppercase()
 }
 
+fn detect_transaction_type(label: &str, amount_cents: i64) -> &'static str {
+    let lower = label.to_lowercase();
+    let matches_any = |patterns: &[&str]| patterns.iter().any(|pattern| lower.contains(pattern));
+
+    if matches_any(&["cheque", "chèque", "chq"]) {
+        "check"
+    } else if matches_any(&["retrait", "dab", "gab"]) {
+        "cash_withdrawal"
+    } else if matches_any(&["depot esp", "dépôt esp", "remise esp", "versement esp"]) {
+        "cash_deposit"
+    } else if matches_any(&["prlv", "prelevement", "prélèvement"]) {
+        "direct_debit"
+    } else if matches_any(&["vir", "virement", "transfert", "mouvement interne"]) {
+        "transfer"
+    } else if matches_any(&["cb", "carte"]) {
+        "card"
+    } else if matches_any(&["frais", "commission"]) {
+        "fee"
+    } else if matches_any(&["remb", "remboursement", "refund"]) {
+        "refund"
+    } else if amount_cents > 0 {
+        "income"
+    } else {
+        "other"
+    }
+}
+
 /// Check if a label corresponds to a check, cash withdrawal, or cash deposit (excluded from auto-cat)
 fn is_excluded_from_auto_categorization(label: &str) -> bool {
     static RE: OnceLock<regex::Regex> = OnceLock::new();
@@ -1461,5 +1490,19 @@ mod tests {
         assert!(is_excluded_from_auto_categorization("Remise esp"));
         assert!(!is_excluded_from_auto_categorization("CARREFOUR CB"));
         assert!(!is_excluded_from_auto_categorization("VIR SEPA SALAIRE"));
+    }
+
+    #[test]
+    fn test_detect_transaction_type() {
+        assert_eq!(detect_transaction_type("CARTE 17/03 CARREFOUR CB*1234", -4200), "card");
+        assert_eq!(detect_transaction_type("VIR SEPA SALAIRE", 250000), "transfer");
+        assert_eq!(detect_transaction_type("PRLV EDF", -8000), "direct_debit");
+        assert_eq!(detect_transaction_type("CHEQUE 12345", -5000), "check");
+        assert_eq!(detect_transaction_type("RETRAIT DAB 50 EUR", -5000), "cash_withdrawal");
+        assert_eq!(detect_transaction_type("REMISE ESP", 5000), "cash_deposit");
+        assert_eq!(detect_transaction_type("FRAIS TENUE DE COMPTE", -200), "fee");
+        assert_eq!(detect_transaction_type("REMBOURSEMENT ASSURANCE", 1200), "refund");
+        assert_eq!(detect_transaction_type("SALAIRE MARS", 250000), "income");
+        assert_eq!(detect_transaction_type("ACHAT INCONNU", -1200), "other");
     }
 }
