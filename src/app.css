@@ -74,6 +74,7 @@ html, body {
 	-webkit-backdrop-filter: blur(32px) saturate(170%);
 	border: 1px solid rgba(255, 255, 255, 0.06);
 	border-radius: 20px;
+	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.14), 0 8px 28px rgba(0, 0, 0, 0.24);
 }
 
 .glass-card-sm {
@@ -82,6 +83,7 @@ html, body {
 	-webkit-backdrop-filter: blur(32px) saturate(170%);
 	border: 1px solid rgba(255, 255, 255, 0.06);
 	border-radius: 14px;
+	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.12), 0 6px 20px rgba(0, 0, 0, 0.2);
 }
 
 /* ─── Animations ───────────────────────────────────────── */
@@ -159,7 +161,16 @@ html, body {
 	to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes menu-in {
+	from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+	to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 .animate-fade-in { animation: fade-in 0.35s ease-out; }
+.animate-menu-in {
+	animation: menu-in 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+	transform-origin: top;
+}
 .animate-slide-up { animation: slide-up 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
 .animate-slide-down { animation: slide-down 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
 .animate-slide-in-right { animation: slide-in-right 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
@@ -255,6 +266,14 @@ html, body {
 	box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.35);
 }
 
+/* Navigation clavier : anneau visible sur tout élément interactif */
+button:focus-visible,
+a:focus-visible,
+[role='button']:focus-visible {
+	outline: 2px solid rgba(10, 132, 255, 0.6);
+	outline-offset: 2px;
+}
+
 /* ─── Inputs ───────────────────────────────────────────── */
 
 input, select, textarea {
@@ -315,6 +334,16 @@ tr.hover-row {
 }
 tr.hover-row:hover {
 	background-color: rgba(58, 58, 60, 0.25);
+}
+
+/* Actions de ligne : discrètes au repos, révélées au survol ou au focus clavier */
+tr.hover-row .row-actions {
+	opacity: 0.35;
+	transition: opacity 0.15s ease;
+}
+tr.hover-row:hover .row-actions,
+tr.hover-row:focus-within .row-actions {
+	opacity: 1;
 }
 
 /* ─── Badge ────────────────────────────────────────────── */

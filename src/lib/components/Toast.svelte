@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { fly } from 'svelte/transition';
 	import { X, CheckCircle2, AlertTriangle, Info } from 'lucide-svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 
@@ -27,14 +28,14 @@
 	} as const;
 </script>
 
-{#if toastStore.toasts.length > 0}
-	<div class="fixed bottom-6 right-6 z-[100] flex flex-col gap-3 max-w-sm">
-		{#each toastStore.toasts as toast, i (toast.id)}
-			{@const config = typeConfig[toast.type] || typeConfig.info}
-			<div
-				class="toast-enter glass rounded-2xl border-l-[3px] shadow-2xl overflow-hidden {config.border}"
-				style="animation-delay: {i * 50}ms"
-			>
+<div class="pointer-events-none fixed bottom-6 right-6 z-[100] flex flex-col gap-3 max-w-sm">
+	{#each toastStore.toasts as toast, i (toast.id)}
+		{@const config = typeConfig[toast.type] || typeConfig.info}
+		<div
+			out:fly={{ x: 32, duration: 220 }}
+			class="toast-enter pointer-events-auto glass rounded-2xl border-l-[3px] shadow-2xl overflow-hidden {config.border}"
+			style="animation-delay: {i * 50}ms"
+		>
 				<div class="flex items-start gap-3.5 px-5 py-4">
 					<!-- Icon -->
 					<div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full {config.iconBg}">
@@ -64,9 +65,8 @@
 					></div>
 				</div>
 			</div>
-		{/each}
-	</div>
-{/if}
+	{/each}
+</div>
 
 <style>
 	@keyframes toast-slide-in {

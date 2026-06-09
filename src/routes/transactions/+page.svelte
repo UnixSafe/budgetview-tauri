@@ -515,7 +515,7 @@
 						<Tag size={13} /> Catégoriser
 					</button>
 					{#if showBatchCategorize}
-						<div class="absolute right-0 top-full z-20 mt-1.5 max-h-64 w-60 overflow-y-auto glass-card shadow-2xl animate-scale-in p-1">
+						<div class="absolute right-0 top-full z-20 mt-1.5 max-h-64 w-60 overflow-y-auto glass-card shadow-2xl animate-menu-in p-1">
 							<button
 								onclick={() => handleBatchCategorize(null)}
 								class="w-full rounded-lg px-3 py-2 text-left text-[13px] text-text-muted hover:bg-bg-hover transition-smooth"
@@ -563,7 +563,7 @@
 				class="w-full rounded-xl border border-border bg-bg-card/60 py-2.5 pl-10 pr-4 text-[13px] text-text-primary outline-none focus-ring placeholder:text-text-muted"
 			/>
 			{#if showSuggestions && suggestions.length > 0}
-				<div class="absolute left-0 top-full z-20 mt-1 w-full glass-card shadow-2xl animate-scale-in p-1 max-h-48 overflow-y-auto">
+				<div class="absolute left-0 top-full z-20 mt-1 w-full glass-card shadow-2xl animate-menu-in p-1 max-h-48 overflow-y-auto">
 					{#each suggestions as suggestion}
 						<button
 							onmousedown={() => selectSuggestion(suggestion)}
@@ -765,7 +765,8 @@
 											{/if}
 										</button>
 										{#if categorizingId === tx.id}
-											<div class="absolute left-0 top-full z-10 mt-1.5 max-h-64 w-60 overflow-y-auto glass-card shadow-2xl animate-scale-in p-1">
+											<button class="fixed inset-0 z-10 cursor-default" onclick={() => (categorizingId = null)} aria-label="Fermer le menu" tabindex="-1"></button>
+											<div class="absolute left-0 top-full z-20 mt-1.5 max-h-64 w-60 overflow-y-auto glass-card shadow-2xl animate-menu-in p-1">
 												<button
 													onclick={() => handleCategorize(tx.id, null)}
 													class="w-full rounded-lg px-3 py-2 text-left text-[13px] text-text-muted hover:bg-bg-hover transition-smooth"
@@ -796,7 +797,7 @@
 									{confidentialStore.format(tx.amount)}
 								</td>
 								<td class="px-5 py-3.5">
-									<div class="flex gap-0.5 opacity-0 transition-smooth group-hover:opacity-100" style="opacity: 1;">
+									<div class="row-actions flex gap-0.5">
 										<div class="relative">
 											<button
 												onclick={() => (shiftingId = shiftingId === tx.id ? null : tx.id)}
@@ -810,7 +811,8 @@
 												{@const prevDate = shiftDateByMonth(tx.date, -1)}
 												{@const nextDate = shiftDateByMonth(tx.date, 1)}
 												{@const effMonth = effectiveBudgetMonth(tx)}
-												<div class="absolute right-0 top-full z-20 mt-1.5 w-64 glass-card shadow-2xl animate-scale-in p-1">
+												<button class="fixed inset-0 z-10 cursor-default" onclick={() => (shiftingId = null)} aria-label="Fermer le menu" tabindex="-1"></button>
+												<div class="absolute right-0 top-full z-20 mt-1.5 w-64 glass-card shadow-2xl animate-menu-in p-1">
 													<p class="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Compter dans le budget de</p>
 													<button
 														onclick={() => handleShift(tx, -1)}
@@ -855,7 +857,7 @@
 				{#each filteredTransactions as tx (tx.id)}
 					<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 					<div
-						class="flex items-center gap-3 px-4 py-3.5 transition-smooth active:bg-bg-hover/50"
+						class="flex items-center gap-3 px-4 py-3.5 transition-smooth active:bg-bg-hover/50 active:scale-[0.99]"
 						role="button" tabindex="0"
 						onclick={() => openEdit(tx)}
 						onkeydown={(e) => e.key === "Enter" && openEdit(tx)}
