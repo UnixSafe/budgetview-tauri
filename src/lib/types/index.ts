@@ -52,6 +52,8 @@ export interface Transaction {
 	label_for_categorization: string | null;
 	is_auto_categorized: boolean;
 	is_reconciled: boolean;
+	/** Date de rattachement budgétaire ; NULL = utiliser la date réelle */
+	budget_date: string | null;
 	created_at: string;
 	// Joined fields
 	account_name?: string;

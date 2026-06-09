@@ -57,9 +57,9 @@
 			const endDate = `${endYear}-${String(endMonth).padStart(2, '0')}-01`;
 
 			const [incomeResult, expenseResult, countResult, recent, uncatResult] = await Promise.all([
-				query<{ total: number }>('SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE date >= $1 AND date < $2 AND amount > 0', [startDate, endDate]),
-				query<{ total: number }>('SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE date >= $1 AND date < $2 AND amount < 0', [startDate, endDate]),
-				query<{ count: number }>('SELECT COUNT(*) as count FROM transactions WHERE date >= $1 AND date < $2', [startDate, endDate]),
+				query<{ total: number }>('SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE COALESCE(budget_date, date) >= $1 AND COALESCE(budget_date, date) < $2 AND amount > 0', [startDate, endDate]),
+				query<{ total: number }>('SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE COALESCE(budget_date, date) >= $1 AND COALESCE(budget_date, date) < $2 AND amount < 0', [startDate, endDate]),
+				query<{ count: number }>('SELECT COUNT(*) as count FROM transactions WHERE COALESCE(budget_date, date) >= $1 AND COALESCE(budget_date, date) < $2', [startDate, endDate]),
 				query<{ date: string; label: string; amount: number; account_name: string }>(
 					`SELECT t.date, t.label, t.amount, a.name as account_name
 					 FROM transactions t LEFT JOIN accounts a ON t.account_id = a.id
@@ -86,8 +86,8 @@
 			const prevEndY = prevMonth === 12 ? prevYear + 1 : prevYear;
 			const prevEnd = `${prevEndY}-${String(prevEndM).padStart(2, '0')}-01`;
 			const [prevInc, prevExp] = await Promise.all([
-				query<{ total: number }>('SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE date >= $1 AND date < $2 AND amount > 0', [prevStart, prevEnd]),
-				query<{ total: number }>('SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE date >= $1 AND date < $2 AND amount < 0', [prevStart, prevEnd]),
+				query<{ total: number }>('SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE COALESCE(budget_date, date) >= $1 AND COALESCE(budget_date, date) < $2 AND amount > 0', [prevStart, prevEnd]),
+				query<{ total: number }>('SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE COALESCE(budget_date, date) >= $1 AND COALESCE(budget_date, date) < $2 AND amount < 0', [prevStart, prevEnd]),
 			]);
 			prevMonthIncome = prevInc[0]?.total ?? 0;
 			prevMonthExpenses = prevExp[0]?.total ?? 0;
@@ -111,7 +111,7 @@
 				const cats = await query<{ name: string; area: string; total: number }>(
 					`SELECT bs.name, bs.budget_area as area, ABS(SUM(t.amount)) as total
 					 FROM transactions t JOIN budget_series bs ON t.series_id = bs.id
-					 WHERE t.amount < 0 AND t.date >= $1 AND t.date < $2
+					 WHERE t.amount < 0 AND COALESCE(t.budget_date, t.date) >= $1 AND COALESCE(t.budget_date, t.date) < $2
 					 GROUP BY bs.id ORDER BY total DESC LIMIT 5`,
 					[startDate, endDate]
 				);
@@ -191,8 +191,8 @@
 			const label = new Intl.DateTimeFormat('fr-FR', { month: 'short' }).format(new Date(y, m - 1));
 
 			const [inc, exp] = await Promise.all([
-				query<{ total: number }>('SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE date >= $1 AND date < $2 AND amount > 0', [start, end]),
-				query<{ total: number }>('SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE date >= $1 AND date < $2 AND amount < 0', [start, end]),
+				query<{ total: number }>('SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE COALESCE(budget_date, date) >= $1 AND COALESCE(budget_date, date) < $2 AND amount > 0', [start, end]),
+				query<{ total: number }>('SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE COALESCE(budget_date, date) >= $1 AND COALESCE(budget_date, date) < $2 AND amount < 0', [start, end]),
 			]);
 
 			const income = inc[0]?.total ?? 0;

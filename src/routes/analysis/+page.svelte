@@ -38,24 +38,24 @@
 		loading = true;
 		try {
 			const monthlyRaw = await query<{ month: number; income: number; expenses: number }>(
-				`SELECT CAST(strftime('%m', date) AS INTEGER) as month,
+				`SELECT CAST(strftime('%m', COALESCE(budget_date, date)) AS INTEGER) as month,
 					COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) as income,
 					COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 0) as expenses
-				FROM transactions WHERE strftime('%Y', date) = $1
-				GROUP BY strftime('%m', date) ORDER BY month`, [String(year)]
+				FROM transactions WHERE strftime('%Y', COALESCE(budget_date, date)) = $1
+				GROUP BY strftime('%m', COALESCE(budget_date, date)) ORDER BY month`, [String(year)]
 			);
 			monthlyData = monthlyRaw;
 
 			categoryData = await query<{ name: string; area: string; total: number }>(
 				`SELECT bs.name, bs.budget_area as area, ABS(SUM(t.amount)) as total
 				FROM transactions t JOIN budget_series bs ON t.series_id = bs.id
-				WHERE t.amount < 0 AND strftime('%Y', t.date) = $1
+				WHERE t.amount < 0 AND strftime('%Y', COALESCE(t.budget_date, t.date)) = $1
 				GROUP BY bs.id ORDER BY total DESC`, [String(year)]
 			);
 
 			topExpenses = await query<{ label: string; total: number; count: number }>(
 				`SELECT label, ABS(SUM(amount)) as total, COUNT(*) as count
-				FROM transactions WHERE amount < 0 AND strftime('%Y', date) = $1
+				FROM transactions WHERE amount < 0 AND strftime('%Y', COALESCE(budget_date, date)) = $1
 				GROUP BY UPPER(label) ORDER BY total DESC LIMIT 10`, [String(year)]
 			);
 
@@ -64,7 +64,7 @@
 				`SELECT
 					COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) as income,
 					COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 0) as expenses
-				FROM transactions WHERE strftime('%Y', date) = $1`, [String(year - 1)]
+				FROM transactions WHERE strftime('%Y', COALESCE(budget_date, date)) = $1`, [String(year - 1)]
 			);
 			prevYearIncome = prevYearData[0]?.income ?? 0;
 			prevYearExpenses = prevYearData[0]?.expenses ?? 0;

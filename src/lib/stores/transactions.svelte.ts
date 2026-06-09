@@ -121,9 +121,9 @@ class TransactionStore {
 		await this.load();
 	}
 
-	private static readonly ALLOWED_COLUMNS = new Set(['label', 'amount', 'date', 'note', 'series_id', 'account_id', 'is_reconciled']);
+	private static readonly ALLOWED_COLUMNS = new Set(['label', 'amount', 'date', 'note', 'series_id', 'account_id', 'is_reconciled', 'budget_date']);
 
-	async update(id: number, data: Partial<{ label: string; amount: number; date: string; note: string | null; series_id: number | null; account_id: number; is_reconciled: number }>) {
+	async update(id: number, data: Partial<{ label: string; amount: number; date: string; note: string | null; series_id: number | null; account_id: number; is_reconciled: number; budget_date: string | null }>) {
 		const fields: string[] = [];
 		const values: unknown[] = [];
 		let i = 1;

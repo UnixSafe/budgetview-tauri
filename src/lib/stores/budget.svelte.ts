@@ -65,11 +65,11 @@ class BudgetStore {
 			const endYear = this.month === 12 ? this.year + 1 : this.year;
 			const endDate = `${endYear}-${String(endMonth).padStart(2, '0')}-01`;
 
-			// Get actual amounts per series for this month
+			// Get actual amounts per series for this month (budget_date = décalage de mois)
 			const actuals = await query<{ series_id: number; total: number }>(
 				`SELECT series_id, SUM(amount) as total
 				 FROM transactions
-				 WHERE date >= $1 AND date < $2 AND series_id IS NOT NULL
+				 WHERE COALESCE(budget_date, date) >= $1 AND COALESCE(budget_date, date) < $2 AND series_id IS NOT NULL
 				 GROUP BY series_id`,
 				[startDate, endDate]
 			);
@@ -193,7 +193,7 @@ class BudgetStore {
 
 		// Get previous month actual
 		const prevActual = await query<{ total: number }>(
-			'SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE series_id = $1 AND date >= $2 AND date < $3',
+			'SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE series_id = $1 AND COALESCE(budget_date, date) >= $2 AND COALESCE(budget_date, date) < $3',
 			[seriesId, startDate, endDate]
 		);
 		const actual = prevActual[0]?.total ?? 0;
@@ -247,7 +247,7 @@ class BudgetStore {
 		const actuals = await query<{ series_id: number; total: number }>(
 			`SELECT series_id, SUM(amount) as total
 			 FROM transactions
-			 WHERE date >= $1 AND date < $2 AND series_id IS NOT NULL
+			 WHERE COALESCE(budget_date, date) >= $1 AND COALESCE(budget_date, date) < $2 AND series_id IS NOT NULL
 			 GROUP BY series_id`,
 			[startDate, endDate]
 		);

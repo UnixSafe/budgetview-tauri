@@ -2,12 +2,13 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { Plus, Upload, Search, X, Pencil, Trash2, Tag, Scissors, Calendar, CheckCircle2, Circle, ChevronDown, ChevronUp, ArrowLeft } from 'lucide-svelte';
+	import { Plus, Upload, Search, X, Pencil, Trash2, Tag, Scissors, Calendar, CheckCircle2, Circle, ChevronDown, ChevronUp, ArrowLeft, ArrowLeftRight } from 'lucide-svelte';
 	import { transactionStore } from '$lib/stores/transactions.svelte';
 	import { accountStore } from '$lib/stores/accounts.svelte';
 	import { budgetStore } from '$lib/stores/budget.svelte';
 	import { splitStore } from '$lib/stores/splits.svelte';
-	import { formatCurrency, formatDate, toEuros } from '$lib/utils/format';
+	import { formatCurrency, formatDate, formatMonth, toEuros } from '$lib/utils/format';
+	import { shiftDateByMonth, effectiveBudgetMonth, isShiftedToOtherMonth } from '$lib/utils/budget-shift';
 	import { confidentialStore } from '$lib/stores/confidential.svelte';
 	import type { Transaction } from '$lib/types';
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
@@ -51,6 +52,7 @@
 	}
 
 	let categorizingId = $state<number | null>(null);
+	let shiftingId = $state<number | null>(null);
 	let splittingTx = $state<Transaction | null>(null);
 	let similarPrompt = $state<{ txId: number; seriesId: number; subSeriesId: number | null; count: number; seriesName: string } | null>(null);
 	let similarTransactions = $state<Transaction[]>([]);
@@ -271,6 +273,28 @@
 		await transactionStore.update(tx.id, { is_reconciled: newValue });
 		tx.is_reconciled = !!newValue;
 		toastStore.success(newValue ? 'Transaction pointée' : 'Pointage annulé');
+	}
+
+	function monthLabelOf(date: string): string {
+		const [y, m] = date.split('-').map(Number);
+		return formatMonth(y, m);
+	}
+
+	function shortMonthOf(date: string): string {
+		const [y, m] = date.split('-').map(Number);
+		return new Intl.DateTimeFormat('fr-FR', { month: 'short' }).format(new Date(y, m - 1));
+	}
+
+	/** Décalage de mois budgétaire : direction -1/+1, ou 0 pour revenir au mois réel */
+	async function handleShift(tx: Transaction, direction: 1 | -1 | 0) {
+		const newBudgetDate = direction === 0 ? null : shiftDateByMonth(tx.date, direction);
+		shiftingId = null;
+		await transactionStore.update(tx.id, { budget_date: newBudgetDate });
+		toastStore.success(
+			newBudgetDate
+				? `Comptée dans le budget de ${monthLabelOf(newBudgetDate)}`
+				: 'Décalage de mois annulé'
+		);
 	}
 
 	let filterReconciled = $state<'' | 'yes' | 'no'>('');
@@ -714,6 +738,11 @@
 												<Scissors size={9} />Ventilé
 											</span>
 										{/if}
+										{#if isShiftedToOtherMonth(tx)}
+											<span class="badge bg-warning/10 text-warning ml-1.5" title="Comptée dans le budget de {monthLabelOf(tx.budget_date ?? tx.date)}">
+												<ArrowLeftRight size={9} />{shortMonthOf(tx.budget_date ?? tx.date)}
+											</span>
+										{/if}
 									</p>
 									{#if tx.note}
 										<p class="text-[11px] text-text-muted mt-0.5">{tx.note}</p>
@@ -768,6 +797,42 @@
 								</td>
 								<td class="px-5 py-3.5">
 									<div class="flex gap-0.5 opacity-0 transition-smooth group-hover:opacity-100" style="opacity: 1;">
+										<div class="relative">
+											<button
+												onclick={() => (shiftingId = shiftingId === tx.id ? null : tx.id)}
+												class="rounded-lg p-1.5 transition-smooth {isShiftedToOtherMonth(tx) ? 'text-warning bg-warning/10' : 'text-text-muted hover:text-warning hover:bg-warning/10'}"
+												title="Décaler le mois budgétaire"
+												aria-label="Décaler le mois budgétaire de {tx.label}"
+											>
+												<ArrowLeftRight size={14} />
+											</button>
+											{#if shiftingId === tx.id}
+												{@const prevDate = shiftDateByMonth(tx.date, -1)}
+												{@const nextDate = shiftDateByMonth(tx.date, 1)}
+												{@const effMonth = effectiveBudgetMonth(tx)}
+												<div class="absolute right-0 top-full z-20 mt-1.5 w-64 glass-card shadow-2xl animate-scale-in p-1">
+													<p class="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Compter dans le budget de</p>
+													<button
+														onclick={() => handleShift(tx, -1)}
+														class="w-full rounded-lg px-3 py-2 text-left text-[13px] transition-smooth hover:bg-bg-hover {effMonth === prevDate.slice(0, 7) ? 'font-semibold text-accent' : 'text-text-primary'}"
+													>
+														← {monthLabelOf(prevDate)}
+													</button>
+													<button
+														onclick={() => handleShift(tx, 0)}
+														class="w-full rounded-lg px-3 py-2 text-left text-[13px] transition-smooth hover:bg-bg-hover {effMonth === tx.date.slice(0, 7) ? 'font-semibold text-accent' : 'text-text-primary'}"
+													>
+														{monthLabelOf(tx.date)} <span class="text-[11px] text-text-muted">(mois de l'opération)</span>
+													</button>
+													<button
+														onclick={() => handleShift(tx, 1)}
+														class="w-full rounded-lg px-3 py-2 text-left text-[13px] transition-smooth hover:bg-bg-hover {effMonth === nextDate.slice(0, 7) ? 'font-semibold text-accent' : 'text-text-primary'}"
+													>
+														→ {monthLabelOf(nextDate)}
+													</button>
+												</div>
+											{/if}
+										</div>
 										<button onclick={() => (splittingTx = tx)} class="rounded-lg p-1.5 text-text-muted hover:text-purple hover:bg-purple/10 transition-smooth" title="Ventiler" aria-label="Ventiler la transaction {tx.label}">
 											<Scissors size={14} />
 										</button>
@@ -819,6 +884,9 @@
 							</div>
 							<p class="text-[11px] text-text-muted mt-0.5">
 								{formatDateShort(tx.date)}
+								{#if isShiftedToOtherMonth(tx)}
+									<span class="text-warning"> → {shortMonthOf(tx.budget_date ?? tx.date)}</span>
+								{/if}
 								{#if tx.account_name} · {tx.account_name}{/if}
 								{#if tx.series_name}
 									<span class="text-accent/70"> · {tx.series_name}</span>

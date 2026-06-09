@@ -46,12 +46,12 @@
 				total: number;
 			}>(
 				`SELECT bs.id as series_id, bs.name as series_name, bs.budget_area,
-					CAST(strftime('%m', t.date) AS INTEGER) as month,
+					CAST(strftime('%m', COALESCE(t.budget_date, t.date)) AS INTEGER) as month,
 					SUM(t.amount) as total
 				 FROM transactions t
 				 JOIN budget_series bs ON t.series_id = bs.id
-				 WHERE strftime('%Y', t.date) = $1
-				 GROUP BY bs.id, strftime('%m', t.date)
+				 WHERE strftime('%Y', COALESCE(t.budget_date, t.date)) = $1
+				 GROUP BY bs.id, strftime('%m', COALESCE(t.budget_date, t.date))
 				 ORDER BY bs.budget_area, bs.name, month`,
 				[String(y)]
 			);

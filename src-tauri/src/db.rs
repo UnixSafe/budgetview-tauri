@@ -80,5 +80,11 @@ pub fn get_migrations() -> Vec<Migration> {
             sql: include_str!("../migrations/013_ai_settings.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 14,
+            description: "budget_month_shift",
+            sql: include_str!("../migrations/014_budget_month_shift.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }
