@@ -52,16 +52,15 @@
 
 {#if open}
 	{@const style = variantStyles[variant]}
-	<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-	<div class="fixed inset-0 z-[150] flex items-center justify-center modal-overlay animate-fade-in" onclick={oncancel}>
-		<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-		<div class="relative w-full max-w-sm glass-card p-6 shadow-2xl animate-modal-in mx-4" onclick={(e) => e.stopPropagation()}>
+	<div class="fixed inset-0 z-[150] flex items-center justify-center modal-overlay animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+		<button type="button" class="absolute inset-0" onclick={oncancel} aria-label="Annuler"></button>
+		<div class="relative w-full max-w-sm glass-card p-6 shadow-2xl animate-modal-in mx-4">
 			<div class="flex items-start gap-4">
 				<div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl {style.iconBg}">
 					<AlertTriangle size={20} class={style.iconColor} strokeWidth={1.8} />
 				</div>
 				<div class="flex-1">
-					<h3 class="text-[15px] font-semibold text-text-primary">{title}</h3>
+					<h3 id="confirm-title" class="text-[15px] font-semibold text-text-primary">{title}</h3>
 					<p class="mt-1.5 text-[13px] text-text-secondary leading-relaxed">{message}</p>
 				</div>
 			</div>

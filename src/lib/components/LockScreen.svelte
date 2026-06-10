@@ -66,7 +66,6 @@
 						type={showPassword ? 'text' : 'password'}
 						bind:value={password}
 						placeholder="Mot de passe"
-						autofocus
 						class="w-full rounded-2xl border border-border/60 bg-bg-input px-5 py-3.5 pr-12 text-center text-[15px] tracking-wide text-text-primary outline-none placeholder:text-text-muted/70 focus-ring"
 					/>
 					<button

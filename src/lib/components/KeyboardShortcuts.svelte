@@ -59,12 +59,11 @@
 <svelte:window onkeydown={handleKeydown} />
 
 {#if showHelp}
-	<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-	<div class="fixed inset-0 z-[200] modal-overlay animate-fade-in" onclick={() => (showHelp = false)}>
-		<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-		<div class="mx-auto mt-[12vh] w-full max-w-md px-4" onclick={(e) => e.stopPropagation()}>
+	<div class="fixed inset-0 z-[200] modal-overlay animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="shortcuts-title">
+		<button type="button" class="absolute inset-0" onclick={() => (showHelp = false)} aria-label="Fermer les raccourcis"></button>
+		<div class="relative mx-auto mt-[12vh] w-full max-w-md px-4">
 			<div class="glass-card shadow-2xl overflow-hidden animate-modal-in p-6">
-				<h2 class="text-lg font-bold text-text-primary mb-5">Raccourcis clavier</h2>
+				<h2 id="shortcuts-title" class="text-lg font-bold text-text-primary mb-5">Raccourcis clavier</h2>
 
 				<div class="space-y-4">
 					<div>

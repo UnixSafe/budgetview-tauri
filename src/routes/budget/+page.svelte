@@ -451,9 +451,8 @@
 
 <!-- Modal series -->
 {#if showSeriesForm}
-	<div class="fixed inset-0 z-50 flex items-center justify-center modal-overlay animate-fade-in" role="dialog">
-		<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-		<div class="absolute inset-0" onclick={() => (showSeriesForm = false)}></div>
+	<div class="fixed inset-0 z-50 flex items-center justify-center modal-overlay animate-fade-in" role="dialog" aria-modal="true" aria-label={editingSeriesId ? 'Modifier la catégorie' : 'Nouvelle catégorie'}>
+		<button type="button" class="absolute inset-0" onclick={() => (showSeriesForm = false)} aria-label="Fermer le formulaire"></button>
 		<div class="relative w-full max-w-md glass-card p-7 shadow-2xl animate-modal-in mx-4">
 			<div class="mb-6 flex items-center justify-between">
 				<h2 class="text-xl font-bold tracking-tight text-text-primary">
