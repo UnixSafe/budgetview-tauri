@@ -656,4 +656,134 @@ mod tests {
         assert_eq!(config.skip_lines, 0);
         assert_eq!(config.date_format, "%d/%m/%Y");
     }
+
+    #[test]
+    fn test_detect_format() {
+        assert_eq!(detect_format("<OFX><BANKMSGSRSV1></OFX>"), "ofx");
+        assert_eq!(detect_format("!Type:Bank\nD15/03/2026\nT-10\n^"), "qif");
+        assert_eq!(detect_format("date;label;amount\n15/03/2026;EDF;-42,00\n"), "csv");
+    }
+
+    #[test]
+    fn test_parse_ofx_sgml_without_closing_transaction_tag() {
+        let ofx = r#"<OFX>
+<BANKTRANLIST>
+<STMTTRN>
+<DTPOSTED>20260315120000
+<TRNAMT>-42,35
+<NAME>PRLV EDF
+<MEMO>Facture mars
+<FITID>FIT-1
+</BANKTRANLIST>
+</OFX>"#;
+
+        let (txs, _, _) = parse_ofx(ofx).unwrap();
+
+        assert_eq!(txs.len(), 1);
+        assert_eq!(txs[0].date, "2026-03-15");
+        assert_eq!(txs[0].label, "PRLV EDF");
+        assert_eq!(txs[0].note, Some("Facture mars".to_string()));
+        assert_eq!(txs[0].fitid, Some("FIT-1".to_string()));
+        assert!((txs[0].amount - (-42.35)).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_parse_qif_without_trailing_separator_and_two_digit_year() {
+        let qif = "!Type:Bank\nD15/03/26\nT-12,34\nPBOULANGERIE\nMCarte bancaire";
+
+        let txs = parse_qif(qif).unwrap();
+
+        assert_eq!(txs.len(), 1);
+        assert_eq!(txs[0].date, "2026-03-15");
+        assert_eq!(txs[0].label, "BOULANGERIE");
+        assert_eq!(txs[0].note, Some("Carte bancaire".to_string()));
+        assert!((txs[0].amount - (-12.34)).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_detect_csv_config_for_french_debit_credit_export() {
+        let csv = "Date operation;Libelle;Debit;Credit\n15/03/2026;CARREFOUR;42,35;\n";
+
+        let config = detect_csv_config(csv);
+
+        assert_eq!(config.delimiter, ';');
+        assert_eq!(config.decimal_separator, ',');
+        assert_eq!(config.date_column, 0);
+        assert_eq!(config.label_column, 1);
+        assert_eq!(config.debit_column, Some(2));
+        assert_eq!(config.credit_column, Some(3));
+        assert_eq!(config.date_format, "%d/%m/%Y");
+    }
+
+    #[test]
+    fn test_detect_csv_config_for_comma_decimal_dot_export() {
+        let csv = "date,label,amount\n2026-03-15,CARREFOUR,-42.35\n";
+
+        let config = detect_csv_config(csv);
+
+        assert_eq!(config.delimiter, ',');
+        assert_eq!(config.decimal_separator, '.');
+        assert_eq!(config.date_format, "%Y-%m-%d");
+    }
+
+    #[test]
+    fn test_parse_csv_skips_rows_without_required_fields_and_handles_thousands() {
+        let csv = "date;label;amount\n15/03/2026;LOYER;-1 234,56\n16/03/2026;;-10,00\n;EDF;-42,00\n";
+        let config = CsvConfig {
+            delimiter: ';',
+            date_column: 0,
+            label_column: 1,
+            amount_column: 2,
+            debit_column: None,
+            credit_column: None,
+            date_format: "%d/%m/%Y".to_string(),
+            skip_lines: 1,
+            decimal_separator: ',',
+        };
+
+        let txs = parse_csv(csv, &config).unwrap();
+
+        assert_eq!(txs.len(), 1);
+        assert_eq!(txs[0].date, "2026-03-15");
+        assert_eq!(txs[0].label, "LOYER");
+        assert!((txs[0].amount - (-1234.56)).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_find_duplicate_indices_uses_fitid_then_transaction_hash() {
+        let new_txs = vec![
+            RawTransaction {
+                date: "2026-03-15".to_string(),
+                label: "CARREFOUR".to_string(),
+                original_label: "CARREFOUR".to_string(),
+                amount: -42.35,
+                note: None,
+                fitid: Some("FIT-1".to_string()),
+            },
+            RawTransaction {
+                date: "2026-03-16".to_string(),
+                label: "EDF".to_string(),
+                original_label: "EDF".to_string(),
+                amount: -100.0,
+                note: None,
+                fitid: None,
+            },
+            RawTransaction {
+                date: "2026-03-17".to_string(),
+                label: "NOUVEAU".to_string(),
+                original_label: "NOUVEAU".to_string(),
+                amount: -5.0,
+                note: None,
+                fitid: None,
+            },
+        ];
+
+        let duplicates = find_duplicate_indices(
+            &new_txs,
+            &["FIT-1".to_string()],
+            &[("2026-03-16".to_string(), -10000, "edf".to_string())],
+        );
+
+        assert_eq!(duplicates, vec![0, 1]);
+    }
 }

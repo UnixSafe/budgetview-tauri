@@ -1397,6 +1397,12 @@ mod tests {
     }
 
     #[test]
+    fn test_deobfuscate_rejects_invalid_hex() {
+        let result = deobfuscate("not-hex", OBFUSCATION_KEY);
+        assert!(result.is_err());
+    }
+
+    #[test]
     fn test_days_in_month() {
         assert_eq!(days_in_month(2024, 1), 31);
         assert_eq!(days_in_month(2024, 2), 29); // leap year
@@ -1445,6 +1451,30 @@ mod tests {
     fn test_compute_next_expected_invalid_date() {
         let result = compute_next_expected("monthly", 15, "invalid-date");
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_compute_next_expected_weekly_and_biweekly_future_dates() {
+        assert_eq!(
+            compute_next_expected("weekly", 15, "2030-01-01"),
+            Some("2030-01-08".to_string())
+        );
+        assert_eq!(
+            compute_next_expected("biweekly", 15, "2030-01-01"),
+            Some("2030-01-15".to_string())
+        );
+    }
+
+    #[test]
+    fn test_compute_next_expected_clamps_invalid_day_and_defaults_unknown_frequency() {
+        assert_eq!(
+            compute_next_expected("monthly", 0, "2030-01-15"),
+            Some("2030-02-01".to_string())
+        );
+        assert_eq!(
+            compute_next_expected("unknown", 10, "2030-01-15"),
+            Some("2030-02-10".to_string())
+        );
     }
 
     #[test]
