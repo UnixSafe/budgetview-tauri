@@ -1,6 +1,6 @@
 [package]
 name = "budgetview"
-version = "0.1.0"
+version = "0.2.0"
 description = "BudgetView - Gestion de budget personnel"
 authors = ["you"]
 license = ""
